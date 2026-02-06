@@ -1,4 +1,4 @@
-# Hub Dashboard Extension
+<h1><img src="public/icon.png" height="30" /> Hub Dashboard Extension</h1>
 
 A customizable new-tab dashboard built as a browser extension. It surfaces time, weather, top sites, a quick note, and a daily quote in a clean layout so you can start each session with the info you care about.
 

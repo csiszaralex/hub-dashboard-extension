@@ -1,10 +1,10 @@
 import { format } from 'date-fns';
-import { MapPin, Sunrise, Sunset, Umbrella, Wind } from 'lucide-react';
+import { MapPin, RefreshCw, Sunrise, Sunset, Umbrella, Wind } from 'lucide-react';
 import { useWeather } from '../hooks/useWeather';
 import { getWeatherDescription, getWeatherIcon } from '../utils/weatherMapping';
 
 export const WeatherWidget = () => {
-  const { data, loading } = useWeather();
+  const { data, loading, refresh } = useWeather();
 
   // Skeleton Loading State
   if (loading) {
@@ -47,7 +47,14 @@ export const WeatherWidget = () => {
   if (!data) return null;
 
   return (
-    <div className='absolute top-8 right-8 w-72 bg-gray-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden font-sans text-white'>
+    <div className='group absolute top-8 right-8 w-72 bg-gray-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden font-sans text-white'>
+      <button
+        onClick={refresh}
+        className='absolute top-3 right-3 p-2 text-white/20 hover:text-white/80 hover:bg-white/10 rounded-full transition-all opacity-0 group-hover:opacity-100 z-10'
+        title='Időjárás frissítése'
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+      </button>
       {/* FELSŐ RÉSZ: Fő adatok */}
       <div className='p-5 pb-4'>
         <div className='flex items-center gap-1.5 text-white/60 text-xs font-medium tracking-wider uppercase mb-3'>

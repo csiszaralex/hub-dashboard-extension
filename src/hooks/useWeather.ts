@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface WeatherData {
   temp: number;
@@ -10,16 +10,17 @@ interface WeatherData {
   nextRain: string | null;
 }
 
-const CACHE_KEY = 'weather_cache_v3'; // Új verzió a provider csere miatt
-const CACHE_DURATION = 1000 * 60 * 30; // 30 perc
+const CACHE_KEY = 'weather_cache';
+const CACHE_DURATION = 1000 * 60 * 30;
 
 export const useWeather = () => {
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      // Cache check
+  const fetchWeather = useCallback(async (force = false) => {
+    setLoading(true);
+
+    if (!force) {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const { timestamp, weather } = JSON.parse(cached);
@@ -29,10 +30,12 @@ export const useWeather = () => {
           return;
         }
       }
+    }
 
-      if (!navigator.geolocation) return;
+    if (!navigator.geolocation) return;
 
-      navigator.geolocation.getCurrentPosition(async (position) => {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
         const { latitude, longitude } = position.coords;
         let city = 'Helyi időjárás'; // Fallback név
 
@@ -96,11 +99,23 @@ export const useWeather = () => {
         } finally {
           setLoading(false);
         }
-      });
-    };
-
-    fetchWeather();
+      },
+      (err) => {
+        console.error(err);
+        setLoading(false);
+      },
+    );
   }, []);
 
-  return { data, loading };
+  useEffect(() => {
+    fetchWeather(false);
+  }, [fetchWeather]);
+
+  return {
+    data,
+    loading,
+    refresh: () => {
+      fetchWeather(true);
+    },
+  };
 };

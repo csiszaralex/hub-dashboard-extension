@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
-interface WeatherData {
+export interface RainData {
+  probability: number;
+  amount: number;
+  nextTime: string | null;
+}
+
+export interface WeatherData {
   temp: number;
   code: number;
   city: string;
   windSpeed: number;
   sunrise: string;
   sunset: string;
-  nextRain: string | null;
+  rain: RainData;
 }
 
 const CACHE_KEY = 'weather_cache';
@@ -37,16 +43,13 @@ export const useWeather = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        let city = 'Helyi időjárás'; // Fallback név
+        let city = 'Helyi időjárás';
 
         try {
-          // 1. Időjárás lekérése (Open-Meteo)
           const weatherPromise = fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability&daily=sunrise,sunset&timezone=auto`,
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset&timezone=auto`,
           );
 
-          // 2. Város név lekérése (BigDataCloud - stabilabb reverse geocoding)
-          // localityLanguage=hu paraméterrel magyarul kapjuk vissza
           const cityPromise = fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=hu`,
           )
@@ -56,24 +59,35 @@ export const useWeather = () => {
           const [weatherRes, cityData] = await Promise.all([weatherPromise, cityPromise]);
           const wData = await weatherRes.json();
 
-          // Város név feldolgozása (biztonságosan)
           if (cityData && cityData.city) {
             city = cityData.city;
-            // Ha kerület van (pl. Budapest XI. kerület), rövidítsük Budapest-re, vagy hagyjuk meg
             if (cityData.locality) city = cityData.locality;
           }
 
-          // Eső logika
-          const currentHourIndex = new Date().getHours();
-          let nextRain = null;
-          if (wData.hourly?.precipitation_probability) {
-            for (let i = currentHourIndex; i < currentHourIndex + 12; i++) {
-              if (wData.hourly.precipitation_probability[i] > 40) {
-                nextRain = wData.hourly.time[i];
-                break;
-              }
-            }
-          }
+          // Stabil idő-keresés: megkeressük azt az indexet, ami a jelenlegi órához van legközelebb
+          const nowTime = Date.now();
+          const startIndex = wData.hourly.time.findIndex(
+            (t: string) => new Date(t).getTime() > nowTime - 3600000,
+          );
+          const safeStartIndex = startIndex !== -1 ? startIndex : 0;
+
+          const next12hProb = wData.hourly.precipitation_probability.slice(
+            safeStartIndex,
+            safeStartIndex + 12,
+          );
+          const next12hAmount = wData.hourly.precipitation.slice(
+            safeStartIndex,
+            safeStartIndex + 12,
+          );
+
+          const maxProb = Math.max(...next12hProb);
+          const totalAmount = Number(
+            next12hAmount.reduce((sum: number, val: number) => sum + val, 0).toFixed(1),
+          );
+
+          const firstRainIndex = next12hProb.findIndex((p: number) => p > 40);
+          const nextTime =
+            firstRainIndex !== -1 ? wData.hourly.time[safeStartIndex + firstRainIndex] : null;
 
           const weather: WeatherData = {
             temp: Math.round(wData.current.temperature_2m),
@@ -82,17 +96,14 @@ export const useWeather = () => {
             sunrise: wData.daily.sunrise[0],
             sunset: wData.daily.sunset[0],
             city,
-            nextRain,
+            rain: {
+              probability: maxProb,
+              amount: totalAmount,
+              nextTime,
+            },
           };
 
-          localStorage.setItem(
-            CACHE_KEY,
-            JSON.stringify({
-              timestamp: Date.now(),
-              weather,
-            }),
-          );
-
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), weather }));
           setData(weather);
         } catch (error) {
           console.error('Weather fetch failed:', error);
@@ -111,11 +122,5 @@ export const useWeather = () => {
     fetchWeather(false);
   }, [fetchWeather]);
 
-  return {
-    data,
-    loading,
-    refresh: () => {
-      fetchWeather(true);
-    },
-  };
+  return { data, loading, refresh: () => fetchWeather(true) };
 };

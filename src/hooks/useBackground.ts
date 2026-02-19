@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 
 export interface BackgroundData {
@@ -10,7 +10,6 @@ export interface BackgroundData {
 
 const CACHE_KEY = 'daily_bg_data';
 
-// Default fallback: Megnövelt felbontás (w=3840) és minőség (q=90)
 const DEFAULT_BG: BackgroundData = {
   url: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop',
   location: 'Völgy a hegyekben',
@@ -19,50 +18,59 @@ const DEFAULT_BG: BackgroundData = {
 };
 
 export const useBackground = () => {
+  // Loading state a gomb visszajelzéséhez
+  const [loading, setLoading] = useState(false);
+
   const [bgData, setBgData] = useState<BackgroundData>(() => {
     const cached = getDailyData<BackgroundData>(CACHE_KEY);
     return cached || DEFAULT_BG;
   });
 
-  useEffect(() => {
-    if (getDailyData(CACHE_KEY)) return;
+  // A lekérő függvényt useCallback-be tesszük, hogy stabil maradjon
+  const fetchNewImage = useCallback(async (force = false) => {
+    // Ha nem kényszerített frissítés és van cache, akkor ne csináljon semmit
+    if (!force && getDailyData(CACHE_KEY)) return;
 
-    const fetchImage = async () => {
-      const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
-      if (!accessKey) return;
+    const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
+    if (!accessKey) return;
 
-      try {
-        const query = 'landscape,forest,mountain,fog,nature view';
-        const res = await fetch(
-          `https://api.unsplash.com/photos/random?orientation=landscape&query=${query}&client_id=${accessKey}`,
-        );
-        if (!res.ok) throw new Error('Unsplash API error');
+    setLoading(true);
+    try {
+      const query = 'landscape,forest,mountain,fog,nature view';
+      // Hozzáadunk egy timestamp-et, hogy elkerüljük a böngésző cache-elését
+      const res = await fetch(
+        `https://api.unsplash.com/photos/random?orientation=landscape&query=${query}&client_id=${accessKey}&t=${Date.now()}`,
+      );
+      if (!res.ok) throw new Error('Unsplash API error');
 
-        const data = await res.json();
+      const data = await res.json();
+      const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
 
-        // TRÜKK: Az Unsplash 'raw' URL-jét használjuk, és mi mondjuk meg a méretet.
-        // w=3840: 4K szélesség
-        // q=90: Magas JPEG minőség
-        // fm=jpg: Formátum kényszerítése
-        // fit=crop: Vágás, ha szükséges
-        const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
+      const newBgData: BackgroundData = {
+        url: highResUrl,
+        location: data.location?.name || null,
+        photographer: data.user.name,
+        photographerUrl: data.links.html,
+      };
 
-        const newBgData: BackgroundData = {
-          url: highResUrl,
-          location: data.location?.name || null,
-          photographer: data.user.name,
-          photographerUrl: data.links.html,
-        };
-
-        setDailyData(CACHE_KEY, newBgData);
-        setBgData(newBgData);
-      } catch (error) {
-        console.error('Failed to fetch background:', error);
-      }
-    };
-
-    fetchImage();
+      setDailyData(CACHE_KEY, newBgData);
+      setBgData(newBgData);
+    } catch (error) {
+      console.error('Failed to fetch background:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return bgData;
+  // Initkor lefut (force = false)
+  useEffect(() => {
+    fetchNewImage();
+  }, [fetchNewImage]);
+
+  // Visszaadjuk a refresh függvényt is
+  return {
+    bgData,
+    refreshBackground: () => fetchNewImage(true),
+    loading,
+  };
 };

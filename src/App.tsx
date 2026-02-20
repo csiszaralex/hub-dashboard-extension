@@ -1,15 +1,17 @@
-import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { BackgroundInfo } from './components/BackgroundInfo';
+import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
 import { TopSitesWidget } from './components/TopSitesWidget';
+import { UnsplashKeyPrompt } from './components/UnsplashKeyPrompt';
 import { WeatherWidget } from './components/WeatherWidget';
 import { useBackground } from './hooks/useBackground';
-import { CalendarWidget } from './components/CalendarWidget';
 
 function App() {
+  const [unsplashKey, setUnsplashKey] = useState(() => localStorage.getItem('unsplash_key') || '');
   const { bgData, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
 
@@ -24,6 +26,16 @@ function App() {
           uiVisible ? 'opacity-100' : 'opacity-0'
         }`}
       />
+
+      {!unsplashKey && (
+        <UnsplashKeyPrompt
+          onSave={(key: string) => {
+            localStorage.setItem('unsplash_key', key);
+            setUnsplashKey(key);
+            setTimeout(() => refreshBackground(), 0);
+          }}
+        />
+      )}
 
       <div
         className={`

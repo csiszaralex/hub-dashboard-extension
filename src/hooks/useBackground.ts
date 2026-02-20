@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 
 export interface BackgroundData {
@@ -31,7 +31,7 @@ export const useBackground = () => {
     // Ha nem kényszerített frissítés és van cache, akkor ne csináljon semmit
     if (!force && getDailyData(CACHE_KEY)) return;
 
-    const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
+    const accessKey = localStorage.getItem('unsplash_key');
     if (!accessKey) return;
 
     setLoading(true);

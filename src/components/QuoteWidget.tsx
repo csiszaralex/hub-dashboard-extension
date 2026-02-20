@@ -6,7 +6,7 @@ export const QuoteWidget = () => {
   if (!quote) return null;
 
   return (
-    <div className='absolute bottom-30 left-1/2 -translate-x-1/2 text-center max-w-3xl w-full px-6 group cursor-default select-none'>
+    <div className='absolute bottom-5 left-1/2 -translate-x-1/2 text-center max-w-3xl w-full px-6 group cursor-default select-none'>
       <p className='text-xl md:text-2xl font-light text-white/90 drop-shadow-md leading-relaxed tracking-wide italic transition-all duration-500 group-hover:text-white'>
         "{quote.text}"
       </p>

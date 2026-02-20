@@ -5,7 +5,6 @@ import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
-import { TopSitesWidget } from './components/TopSitesWidget';
 import { UnsplashKeyPrompt } from './components/UnsplashKeyPrompt';
 import { WeatherWidget } from './components/WeatherWidget';
 import { useBackground } from './hooks/useBackground';
@@ -50,7 +49,7 @@ function App() {
 
         <CalendarWidget />
         <WeatherWidget />
-        <TopSitesWidget />
+        {/* <TopSitesWidget /> */}
         <QuickNote />
 
         {/* ALSÓ SÁV */}

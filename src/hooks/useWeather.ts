@@ -20,7 +20,15 @@ const CACHE_KEY = 'weather_cache';
 const CACHE_DURATION = 1000 * 60 * 30;
 
 export const useWeather = () => {
-  const [data, setData] = useState<WeatherData | null>(null);
+  const [data, setData] = useState<WeatherData | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) return JSON.parse(cached).weather;
+    } catch {
+      // ignore
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchWeather = useCallback(async (force = false) => {
@@ -29,11 +37,15 @@ export const useWeather = () => {
     if (!force) {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
-        const { timestamp, weather } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          setData(weather);
-          setLoading(false);
-          return;
+        try {
+          const { timestamp, weather } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION) {
+            setData(weather);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // ignore parsing error
         }
       }
     }

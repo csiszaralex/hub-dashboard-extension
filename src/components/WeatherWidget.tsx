@@ -6,7 +6,7 @@ import { getWeatherDescription, getWeatherIcon } from '../utils/weatherMapping';
 export const WeatherWidget = () => {
   const { data, loading, refresh } = useWeather();
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className='absolute top-8 right-8 w-72 bg-gray-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-pulse'>
         <div className='p-5 pb-4'>
@@ -71,7 +71,7 @@ export const WeatherWidget = () => {
     <div className='group absolute top-8 right-8 w-72 bg-gray-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden font-sans text-white'>
       <button
         onClick={refresh}
-        className='absolute top-3 right-3 p-2 text-white/20 hover:text-white/80 hover:bg-white/10 rounded-full transition-all opacity-0 group-hover:opacity-100 z-10'
+        className={`absolute top-3 right-3 p-2 text-white/20 hover:text-white/80 hover:bg-white/10 rounded-full transition-all z-10 ${loading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         title='Időjárás frissítése'
       >
         <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />

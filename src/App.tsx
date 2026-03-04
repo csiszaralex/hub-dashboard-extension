@@ -8,11 +8,16 @@ import { QuoteWidget } from './components/QuoteWidget';
 import { UnsplashKeyPrompt } from './components/UnsplashKeyPrompt';
 import { WeatherWidget } from './components/WeatherWidget';
 import { useBackground } from './hooks/useBackground';
+import { useSettings } from './hooks/useSettings';
 
 function App() {
-  const [unsplashKey, setUnsplashKey] = useState(() => localStorage.getItem('unsplash_key') || '');
+  const { settings, isLoaded, saveSettings } = useSettings();
   const { bgData, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
+
+  if (!isLoaded) {
+    return <div className='w-screen h-screen bg-black' />;
+  }
 
   return (
     <main
@@ -26,12 +31,10 @@ function App() {
         }`}
       />
 
-      {!unsplashKey && (
+      {!settings.unsplashKey && (
         <UnsplashKeyPrompt
           onSave={(key: string) => {
-            localStorage.setItem('unsplash_key', key);
-            setUnsplashKey(key);
-            setTimeout(() => refreshBackground(), 0);
+            saveSettings({ unsplashKey: key });
           }}
         />
       )}
@@ -57,7 +60,7 @@ function App() {
           {/* HÁTTÉR FRISSÍTŐ GOMB */}
           <button
             onClick={() => refreshBackground()}
-            disabled={bgLoading}
+            disabled={bgLoading || !settings.unsplashKey}
             className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
             title='Új háttérkép kérése'
           >

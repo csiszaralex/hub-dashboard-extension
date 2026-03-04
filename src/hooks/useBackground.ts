@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
+import { useSettings } from './useSettings';
 
 export interface BackgroundData {
   url: string;
@@ -9,7 +10,6 @@ export interface BackgroundData {
 }
 
 const CACHE_KEY = 'daily_bg_data';
-
 const DEFAULT_BG: BackgroundData = {
   url: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop',
   location: 'Völgy a hegyekben',
@@ -18,59 +18,61 @@ const DEFAULT_BG: BackgroundData = {
 };
 
 export const useBackground = () => {
-  // Loading state a gomb visszajelzéséhez
+  const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);
-
+  const prevQueryRef = useRef(settings.unsplashQuery);
   const [bgData, setBgData] = useState<BackgroundData>(() => {
-    const cached = getDailyData<BackgroundData>(CACHE_KEY);
+    const cached = getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current);
     return cached || DEFAULT_BG;
   });
 
-  // A lekérő függvényt useCallback-be tesszük, hogy stabil maradjon
-  const fetchNewImage = useCallback(async (force = false) => {
-    // Ha nem kényszerített frissítés és van cache, akkor ne csináljon semmit
-    if (!force && getDailyData(CACHE_KEY)) return;
+  const fetchNewImage = useCallback(
+    async (force = false, currentQuery = settings.unsplashQuery) => {
+      if (!settings.unsplashKey) return;
+      if (!force && getDailyData(CACHE_KEY, prevQueryRef.current)) return;
 
-    const accessKey = localStorage.getItem('unsplash_key');
-    if (!accessKey) return;
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `https://api.unsplash.com/photos/random?orientation=landscape&query=${currentQuery}&client_id=${settings.unsplashKey}&t=${Date.now()}`,
+        );
+        if (!res.ok) throw new Error('Unsplash API error');
 
-    setLoading(true);
-    try {
-      const query = 'landscape,forest,mountain,fog,nature view';
-      // Hozzáadunk egy timestamp-et, hogy elkerüljük a böngésző cache-elését
-      const res = await fetch(
-        `https://api.unsplash.com/photos/random?orientation=landscape&query=${query}&client_id=${accessKey}&t=${Date.now()}`,
-      );
-      if (!res.ok) throw new Error('Unsplash API error');
+        const data = await res.json();
+        const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
 
-      const data = await res.json();
-      const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
+        const newBgData: BackgroundData = {
+          url: highResUrl,
+          location: data.location?.name || null,
+          photographer: data.user.name,
+          photographerUrl: data.links.html,
+        };
 
-      const newBgData: BackgroundData = {
-        url: highResUrl,
-        location: data.location?.name || null,
-        photographer: data.user.name,
-        photographerUrl: data.links.html,
-      };
+        setDailyData(CACHE_KEY, newBgData, currentQuery);
+        setBgData(newBgData);
+      } catch (error) {
+        console.error('Failed to fetch background:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [settings.unsplashKey, settings.unsplashQuery],
+  );
 
-      setDailyData(CACHE_KEY, newBgData);
-      setBgData(newBgData);
-    } catch (error) {
-      console.error('Failed to fetch background:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Initkor lefut (force = false)
   useEffect(() => {
-    fetchNewImage();
-  }, [fetchNewImage]);
+    if (!isLoaded || !settings.unsplashKey) return;
 
-  // Visszaadjuk a refresh függvényt is
+    const forceUpdate = prevQueryRef.current !== settings.unsplashQuery;
+    fetchNewImage(forceUpdate, settings.unsplashQuery);
+
+    prevQueryRef.current = settings.unsplashQuery;
+  }, [fetchNewImage, isLoaded, settings.unsplashKey, settings.unsplashQuery]);
+
   return {
     bgData,
     refreshBackground: () => fetchNewImage(true),
     loading,
+    hasKey: !!settings.unsplashKey,
+    isSettingsLoaded: isLoaded,
   };
 };

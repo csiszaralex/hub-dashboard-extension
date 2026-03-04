@@ -1,15 +1,5 @@
 import { useEffect, useState } from 'react';
 
-declare global {
-  interface Window {
-    chrome?: {
-      topSites: {
-        get: (callback: (sites: Site[]) => void) => void;
-      };
-    };
-  }
-}
-
 export interface Site {
   title: string;
   url: string;

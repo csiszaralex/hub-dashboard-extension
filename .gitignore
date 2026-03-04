@@ -29,3 +29,5 @@ build/
 *.pem
 .DS_Store
 thumbs.db
+
+extension-release.zip

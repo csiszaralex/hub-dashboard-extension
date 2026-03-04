@@ -6,6 +6,9 @@ import manifest from './manifest.json';
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest })],
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   server: {
     port: 5173,
     strictPort: true,

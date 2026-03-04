@@ -1,11 +1,10 @@
-// src/utils/dailyStorage.ts
-
 interface CachePacket<T> {
   date: string; // "YYYY-MM-DD"
+  query?: string;
   data: T;
 }
 
-export const getDailyData = <T>(key: string): T | null => {
+export const getDailyData = <T>(key: string, currentQuery?: string): T | null => {
   const json = localStorage.getItem(key);
   if (!json) return null;
 
@@ -13,8 +12,7 @@ export const getDailyData = <T>(key: string): T | null => {
     const packet: CachePacket<T> = JSON.parse(json);
     const today = new Date().toISOString().split('T')[0];
 
-    // Ha a mentett dátum nem a mai, akkor érvénytelen (null)
-    if (packet.date !== today) {
+    if (packet.date !== today || packet.query !== currentQuery) {
       return null;
     }
     return packet.data;
@@ -23,10 +21,11 @@ export const getDailyData = <T>(key: string): T | null => {
   }
 };
 
-export const setDailyData = <T>(key: string, data: T) => {
+export const setDailyData = <T>(key: string, data: T, query?: string) => {
   const today = new Date().toISOString().split('T')[0];
   const packet: CachePacket<T> = {
     date: today,
+    query,
     data,
   };
   localStorage.setItem(key, JSON.stringify(packet));

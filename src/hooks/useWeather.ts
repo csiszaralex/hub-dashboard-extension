@@ -17,58 +17,32 @@ export interface WeatherData {
   rain: RainData;
 }
 
+interface ResolveLocationResult {
+  lat: number;
+  lon: number;
+  source: 'settings' | 'gps' | 'ip' | 'fallback' | 'cache_fallback';
+}
+
 const CACHE_KEY = 'weather_cache';
 const CACHE_DURATION = 1000 * 60 * 30;
 
+const roundCoord = (coord: number) => Number(coord.toFixed(3));
+
 export const useWeather = () => {
   const { settings, isLoaded } = useSettings();
-  const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const resolveLocation = async (): Promise<{
-    lat: number;
-    lon: number;
-    source: 'settings' | 'gps' | 'ip' | 'fallback';
-  }> => {
-    // 1. Settings
-    if (settings.locationLat !== null && settings.locationLon !== null) {
-      return { lat: settings.locationLat, lon: settings.locationLon, source: 'settings' };
-    }
-
-    // 2. Geolocation
-    if (navigator.geolocation) {
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 5000,
-            maximumAge: 1000 * 60 * 15,
-          });
-        });
-        return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: 'gps' };
-      } catch {
-        console.warn('Geolocation failed, falling back to IP');
-      }
-    }
-    // 3. IP
+  const [data, setData] = useState<WeatherData | null>(() => {
     try {
-      const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
-      if (res.ok) {
-        const geoData = await res.json();
-        if (geoData.latitude && geoData.longitude) {
-          return {
-            lat: parseFloat(geoData.latitude),
-            lon: parseFloat(geoData.longitude),
-            source: 'ip',
-          };
-        }
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.weather || null;
       }
     } catch {
-      console.warn('IP location failed, using fallback');
+      // ignore
     }
-
-    // 4. Fallback (Budapest)
-    return { lat: 47.4979, lon: 19.0402, source: 'fallback' };
-  };
+    return null;
+  });
 
   const fetchWeather = useCallback(
     async (force = false) => {
@@ -76,23 +50,78 @@ export const useWeather = () => {
       setLoading(true);
 
       try {
-        const { lat, lon, source } = await resolveLocation();
+        //TODO type
+        let cachedData = null;
+        try {
+          const cachedStr = localStorage.getItem(CACHE_KEY);
+          if (cachedStr) cachedData = JSON.parse(cachedStr);
+        } catch {
+          // ignore
+        }
 
-        if (!force) {
-          const cached = localStorage.getItem(CACHE_KEY);
-          if (cached) {
-            try {
-              const { timestamp, weather, cacheLat, cacheLon } = JSON.parse(cached);
-              if (Date.now() - timestamp < CACHE_DURATION && cacheLat === lat && cacheLon === lon) {
-                setData(weather);
-                setLoading(false);
-                return;
-              }
-            } catch {
-              // ignore parsing error
-            }
+        if (!force && cachedData) {
+          const { timestamp, cacheLat, cacheLon } = cachedData;
+          const isTimeValid = Date.now() - timestamp < CACHE_DURATION;
+          const isSettingsValid =
+            settings.locationLat !== null && settings.locationLon !== null
+              ? roundCoord(settings.locationLat) === cacheLat &&
+                roundCoord(settings.locationLon) === cacheLon
+              : true;
+
+          if (isTimeValid && isSettingsValid) {
+            setData(cachedData.weather);
+            setLoading(false);
+            return;
           }
         }
+
+        const resolveLocation = async (): Promise<ResolveLocationResult> => {
+          // 1. Settings
+          if (settings.locationLat !== null && settings.locationLon !== null) {
+            return { lat: settings.locationLat, lon: settings.locationLon, source: 'settings' };
+          }
+
+          // 2. Geolocation
+          if (navigator.geolocation) {
+            try {
+              const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                  timeout: 3000,
+                  maximumAge: 1000 * 60 * 15,
+                });
+              });
+              return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: 'gps' };
+            } catch {
+              console.warn('Geolocation failed, falling back to IP');
+            }
+          }
+          // 3. IP
+          try {
+            const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
+            if (res.ok) {
+              const geoData = await res.json();
+              if (geoData.latitude && geoData.longitude) {
+                return {
+                  lat: parseFloat(geoData.latitude),
+                  lon: parseFloat(geoData.longitude),
+                  source: 'ip',
+                };
+              }
+            }
+          } catch {
+            console.warn('IP location failed, using fallback');
+          }
+
+          //4. Last known location from cache (if available)
+          if (cachedData && cachedData.cacheLat && cachedData.cacheLon) {
+            return { lat: cachedData.cacheLat, lon: cachedData.cacheLon, source: 'cache_fallback' };
+          }
+
+          // 5. Fallback (Budapest)
+          return { lat: 47.4979, lon: 19.0402, source: 'fallback' };
+        };
+
+        const { lat, lon, source } = await resolveLocation();
 
         const weatherPromise = fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset&timezone=auto`,
@@ -150,7 +179,15 @@ export const useWeather = () => {
           rain: { probability: maxProb, amount: totalAmount, nextTime },
         };
 
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), weather }));
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            timestamp: Date.now(),
+            weather,
+            cacheLat: roundCoord(lat),
+            cacheLon: roundCoord(lon),
+          }),
+        );
         setData(weather);
       } catch (error) {
         console.error('Weather fetch failed:', error);
@@ -158,7 +195,7 @@ export const useWeather = () => {
         setLoading(false);
       }
     },
-    [isLoaded, settings.locationLat, settings.locationLon, settings.locationCity],
+    [isLoaded, settings.locationCity, settings.locationLat, settings.locationLon],
   );
 
   useEffect(() => {

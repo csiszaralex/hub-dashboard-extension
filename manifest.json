@@ -30,6 +30,6 @@
   ],
   "oauth2": {
     "client_id": "617448524668-t2ouhpj4e7dnhgh9k335uq8jlllq9ubg.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/calendar.events.readonly"]
+    "scopes": ["https://www.googleapis.com/auth/calendar.readonly"]
   }
 }

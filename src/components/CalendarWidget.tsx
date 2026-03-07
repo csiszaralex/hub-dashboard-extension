@@ -3,6 +3,7 @@ import { hu } from 'date-fns/locale';
 import { Briefcase, Calendar, Clock, MapPin } from 'lucide-react';
 import { useMemo } from 'react';
 import { useCalendar } from '../hooks/useCalendar';
+import { useSettings } from '../hooks/useSettings';
 
 // --- Típusok ---
 interface CalendarEvent {
@@ -79,7 +80,8 @@ const EventRow = ({ event, type }: EventRowProps) => {
 
 // --- Fő Komponens ---
 export const CalendarWidget = () => {
-  const { events, signedIn, login, loading } = useCalendar();
+  const { settings, isLoaded: settingsLoaded } = useSettings();
+  const { events, signedIn, login, loading } = useCalendar(settings.selectedCalendars);
 
   // --- Adatfeldolgozás ---
   const { currentEvent, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
@@ -119,7 +121,7 @@ export const CalendarWidget = () => {
     };
   }, [events]);
 
-  if (loading) return null;
+  if (!settingsLoaded || loading) return null;
 
   if (!signedIn) {
     return (

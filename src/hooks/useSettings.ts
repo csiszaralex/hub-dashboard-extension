@@ -6,6 +6,7 @@ export interface HubSettings {
   locationCity: string;
   locationLat: number | null;
   locationLon: number | null;
+  selectedCalendars: string[];
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS: HubSettings = {
   locationCity: '',
   locationLat: null,
   locationLon: null,
+  selectedCalendars: ['primary'],
 };
 
 export const useSettings = () => {
@@ -31,6 +33,7 @@ export const useSettings = () => {
           locationCity: res.locationCity ?? DEFAULT_SETTINGS.locationCity,
           locationLat: res.locationLat ?? DEFAULT_SETTINGS.locationLat,
           locationLon: res.locationLon ?? DEFAULT_SETTINGS.locationLon,
+          selectedCalendars: res.selectedCalendars ?? DEFAULT_SETTINGS.selectedCalendars,
         });
         setIsLoaded(true);
       },
@@ -45,6 +48,8 @@ export const useSettings = () => {
           locationCity: (changes.locationCity?.newValue as string) ?? prev.locationCity,
           locationLat: (changes.locationLat?.newValue as number | null) ?? prev.locationLat,
           locationLon: (changes.locationLon?.newValue as number | null) ?? prev.locationLon,
+          selectedCalendars:
+            (changes.selectedCalendars?.newValue as string[]) ?? prev.selectedCalendars,
         }));
       }
     };

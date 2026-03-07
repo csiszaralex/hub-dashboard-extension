@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 declare const chrome: {
   identity: {
@@ -17,41 +17,56 @@ interface CalendarEvent {
   location?: string;
 }
 
-export const useCalendar = () => {
+export const useCalendar = (selectedCalendars: string[] = ['primary']) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchEvents = async (token: string) => {
-    try {
-      // Csak a 'primary' naptárat nézzük
-      // timeMin: mostantól
-      // maxResults: 3 (hogy lássuk mi jön, de a widgeten csak 1-et mutatunk majd)
-      // singleEvents: true (hogy a ismétlődő eseményeket kibontsa)
-      // orderBy: startTime (hogy a legközelebbi legyen elől)
-      const now = new Date().toISOString();
-      const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&maxResults=13&singleEvents=true&orderBy=startTime`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+  const fetchEvents = useCallback(
+    async (token: string) => {
+      try {
+        const now = new Date().toISOString();
+        if (!selectedCalendars || selectedCalendars.length === 0) {
+          setEvents([]);
+          return;
+        }
 
-      if (!response.ok) throw new Error('Calendar fetch failed');
+        const fetchPromises = selectedCalendars.map(async (calendarId) => {
+          const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${now}&maxResults=13&singleEvents=true&orderBy=startTime`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (!response.ok) {
+            console.warn(`Nem sikerült lekérni a naptárat: ${calendarId}`);
+            return [];
+          }
+          const data = await response.json();
+          return data.items || [];
+        });
 
-      const data = await response.json();
-      setEvents(data.items || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const results = await Promise.all(fetchPromises);
+        const mergedEvents = results.flat();
+
+        mergedEvents.sort((a, b) => {
+          const dateA = new Date(a.start.dateTime || a.start.date || 0).getTime();
+          const dateB = new Date(b.start.dateTime || b.start.date || 0).getTime();
+          return dateA - dateB;
+        });
+
+        setEvents(mergedEvents);
+      } catch (error) {
+        console.error('Calendar fetch failed:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCalendars],
+  );
 
   useEffect(() => {
-    // 1. Megnézzük, van-e már tokenünk (volt-e belépés)
+    setLoading(true);
     chrome.identity.getAuthToken({ interactive: false }, (token: string) => {
       if (chrome.runtime.lastError || !token) {
         setSignedIn(false);
@@ -61,11 +76,10 @@ export const useCalendar = () => {
         fetchEvents(token);
       }
     });
-  }, []);
+  }, [fetchEvents]);
 
   const login = () => {
     setLoading(true);
-    // Interaktív belépés (popup ablak)
     chrome.identity.getAuthToken({ interactive: true }, (token: string) => {
       if (chrome.runtime.lastError || !token) {
         console.error(chrome.runtime.lastError);

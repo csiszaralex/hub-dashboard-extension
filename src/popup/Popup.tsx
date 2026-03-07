@@ -1,5 +1,20 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSettings, type HubSettings } from '../hooks/useSettings';
+
+declare const chrome: {
+  identity: {
+    getAuthToken: (options: { interactive: boolean }, callback: (token: string) => void) => void;
+  };
+  runtime: {
+    lastError?: { message: string };
+  };
+};
+
+interface CalendarListEntry {
+  id: string;
+  summary: string;
+  backgroundColor?: string;
+}
 
 function PopupForm({
   initialSettings,
@@ -11,10 +26,53 @@ function PopupForm({
   const [key, setKey] = useState(initialSettings.unsplashKey);
   const [query, setQuery] = useState(initialSettings.unsplashQuery);
   const [city, setCity] = useState(initialSettings.locationCity);
+  const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
 
+  const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [calError, setCalError] = useState<string | null>(null);
+
+  const loadCalendars = useCallback((interactive = false) => {
+    chrome.identity.getAuthToken({ interactive }, async (token: string) => {
+      setCalError(null);
+      if (chrome.runtime.lastError || !token) {
+        const errorMsg = chrome.runtime.lastError?.message || 'Nincs token.';
+        console.error('Auth hiba a popupban:', errorMsg);
+        setCalError(`Auth hiba: ${errorMsg}`);
+        return;
+      }
+
+      try {
+        const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableCals(data.items || []);
+        } else {
+          const errText = await res.text();
+          console.error('API hiba:', errText);
+          setCalError(`API hiba: ${res.status}`);
+        }
+      } catch (e) {
+        console.error('Fetch hiba:', e);
+        setCalError('Hálózati hiba a naptárak lekérésekor.');
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    loadCalendars(false);
+  }, [loadCalendars]);
+
+  const toggleCalendar = (calendarId: string) => {
+    setSelectedCals((prev) =>
+      prev.includes(calendarId) ? prev.filter((id) => id !== calendarId) : [...prev, calendarId],
+    );
+  };
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -58,6 +116,7 @@ function PopupForm({
       locationCity: validCity,
       locationLat: lat,
       locationLon: lon,
+      selectedCalendars: selectedCals,
     });
 
     setLoading(false);
@@ -127,6 +186,48 @@ function PopupForm({
           <p className='text-[10px] text-white/40 mt-1'>
             Üresen hagyva automatikus GPS/IP alapján.
           </p>
+        )}
+      </div>
+
+      <div className='flex flex-col gap-2 border-t border-white/10 pt-4'>
+        <div className='flex justify-between items-center'>
+          <label className='text-xs font-medium text-white/70 uppercase tracking-wider'>
+            Megjelenített Naptárak
+          </label>
+          <button
+            type='button'
+            onClick={() => loadCalendars(true)}
+            className='text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded transition-colors'
+          >
+            Frissítés / Belépés
+          </button>
+        </div>
+
+        {calError && <p className='text-[10px] text-red-400'>{calError}</p>}
+
+        {availableCals.length > 0 ? (
+          <div className='flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-2 custom-scrollbar'>
+            {availableCals.map((cal) => (
+              <label
+                key={cal.id}
+                className='flex items-center gap-2 cursor-pointer hover:bg-white/5 p-1.5 rounded-md transition-colors'
+              >
+                <input
+                  type='checkbox'
+                  checked={selectedCals.includes(cal.id)}
+                  onChange={() => toggleCalendar(cal.id)}
+                  className='accent-white/70 w-4 h-4 rounded border-white/20 bg-zinc-900 cursor-pointer'
+                />
+                <div
+                  className='w-3 h-3 rounded-full shrink-0'
+                  style={{ backgroundColor: cal.backgroundColor || '#ccc' }}
+                ></div>
+                <span className='text-sm text-white/90 truncate'>{cal.summary}</span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          !calError && <p className='text-[10px] text-white/40'>Naptárak betöltése...</p>
         )}
       </div>
 

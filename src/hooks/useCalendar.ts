@@ -13,6 +13,8 @@ declare const chrome: {
 export interface CalendarEvent {
   id: string;
   summary: string;
+  description?: string;
+  hangoutLink?: string;
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
   location?: string;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ICalendarList } from '../types/calendarList';
 
 declare const chrome: {
   identity: {
@@ -9,12 +10,13 @@ declare const chrome: {
   };
 };
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   summary: string;
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
   location?: string;
+  calendarColor?: string;
 }
 
 export const useCalendar = (selectedCalendars: string[] = ['primary']) => {
@@ -25,25 +27,46 @@ export const useCalendar = (selectedCalendars: string[] = ['primary']) => {
   const fetchEvents = useCallback(
     async (token: string) => {
       try {
-        const now = new Date().toISOString();
         if (!selectedCalendars || selectedCalendars.length === 0) {
           setEvents([]);
           return;
         }
 
-        const fetchPromises = selectedCalendars.map(async (calendarId) => {
-          const response = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${now}&maxResults=13&singleEvents=true&orderBy=startTime`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          if (!response.ok) {
-            console.warn(`Nem sikerült lekérni a naptárat: ${calendarId}`);
-            return [];
-          }
+        const now = new Date().toISOString();
+
+        // Párhuzamosan kérjük le a színeket (calendarList) és az eseményeket
+        const [colorRes, ...eventResponses] = await Promise.all([
+          fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          ...selectedCalendars.map((calendarId) =>
+            fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${now}&maxResults=13&singleEvents=true&orderBy=startTime`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            ),
+          ),
+        ]);
+
+        // Szín Map építése
+        const colorMap = new Map<string, string>();
+        if (colorRes.ok) {
+          const colorData: { items: ICalendarList[] } = await colorRes.json();
+          (colorData.items || []).forEach((cal) => {
+            const id = cal.primary ? 'primary' : cal.id;
+            if (cal.backgroundColor) colorMap.set(id, cal.backgroundColor);
+          });
+        }
+
+        const fetchPromises = eventResponses.map(async (response, index) => {
+          if (!response.ok) return [];
           const data = await response.json();
-          return data.items || [];
+          const calendarId = selectedCalendars[index];
+          const color = colorMap.get(calendarId) || '#3b82f6';
+
+          return (data.items || []).map((item: CalendarEvent) => ({
+            ...item,
+            calendarColor: color,
+          }));
         });
 
         const results = await Promise.all(fetchPromises);

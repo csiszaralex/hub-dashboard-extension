@@ -1,37 +1,25 @@
-import { differenceInMinutes, format, isSameDay, isToday, isTomorrow, parseISO } from 'date-fns';
+import { differenceInMinutes, format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import { Briefcase, Calendar, Clock, MapPin } from 'lucide-react';
 import { useMemo } from 'react';
-import { useCalendar } from '../hooks/useCalendar';
+import { useCalendar, type CalendarEvent } from '../hooks/useCalendar';
 import { useSettings } from '../hooks/useSettings';
-
-// --- Típusok ---
-interface CalendarEvent {
-  id: string;
-  summary: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  location?: string;
-}
 
 interface EventRowProps {
   event: CalendarEvent;
   type: 'next' | 'future';
 }
 
-// --- Segédfüggvény ---
 const formatEventTime = (date: Date) => {
   if (isToday(date)) return format(date, 'HH:mm');
   if (isTomorrow(date)) return `Holnap ${format(date, 'HH:mm')}`;
   return format(date, 'MMM d. HH:mm', { locale: hu });
 };
 
-// --- Kiszervezett sor komponens ---
 const EventRow = ({ event, type }: EventRowProps) => {
   const start = parseISO(event.start.dateTime!);
   const end = parseISO(event.end.dateTime!);
   const isNext = type === 'next';
-
   const diff = differenceInMinutes(start, new Date());
 
   let timeLabel = '';
@@ -48,7 +36,13 @@ const EventRow = ({ event, type }: EventRowProps) => {
     <div
       className={`relative group ${isNext ? 'mb-2' : 'py-1.5 border-t border-white/5 opacity-70'}`}
     >
-      <div className='flex justify-between items-start'>
+      <div className='flex justify-between items-start gap-2'>
+        {/* Naptár szín indikátor (vékony vonal bal oldalt) */}
+        <div
+          className='w-0.5 rounded-full shrink-0 self-stretch mt-1 mb-1'
+          style={{ backgroundColor: event.calendarColor }}
+        ></div>
+
         <div className='flex-1 min-w-0'>
           <div
             className={`flex items-center gap-1.5 ${isNext ? 'text-blue-300 mb-0.5' : 'text-white/50'} text-xs font-bold uppercase tracking-wider`}
@@ -69,7 +63,8 @@ const EventRow = ({ event, type }: EventRowProps) => {
           {isNext && event.location && (
             <div className='flex items-center gap-1 mt-1 text-xs text-white/50 truncate'>
               <MapPin className='w-3 h-3 shrink-0' />
-              <span>{event.location}</span>
+              <span>{event.location.split(',')[0]}</span>{' '}
+              {/* Csak az első rész (pl. a név) a helyszínből */}
             </div>
           )}
         </div>
@@ -78,26 +73,28 @@ const EventRow = ({ event, type }: EventRowProps) => {
   );
 };
 
-// --- Fő Komponens ---
 export const CalendarWidget = () => {
   const { settings, isLoaded: settingsLoaded } = useSettings();
   const { events, signedIn, login, loading } = useCalendar(settings.selectedCalendars);
 
-  // --- Adatfeldolgozás ---
-  const { currentEvent, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
+  const { currentEvents, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
     const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+
     const _allDay: CalendarEvent[] = [];
     const _timed: CalendarEvent[] = [];
 
     events.forEach((e) => {
-      if (e.start.date) {
-        if (isSameDay(parseISO(e.start.date), now)) _allDay.push(e);
+      if (e.start.date && e.end.date) {
+        if (e.start.date <= todayStr && e.end.date > todayStr) {
+          _allDay.push(e);
+        }
       } else if (e.start.dateTime) {
         _timed.push(e);
       }
     });
 
-    let current: CalendarEvent | null = null;
+    const current: CalendarEvent[] = [];
     let next: CalendarEvent | null = null;
     const future: CalendarEvent[] = [];
 
@@ -106,15 +103,19 @@ export const CalendarWidget = () => {
       const end = parseISO(e.end.dateTime!);
 
       if (start <= now && end > now) {
-        if (!current) current = e;
+        current.push(e);
       } else if (start > now) {
         if (!next) next = e;
         else future.push(e);
       }
     }
 
+    current.sort(
+      (a, b) => parseISO(a.end.dateTime!).getTime() - parseISO(b.end.dateTime!).getTime(),
+    );
+
     return {
-      currentEvent: current,
+      currentEvents: current,
       nextEvent: next,
       allDayEvents: _allDay,
       futureEvents: future.slice(0, 2),
@@ -153,45 +154,67 @@ export const CalendarWidget = () => {
 
   return (
     <div className='absolute top-8 left-8 w-60 flex flex-col gap-2'>
-      {/* 1. SZEKCIÓ: MOST ZAJLIK (Finomított Glassmorphism) */}
-      {currentEvent && (
-        <div className='bg-linear-to-r from-indigo-500/30 to-purple-500/30 backdrop-blur-xl border border-indigo-500/20 p-4 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500'>
-          <div className='absolute top-3 right-3 flex items-center gap-1.5'>
-            <span className='relative flex h-2 w-2'>
-              <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75'></span>
-              <span className='relative inline-flex rounded-full h-2 w-2 bg-indigo-400'></span>
-            </span>
-            <span className='text-[10px] font-bold text-indigo-200 uppercase tracking-widest'>
-              Most
-            </span>
-          </div>
+      {/* 1. SZEKCIÓ: MOST ZAJLIK (Támogatja a több aktív eventet) */}
+      {currentEvents.length > 0 && (
+        <div className='flex flex-col gap-2'>
+          {currentEvents.map((currentEvent) => (
+            <div
+              key={currentEvent.id}
+              className='bg-linear-to-r from-indigo-500/30 to-purple-500/30 backdrop-blur-xl border border-indigo-500/20 p-4 rounded-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 flex'
+            >
+              {/* Vékony csík az event naptárszínével */}
+              <div
+                className='absolute left-0 top-0 bottom-0 w-1.5'
+                style={{ backgroundColor: currentEvent.calendarColor }}
+              ></div>
 
-          <h2 className='text-xl font-bold text-white leading-tight pr-8 mb-1 line-clamp-2'>
-            {currentEvent.summary}
-          </h2>
-          <div className='text-indigo-200/80 text-sm flex items-center gap-2 font-medium'>
-            <Clock className='w-3.5 h-3.5' />
-            {format(parseISO(currentEvent.end.dateTime!), 'HH:mm')}-ig
-          </div>
+              <div className='pl-2 flex-1'>
+                <div className='absolute top-3 right-3 flex items-center gap-1.5'>
+                  <span className='relative flex h-2 w-2'>
+                    <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75'></span>
+                    <span className='relative inline-flex rounded-full h-2 w-2 bg-indigo-400'></span>
+                  </span>
+                  <span className='text-[10px] font-bold text-indigo-200 uppercase tracking-widest'>
+                    Most
+                  </span>
+                </div>
+
+                <h2 className='text-xl font-bold text-white leading-tight pr-8 mb-1 line-clamp-2'>
+                  {currentEvent.summary}
+                </h2>
+
+                <div className='flex flex-col gap-1 mt-2'>
+                  <div className='text-indigo-200/80 text-sm flex items-center gap-2 font-medium'>
+                    <Clock className='w-3.5 h-3.5' />
+                    {format(parseISO(currentEvent.end.dateTime!), 'HH:mm')}-ig
+                  </div>
+                  {currentEvent.location && (
+                    <div className='text-indigo-200/60 text-xs flex items-center gap-2 font-medium truncate pr-4'>
+                      <MapPin className='w-3 h-3 shrink-0' />
+                      <span className='truncate'>{currentEvent.location.split(',')[0]}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* 2. SZEKCIÓ: NAPLÓ */}
       <div className='grid grid-cols-1 gap-2'>
         <div className='bg-black/40 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-xl'>
-          {/* HEADER: Egész naposak (Csak MA) */}
+          {/* HEADER: Egész naposak */}
           {allDayEvents.length > 0 && (
-            <div className='flex flex-wrap gap-2 mb-3 border-b border-white/5 pb-3'>
+            <div className='flex flex-col gap-1.5 mb-3 border-b border-white/5 pb-3'>
               {allDayEvents.map((e) => (
                 <div
                   key={e.id}
-                  className='bg-white/10 border border-white/5 px-2 py-1 rounded-md flex items-center gap-2 max-w-full'
+                  className='bg-white/10 border border-white/5 pl-2 pr-3 py-1.5 rounded-md flex items-center gap-2 max-w-full overflow-hidden'
+                  style={{ borderLeftColor: e.calendarColor, borderLeftWidth: '3px' }}
                 >
                   <Briefcase className='w-3 h-3 text-amber-200 shrink-0' />
-                  <span
-                    className='text-xs font-semibold text-white/90 truncate max-w-35'
-                    title={e.summary}
-                  >
+                  <span className='text-xs font-semibold text-white/90 truncate' title={e.summary}>
                     {e.summary}
                   </span>
                 </div>
@@ -199,12 +222,12 @@ export const CalendarWidget = () => {
             </div>
           )}
 
-          {/* KÖVETKEZŐ */}
+          {/* KÖVETKEZŐ ESEMÉNYEK */}
           {nextEvent ? (
             <div className='flex flex-col gap-3'>
               <EventRow event={nextEvent} type='next' />
               {futureEvents.length > 0 && (
-                <div className='flex flex-col gap-2 mt-1 pl-1'>
+                <div className='flex flex-col gap-2 mt-1'>
                   {futureEvents.map((e) => (
                     <EventRow key={e.id} event={e} type='future' />
                   ))}

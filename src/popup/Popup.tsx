@@ -51,7 +51,11 @@ function PopupForm({
 
         if (res.ok) {
           const data = await res.json();
-          setAvailableCals(data.items || []);
+          const normalizedItems = (data.items || []).map(
+            (cal: CalendarListEntry & { primary: boolean }) =>
+              cal.primary ? { ...cal, id: 'primary' } : cal,
+          );
+          setAvailableCals(normalizedItems);
         } else {
           const errText = await res.text();
           console.error('API hiba:', errText);
@@ -206,7 +210,7 @@ function PopupForm({
         {calError && <p className='text-[10px] text-red-400'>{calError}</p>}
 
         {availableCals.length > 0 ? (
-          <div className='flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-2 custom-scrollbar'>
+          <div className='flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent'>
             {availableCals.map((cal) => (
               <label
                 key={cal.id}

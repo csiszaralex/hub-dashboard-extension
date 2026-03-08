@@ -3,22 +3,40 @@ import {
   CloudDrizzle,
   CloudFog,
   CloudLightning,
+  CloudMoon,
   CloudRain,
   CloudSnow,
+  CloudSun,
+  Moon,
   Sun,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-export const getWeatherIcon = (code: number): ReactNode => {
+export const getWeatherIcon = (code: number, isDaytime: boolean = true): ReactNode => {
   // WMO Weather interpretation codes (https://open-meteo.com/en/docs)
-  if (code === 0 || code === 1) return <Sun className='w-5 h-5 text-yellow-400' />;
-  if (code === 2 || code === 3) return <Cloud className='w-5 h-5 text-gray-200' />;
-  if (code >= 45 && code <= 48) return <CloudFog className='w-5 h-5 text-gray-400' />;
-  if (code >= 51 && code <= 55) return <CloudDrizzle className='w-5 h-5 text-blue-200' />;
-  if (code >= 61 && code <= 86) return <CloudRain className='w-5 h-5 text-blue-400' />;
-  if (code >= 71 && code <= 77) return <CloudSnow className='w-5 h-5 text-white' />;
-  if (code >= 95 && code <= 99) return <CloudLightning className='w-5 h-5 text-yellow-600' />;
-  return <Sun className='w-5 h-5' />;
+  const size = 'w-7 h-7';
+
+  if (code === 0) {
+    return isDaytime ? (
+      <Sun className={`${size} text-yellow-400`} />
+    ) : (
+      <Moon className={`${size} text-indigo-200`} />
+    );
+  }
+  if (code === 1 || code === 2) {
+    return isDaytime ? (
+      <CloudSun className={`${size} text-yellow-400`} />
+    ) : (
+      <CloudMoon className={`${size} text-indigo-200`} />
+    );
+  }
+  if (code === 3) return <Cloud className={`${size} text-gray-200`} />;
+  if (code >= 45 && code <= 48) return <CloudFog className={`${size} text-gray-400`} />;
+  if (code >= 51 && code <= 55) return <CloudDrizzle className={`${size} text-blue-200`} />;
+  if (code >= 61 && code <= 86) return <CloudRain className={`${size} text-blue-400`} />;
+  if (code >= 71 && code <= 77) return <CloudSnow className={`${size} text-white`} />;
+  if (code >= 95 && code <= 99) return <CloudLightning className={`${size} text-yellow-600`} />;
+  return isDaytime ? <Sun className={`${size}`} /> : <Moon className={`${size}`} />;
 };
 
 export const getWeatherDescription = (code: number): string => {

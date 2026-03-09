@@ -52,6 +52,7 @@ function App() {
 
         <CalendarWidget />
         <WeatherWidget />
+        {/* If uncomment add topSites to manifest.json */}
         {/* <TopSitesWidget /> */}
         <QuickNote />
 

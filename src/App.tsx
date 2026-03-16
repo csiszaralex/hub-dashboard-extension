@@ -22,7 +22,9 @@ function App() {
   return (
     <main
       className='relative w-screen h-screen flex flex-col items-center justify-center text-white bg-cover bg-center transition-all duration-1000 overflow-hidden'
-      style={{ backgroundImage: `url(${bgData.url})` }}
+      style={{
+        backgroundImage: `url(${!navigator.onLine && bgData.localImage ? bgData.localImage : bgData.url})`,
+      }}
       onDoubleClick={() => setUiVisible(!uiVisible)}
     >
       <div

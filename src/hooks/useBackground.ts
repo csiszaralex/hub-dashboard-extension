@@ -4,6 +4,7 @@ import { useSettings } from './useSettings';
 
 export interface BackgroundData {
   url: string;
+  localImage?: string;
   location?: string;
   photographer: string;
   photographerUrl: string;
@@ -41,8 +42,23 @@ export const useBackground = () => {
         const data = await res.json();
         const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
 
+        let localImageBase64 = undefined;
+        try {
+          const imgRes = await fetch(highResUrl);
+          const blob = await imgRes.blob();
+          localImageBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error('Failed to cache image locally:', e);
+        }
+
         const newBgData: BackgroundData = {
           url: highResUrl,
+          localImage: localImageBase64,
           location: data.location?.name || null,
           photographer: data.user.name,
           photographerUrl: data.links.html,

@@ -109,7 +109,10 @@ const EventRow = ({ event, state }: EventRowProps) => {
 
 export const CalendarWidget = () => {
   const { settings, isLoaded: settingsLoaded } = useSettings();
-  const { events, signedIn, login, loading } = useCalendar(settings.selectedCalendars);
+  const { events, signedIn, login, loading } = useCalendar(
+    settings.selectedCalendars,
+    settingsLoaded,
+  );
 
   const { currentEvents, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
     const now = new Date();

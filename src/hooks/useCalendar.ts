@@ -21,7 +21,10 @@ export interface CalendarEvent {
   calendarColor?: string;
 }
 
-export const useCalendar = (selectedCalendars: string[] = ['primary']) => {
+export const useCalendar = (
+  selectedCalendars: string[] = ['primary'],
+  isSettingsLoaded: boolean = true,
+) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -91,17 +94,34 @@ export const useCalendar = (selectedCalendars: string[] = ['primary']) => {
   );
 
   useEffect(() => {
+    if (!isSettingsLoaded) return;
+
     setLoading(true);
-    chrome.identity.getAuthToken({ interactive: false }, (token: string) => {
-      if (chrome.runtime.lastError || !token) {
-        setSignedIn(false);
-        setLoading(false);
-      } else {
-        setSignedIn(true);
-        fetchEvents(token);
-      }
-    });
-  }, [fetchEvents]);
+
+    const checkAuthAndFetch = () => {
+      chrome.identity.getAuthToken({ interactive: false }, (token: string) => {
+        if (chrome.runtime.lastError || !token) {
+          setSignedIn(false);
+          setLoading(false);
+        } else {
+          setSignedIn(true);
+          fetchEvents(token);
+        }
+      });
+    };
+
+    checkAuthAndFetch();
+
+    // Refresh calendar every 30 minutes
+    const interval = setInterval(
+      () => {
+        checkAuthAndFetch();
+      },
+      30 * 60 * 1000,
+    );
+
+    return () => clearInterval(interval);
+  }, [fetchEvents, isSettingsLoaded]);
 
   const login = () => {
     setLoading(true);

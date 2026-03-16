@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
+import { CountdownWidget } from './components/CountdownWidget';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
 import { UnsplashKeyPrompt } from './components/UnsplashKeyPrompt';
@@ -47,6 +48,11 @@ function App() {
           ${uiVisible ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-sm scale-105 pointer-events-none'}
         `}
       >
+        {/* FELSŐ KÖZÉPSŐ SÁV - Visszaszámláló */}
+        <div className='absolute top-10 left-1/2 -translate-x-1/2'>
+          <CountdownWidget />
+        </div>
+
         <div className='flex flex-col items-center gap-6 mb-10'>
           <Clock />
           <QuoteWidget />

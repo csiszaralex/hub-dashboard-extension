@@ -27,6 +27,7 @@ function PopupForm({
   const [query, setQuery] = useState(initialSettings.unsplashQuery);
   const [city, setCity] = useState(initialSettings.locationCity);
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
+  const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
 
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,6 +122,7 @@ function PopupForm({
       locationLat: lat,
       locationLon: lon,
       selectedCalendars: selectedCals,
+      countdownTarget: countdownTarget || null,
     });
 
     setLoading(false);
@@ -191,6 +193,25 @@ function PopupForm({
             Üresen hagyva automatikus GPS/IP alapján.
           </p>
         )}
+      </div>
+
+      <div className='flex flex-col gap-1.5'>
+        <label
+          htmlFor='countdownTarget'
+          className='text-xs font-medium text-white/70 uppercase tracking-wider'
+        >
+          Visszaszámláló Célidőpont
+        </label>
+        <input
+          id='countdownTarget'
+          type='datetime-local'
+          value={countdownTarget}
+          onChange={(e) => setCountdownTarget(e.target.value)}
+          className='px-3 py-2 rounded-md bg-zinc-900 border border-white/10 focus:outline-none focus:border-white/30 transition-colors text-sm text-white [color-scheme:dark]'
+        />
+        <p className='text-[10px] text-white/40 mt-1'>
+          Adjon meg egy jövőbeli időpontot. Ha az idő letelik, a számláló eltűnik.
+        </p>
       </div>
 
       <div className='flex flex-col gap-2 border-t border-white/10 pt-4'>

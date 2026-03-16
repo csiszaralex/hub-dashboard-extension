@@ -200,6 +200,16 @@ export const useWeather = () => {
 
   useEffect(() => {
     fetchWeather(false);
+
+    // Refresh weather every 30 minutes
+    const interval = setInterval(
+      () => {
+        fetchWeather(true);
+      },
+      30 * 60 * 1000,
+    );
+
+    return () => clearInterval(interval);
   }, [fetchWeather]);
 
   return { data, loading, refresh: () => fetchWeather(true) };

@@ -30,3 +30,7 @@ A customizable new-tab dashboard built as a browser extension. It surfaces time,
 - Vite
 - Tailwind CSS
 - CRXJS extension tooling
+
+## Privacy Policy
+
+See the privacy policy [here](./privacy-policy.md).

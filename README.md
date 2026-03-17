@@ -33,4 +33,4 @@ A customizable new-tab dashboard built as a browser extension. It surfaces time,
 
 ## Privacy Policy
 
-See the privacy policy [here](./privacy-policy.md).
+See the privacy policy here: [privacy policy](./privacy-policy.md).

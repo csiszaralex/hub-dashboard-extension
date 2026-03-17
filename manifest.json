@@ -2,7 +2,6 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtzJTrIy7/QjzcowUnT/4q1P5CcbcTiM/n8aYTXpmRYfj7ZfkgMNtkN/MuehWLjZZ832IZLlqfU+QNzq74ium6lsFMtmqX3yYSDfg6nIqSRasI6IEFIob0acGM+awDqTNt0hRyt7imdEzsSETnGJmNy//TF+AwIdwBuxBLKAi/0X41bWaDDRlJ2QigoIZ1Hcq9slQBR8sDxGS3kjyTTE9waLOYhSfSWBEe4bEbmrpzLvROgptS8kQxeeTlFC3GFHgGDL6pJE183e+BHoGKMUGx1mucuJnuOPcV9FscLAuONd5qRsrqKuSE6pmABrsdoyrjG+bg/wXqI2eVf+0DcaEQwIDAQAB",
   "name": "Hub",
-  "version": "1.0.0",
   "description": "Minimalist dashboard focused on clarity.",
   "icons": {
     "16": "icons/icon16.png",
@@ -28,9 +27,5 @@
     "https://api.unsplash.com/*",
     "https://stoic.tekloon.net/stoic-quote",
     "https://www.googleapis.com/*"
-  ],
-  "oauth2": {
-    "client_id": "617448524668-9afd8s3r7bm0ckg2h50pc38hoq4cbar1.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/calendar.readonly"]
-  }
+  ]
 }

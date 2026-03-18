@@ -26,7 +26,7 @@ jobs:
         run: pnpm install
 
       - name: Build and Pack
-        run: pnpm pack
+        run: pnpm run pack
 
       - name: Upload to Chrome Web Store
         uses: mnao305/chrome-extension-upload@v5.0.0

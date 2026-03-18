@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/csiszaralex/hub-dashboard-extension/compare/v1.1.0...v1.1.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* edit github action location ([2e729b3](https://github.com/csiszaralex/hub-dashboard-extension/commit/2e729b377ebb09e5ae04a796f9f97a9cf60b1c89))
+
 # 1.1.0 (2026-03-18)
 
 

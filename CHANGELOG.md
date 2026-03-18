@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/csiszaralex/hub-dashboard-extension/compare/v1.1.1...v1.1.2) (2026-03-18)
+
+
+### Bug Fixes
+
+* correct command for building and packing the extension ([6248541](https://github.com/csiszaralex/hub-dashboard-extension/commit/62485415aac3ac5d19e3ef260314ccbdc211c658))
+
 ## [1.1.1](https://github.com/csiszaralex/hub-dashboard-extension/compare/v1.1.0...v1.1.1) (2026-03-18)
 
 

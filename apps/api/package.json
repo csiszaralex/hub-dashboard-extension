@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hub/shared": "workspace:^",
     "hono": "^4.12.8"
   },
   "devDependencies": {
@@ -17,4 +18,3 @@
     "wrangler": "^4.76.0"
   }
 }
-

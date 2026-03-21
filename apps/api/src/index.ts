@@ -1,18 +1,12 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Photo } from './types';
+import { BackgroundData } from '@hub/shared';
 
 type Bindings = {
   UNSPLASH_CACHE: KVNamespace;
   UNSPLASH_ACCESS_KEY: string; // Ezt secretként fogjuk felvenni
 };
-
-interface BackgroundData {
-  url: string;
-  location: string | null;
-  photographer: string;
-  photographerUrl: string;
-}
 
 const app = new Hono<{ Bindings: Bindings }>();
 

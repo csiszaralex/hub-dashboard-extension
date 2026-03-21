@@ -1,3 +1,17 @@
+# 1.0.0 (2026-03-21)
+
+### 🚀 Features
+
+- ⚠️  **api:** add GitHub Actions workflow for API deployment to Cloudflare ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
+
+### ⚠️  Breaking Changes
+
+- **api:** add GitHub Actions workflow for API deployment to Cloudflare  ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 ## 0.1.0 (2026-03-21)
 
 ### 🚀 Features

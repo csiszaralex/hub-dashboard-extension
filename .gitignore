@@ -32,6 +32,8 @@ thumbs.db
 
 extension-release.zip
 .nx
+.dev.vars
+.wrangler
 
 .claude/worktrees
 .claude/settings.local.json

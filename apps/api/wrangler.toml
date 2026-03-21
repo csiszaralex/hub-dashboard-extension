@@ -1,0 +1,7 @@
+name = "hub-api"
+compatibility_date = "2024-03-20"
+
+[[kv_namespaces]]
+binding = "UNSPLASH_CACHE"
+id = "a3a6ba1a2f0b49ffb5b34beb9f32af9c"
+preview_id = "1a8f624136ed488e975f693be485f1eb"

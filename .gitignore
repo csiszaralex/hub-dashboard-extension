@@ -31,3 +31,7 @@ build/
 thumbs.db
 
 extension-release.zip
+.nx
+
+.claude/worktrees
+.claude/settings.local.json

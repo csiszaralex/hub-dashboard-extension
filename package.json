@@ -1,0 +1,14 @@
+{
+  "name": "hub",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "husky": "^9.1.7",
+    "nx": "latest"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

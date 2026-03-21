@@ -1,3 +1,32 @@
+## 1.3.1 (2026-03-21)
+
+### 🚀 Features
+
+- **shared:** create shared package with BackgroundData interface and configuration ([a91cb42](https://github.com/csiszaralex/hub-dashboard-extension/commit/a91cb42))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.0
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
+## 1.3.0 (2026-03-21)
+
+### 🚀 Features
+
+- add ESLint configuration and update .gitignore for new files ([ff75ecf](https://github.com/csiszaralex/hub-dashboard-extension/commit/ff75ecf))
+- move structure to app/extension folder ([995196d](https://github.com/csiszaralex/hub-dashboard-extension/commit/995196d))
+
+### 🩹 Fixes
+
+- update tsconfig to include correct source directory ([5b298d5](https://github.com/csiszaralex/hub-dashboard-extension/commit/5b298d5))
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 # Changelog
 
 ## [1.1.2](https://github.com/csiszaralex/hub-dashboard-extension/compare/v1.1.1...v1.1.2) (2026-03-18)

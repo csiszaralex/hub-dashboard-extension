@@ -9,6 +9,7 @@
     },
     "version": {
       "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
       "specifierSource": "conventional-commits"
     },
     "changelog": {

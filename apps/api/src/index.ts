@@ -1,7 +1,7 @@
+import { BackgroundData } from '@hub/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Photo } from './types';
-import { BackgroundData } from '@hub/shared';
 
 type Bindings = {
   UNSPLASH_CACHE: KVNamespace;
@@ -13,7 +13,7 @@ const app = new Hono<{ Bindings: Bindings }>();
 app.use('/api/*', cors());
 
 app.get('/api/background', async (c) => {
-  const rawTags = c.req.query('tags') || 'landscape,nature';
+  const rawTags = c.req.query('tags') || 'landscape,forest,mountain,fog,nature view';
   const normalizedTags = rawTags
     .split(',')
     .map((tag) => tag.trim().toLowerCase())

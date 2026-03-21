@@ -7,6 +7,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/config-nx-scopes": "^20.5.0",
     "@nx/js": "^22.6.1",
     "husky": "^9.1.7",
     "nx": "latest"

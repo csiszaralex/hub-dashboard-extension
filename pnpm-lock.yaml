@@ -14,6 +14,9 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^20.5.0
         version: 20.5.0
+      '@commitlint/config-nx-scopes':
+        specifier: ^20.5.0
+        version: 20.5.0(nx@22.6.1)
       '@nx/js':
         specifier: ^22.6.1
         version: 22.6.1(@babel/traverse@7.29.0)(nx@22.6.1)
@@ -656,6 +659,15 @@ packages:
   '@commitlint/config-conventional@20.5.0':
     resolution: {integrity: sha512-t3Ni88rFw1XMa4nZHgOKJ8fIAT9M2j5TnKyTqJzsxea7FUetlNdYFus9dz+MhIRZmc16P0PPyEfh6X2d/qw8SA==}
     engines: {node: '>=v18'}
+
+  '@commitlint/config-nx-scopes@20.5.0':
+    resolution: {integrity: sha512-By4+g43Io7kby70InfCS94DX0hGoJUgVeW2VrZzNDe4ZVsmeN34GTyCVOAo59O1f+2e+rvgrUY732iw1V1v5Tw==}
+    engines: {node: '>=v18'}
+    peerDependencies:
+      nx: '>=14.0.0'
+    peerDependenciesMeta:
+      nx:
+        optional: true
 
   '@commitlint/config-validator@20.5.0':
     resolution: {integrity: sha512-T/Uh6iJUzyx7j35GmHWdIiGRQB+ouZDk0pwAaYq4SXgB54KZhFdJ0vYmxiW6AMYICTIWuyMxDBl1jK74oFp/Gw==}
@@ -4444,6 +4456,12 @@ snapshots:
     dependencies:
       '@commitlint/types': 20.5.0
       conventional-changelog-conventionalcommits: 9.3.0
+
+  '@commitlint/config-nx-scopes@20.5.0(nx@22.6.1)':
+    dependencies:
+      '@commitlint/types': 20.5.0
+    optionalDependencies:
+      nx: 22.6.1
 
   '@commitlint/config-validator@20.5.0':
     dependencies:

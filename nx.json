@@ -8,15 +8,15 @@
       "commitMessage": "chore(release): publish {projectName} {version} [skip ci]"
     },
     "version": {
-      "generatorOptions": {
-        "currentVersionResolver": "git-tag",
-        "specifierSource": "conventional-commits"
-      }
+      "currentVersionResolver": "git-tag",
+      "specifierSource": "conventional-commits"
     },
     "changelog": {
       "projectChangelogs": {
         "createRelease": "github"
       }
     }
-  }
+  },
+  "analytics": false
 }
+

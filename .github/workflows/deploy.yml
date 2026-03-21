@@ -25,8 +25,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and Pack
-        # run: pnpm run pack
-        run: npx nx run extension:pack
+        run: pnpm nx run extension:pack
 
       - name: Upload to Chrome Web Store
         uses: mnao305/chrome-extension-upload@v5.0.0

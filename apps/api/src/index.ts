@@ -12,7 +12,6 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/api/*', cors());
 
-
 app.get('/api/background', async (c) => {
   const rawTags = c.req.query('tags') || 'landscape,forest,mountain,fog,nature view';
   const normalizedTags = rawTags

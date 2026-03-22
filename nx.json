@@ -5,7 +5,7 @@
     "projects": ["*"],
     "projectsRelationship": "independent",
     "git": {
-      "commitMessage": "chore(release): publish {projectName} {version} [skip ci]"
+      "commitMessage": "chore(release): publish {projectName} {version}"
     },
     "version": {
       "currentVersionResolver": "git-tag",

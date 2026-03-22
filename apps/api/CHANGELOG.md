@@ -1,3 +1,17 @@
+## 1.0.4 (2026-03-22)
+
+### 🩹 Fixes
+
+- **api:** remove [skip ci] from commit message template ([7f19a28](https://github.com/csiszaralex/hub-dashboard-extension/commit/7f19a28))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.1
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 ## 1.0.3 (2026-03-22)
 
 ### 🩹 Fixes

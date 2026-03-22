@@ -1,3 +1,9 @@
+## 1.3.2 (2026-03-22)
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.1
+
 ## 1.3.1 (2026-03-21)
 
 ### 🚀 Features

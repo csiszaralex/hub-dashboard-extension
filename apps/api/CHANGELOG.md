@@ -1,3 +1,13 @@
+## 1.0.1 (2026-03-22)
+
+### 🩹 Fixes
+
+- **api:** add blank line for trigger action ([ae23074](https://github.com/csiszaralex/hub-dashboard-extension/commit/ae23074))
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 # 1.0.0 (2026-03-21)
 
 ### 🚀 Features

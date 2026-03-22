@@ -1,3 +1,13 @@
+## 1.0.2 (2026-03-22)
+
+### 🩹 Fixes
+
+- **api:** remove unnecessary blank line to trigger action ([cc8fc22](https://github.com/csiszaralex/hub-dashboard-extension/commit/cc8fc22))
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 ## 1.0.1 (2026-03-22)
 
 ### 🩹 Fixes

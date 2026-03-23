@@ -6,13 +6,12 @@ import { Clock } from './components/Clock';
 import { CountdownWidget } from './components/CountdownWidget';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
-import { UnsplashKeyPrompt } from './components/UnsplashKeyPrompt';
 import { WeatherWidget } from './components/WeatherWidget';
 import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
 
 function App() {
-  const { settings, isLoaded, saveSettings } = useSettings();
+  const { isLoaded } = useSettings();
   const { bgData, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
 
@@ -33,14 +32,6 @@ function App() {
           uiVisible ? 'opacity-100' : 'opacity-0'
         }`}
       />
-
-      {!settings.unsplashKey && (
-        <UnsplashKeyPrompt
-          onSave={(key: string) => {
-            saveSettings({ unsplashKey: key });
-          }}
-        />
-      )}
 
       <div
         className={`
@@ -69,7 +60,7 @@ function App() {
           {/* HÁTTÉR FRISSÍTŐ GOMB */}
           <button
             onClick={() => refreshBackground()}
-            disabled={bgLoading || !settings.unsplashKey}
+            disabled={bgLoading}
             className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
             title='Új háttérkép kérése'
           >
@@ -85,4 +76,3 @@ function App() {
 }
 
 export default App;
-

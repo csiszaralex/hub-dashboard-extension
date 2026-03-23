@@ -1,5 +1,5 @@
+import type { BackgroundData } from '@hub/shared';
 import { Camera, MapPin } from 'lucide-react';
-import type { BackgroundData } from '../hooks/useBackground';
 
 interface Props {
   data: BackgroundData;

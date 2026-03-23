@@ -24,7 +24,7 @@
     "https://api.open-meteo.com/*",
     "https://api.bigdatacloud.net/*",
     "https://images.unsplash.com/*",
-    "https://api.unsplash.com/*",
+    "https://hub-api.csiszaralex.workers.dev/*",
     "https://stoic.tekloon.net/stoic-quote",
     "https://www.googleapis.com/*"
   ]

@@ -1,16 +1,11 @@
+import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
-export interface BackgroundData {
-  url: string;
-  localImage?: string;
-  location?: string;
-  photographer: string;
-  photographerUrl: string;
-}
-
 const CACHE_KEY = 'daily_bg_data';
+const WORKER_URL = 'https://hub-api.csiszaralex.workers.dev/api/background';
+
 const DEFAULT_BG: BackgroundData = {
   url: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop',
   location: 'Völgy a hegyekben',
@@ -18,10 +13,27 @@ const DEFAULT_BG: BackgroundData = {
   photographerUrl: '',
 };
 
+const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error('Failed to cache image locally:', e);
+    return undefined;
+  }
+};
+
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);
   const prevQueryRef = useRef(settings.unsplashQuery);
+
   const [bgData, setBgData] = useState<BackgroundData>(() => {
     const cached = getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current);
     return cached || DEFAULT_BG;
@@ -29,39 +41,25 @@ export const useBackground = () => {
 
   const fetchNewImage = useCallback(
     async (force = false, currentQuery = settings.unsplashQuery) => {
-      if (!settings.unsplashKey) return;
-      if (!force && getDailyData(CACHE_KEY, prevQueryRef.current)) return;
+      if (!force && getDailyData(CACHE_KEY, currentQuery)) return;
 
       setLoading(true);
       try {
-        const res = await fetch(
-          `https://api.unsplash.com/photos/random?orientation=landscape&query=${currentQuery}&client_id=${settings.unsplashKey}&t=${Date.now()}`,
-        );
-        if (!res.ok) throw new Error('Unsplash API error');
-
-        const data = await res.json();
-        const highResUrl = `${data.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`;
-
-        let localImageBase64 = undefined;
-        try {
-          const imgRes = await fetch(highResUrl);
-          const blob = await imgRes.blob();
-          localImageBase64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        } catch (e) {
-          console.error('Failed to cache image locally:', e);
+        const url = new URL(WORKER_URL);
+        if (currentQuery) {
+          url.searchParams.set('tags', currentQuery);
         }
 
+        const res = await fetch(url.toString());
+        if (!res.ok) throw new Error('Worker API error');
+
+        const data: BackgroundData = await res.json();
+
+        const localImageBase64 = await fetchImageAsBase64(data.url);
+
         const newBgData: BackgroundData = {
-          url: highResUrl,
+          ...data,
           localImage: localImageBase64,
-          location: data.location?.name || null,
-          photographer: data.user.name,
-          photographerUrl: data.links.html,
         };
 
         setDailyData(CACHE_KEY, newBgData, currentQuery);
@@ -72,23 +70,22 @@ export const useBackground = () => {
         setLoading(false);
       }
     },
-    [settings.unsplashKey, settings.unsplashQuery],
+    [settings.unsplashQuery],
   );
 
   useEffect(() => {
-    if (!isLoaded || !settings.unsplashKey) return;
+    if (!isLoaded) return;
 
     const forceUpdate = prevQueryRef.current !== settings.unsplashQuery;
     fetchNewImage(forceUpdate, settings.unsplashQuery);
 
     prevQueryRef.current = settings.unsplashQuery;
-  }, [fetchNewImage, isLoaded, settings.unsplashKey, settings.unsplashQuery]);
+  }, [fetchNewImage, isLoaded, settings.unsplashQuery]);
 
   return {
     bgData,
-    refreshBackground: () => fetchNewImage(true),
+    refreshBackground: () => fetchNewImage(true, settings.unsplashQuery),
     loading,
-    hasKey: !!settings.unsplashKey,
     isSettingsLoaded: isLoaded,
   };
 };

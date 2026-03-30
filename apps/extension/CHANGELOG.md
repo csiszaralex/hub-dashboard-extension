@@ -1,3 +1,17 @@
+## 2.1.0 (2026-03-30)
+
+### 🚀 Features
+
+- **extension:** implement Whats New modal and changelog integration ([054a7bf](https://github.com/csiszaralex/hub-dashboard-extension/commit/054a7bf))
+
+### 🩹 Fixes
+
+- **repo:** make package.json files consistent ([4a937f5](https://github.com/csiszaralex/hub-dashboard-extension/commit/4a937f5))
+
+### ❤️ Thank You
+
+- Alex Csiszar
+
 # 2.0.0 (2026-03-23)
 
 Edit background module to use proxy hub api instead of direct call to unsplash.

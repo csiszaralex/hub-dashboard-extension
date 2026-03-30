@@ -1,9 +1,27 @@
 import { crx } from '@crxjs/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 import packageJson from './package.json' with { type: 'json' };
 import baseManifest from './manifest.json' with { type: 'json' };
+
+const getChangelogSection = (version: string): string => {
+  const raw = readFileSync('./CHANGELOG.md', 'utf-8');
+  const verRegex = new RegExp(`^#{1,3}\\s+\\[?${version.replace(/\./g, '\\.')}\\]?`);
+  const anyVerRegex = /^#{1,3}\s+[[\d]/;
+  let capturing = false;
+  const lines: string[] = [];
+  for (const line of raw.split('\n')) {
+    if (!capturing) {
+      if (verRegex.test(line)) capturing = true;
+    } else {
+      if (anyVerRegex.test(line) && !verRegex.test(line)) break;
+      lines.push(line);
+    }
+  }
+  return lines.join('\n').trim();
+};
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -22,6 +40,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss(), crx({ manifest })],
+    define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version),
+      __CHANGELOG__: JSON.stringify(getChangelogSection(packageJson.version)),
+    },
     esbuild: {
       drop: ['console', 'debugger'],
     },

@@ -8,10 +8,6 @@
 
 - **repo:** make package.json files consistent ([4a937f5](https://github.com/csiszaralex/hub-dashboard-extension/commit/4a937f5))
 
-### ❤️ Thank You
-
-- Alex Csiszar
-
 # 2.0.0 (2026-03-23)
 
 Edit background module to use proxy hub api instead of direct call to unsplash.
@@ -32,10 +28,6 @@ Edit background module to use proxy hub api instead of direct call to unsplash.
 
 - Updated @hub/shared to 0.1.0
 
-### ❤️ Thank You
-
-- Alex Csiszar
-
 ## 1.3.0 (2026-03-21)
 
 ### 🚀 Features
@@ -46,12 +38,6 @@ Edit background module to use proxy hub api instead of direct call to unsplash.
 ### 🩹 Fixes
 
 - update tsconfig to include correct source directory ([5b298d5](https://github.com/csiszaralex/hub-dashboard-extension/commit/5b298d5))
-
-### ❤️ Thank You
-
-- Alex Csiszar
-
-# Changelog
 
 ## [1.1.2](https://github.com/csiszaralex/hub-dashboard-extension/compare/v1.1.1...v1.1.2) (2026-03-18)
 
@@ -65,7 +51,7 @@ Edit background module to use proxy hub api instead of direct call to unsplash.
 
 - edit github action location ([2e729b3](https://github.com/csiszaralex/hub-dashboard-extension/commit/2e729b377ebb09e5ae04a796f9f97a9cf60b1c89))
 
-# 1.1.0 (2026-03-18)
+## 1.1.0 (2026-03-18)
 
 ### Bug Fixes
 

@@ -12,19 +12,11 @@ This was a version bump only for api to align it with other projects, there were
 
 - Updated @hub/shared to 0.1.1
 
-### ❤️ Thank You
-
-- Alex Csiszar
-
 ## 1.0.3 (2026-03-22)
 
 ### 🩹 Fixes
 
 - **api:** add blank line for trigger action ([808154d](https://github.com/csiszaralex/hub-dashboard-extension/commit/808154d))
-
-### ❤️ Thank You
-
-- Alex Csiszar
 
 ## 1.0.2 (2026-03-22)
 
@@ -32,33 +24,21 @@ This was a version bump only for api to align it with other projects, there were
 
 - **api:** remove unnecessary blank line to trigger action ([cc8fc22](https://github.com/csiszaralex/hub-dashboard-extension/commit/cc8fc22))
 
-### ❤️ Thank You
-
-- Alex Csiszar
-
 ## 1.0.1 (2026-03-22)
 
 ### 🩹 Fixes
 
 - **api:** add blank line for trigger action ([ae23074](https://github.com/csiszaralex/hub-dashboard-extension/commit/ae23074))
 
-### ❤️ Thank You
-
-- Alex Csiszar
-
 # 1.0.0 (2026-03-21)
 
 ### 🚀 Features
 
-- ⚠️  **api:** add GitHub Actions workflow for API deployment to Cloudflare ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
+- ⚠️ **api:** add GitHub Actions workflow for API deployment to Cloudflare ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
 
-### ⚠️  Breaking Changes
+### ⚠️ Breaking Changes
 
-- **api:** add GitHub Actions workflow for API deployment to Cloudflare  ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
-
-### ❤️ Thank You
-
-- Alex Csiszar
+- **api:** add GitHub Actions workflow for API deployment to Cloudflare ([27db0be](https://github.com/csiszaralex/hub-dashboard-extension/commit/27db0be))
 
 ## 0.1.0 (2026-03-21)
 
@@ -71,6 +51,3 @@ This was a version bump only for api to align it with other projects, there were
 
 - Updated @hub/shared to 0.1.0
 
-### ❤️ Thank You
-
-- Alex Csiszar

@@ -11,6 +11,7 @@ import {
   Sun,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import i18n from '../i18n/i18n';
 
 export const getWeatherIcon = (code: number, isDaytime: boolean = true): ReactNode => {
   // WMO Weather interpretation codes (https://open-meteo.com/en/docs)
@@ -40,25 +41,6 @@ export const getWeatherIcon = (code: number, isDaytime: boolean = true): ReactNo
 };
 
 export const getWeatherDescription = (code: number): string => {
-  // Egyszerűsített mapping magyarul
-  const map: Record<number, string> = {
-    0: 'Tiszta égbolt',
-    1: 'Túlnyomóan derűs',
-    2: 'Változóan felhős',
-    3: 'Borult',
-    45: 'Köd',
-    48: 'Zúzmarás köd',
-    51: 'Szitálás',
-    53: 'Mérsékelt szitálás',
-    55: 'Sűrű szitálás',
-    61: 'Gyenge eső',
-    63: 'Eső',
-    65: 'Heves eső',
-    71: 'Hószállingózás',
-    73: 'Havazás',
-    75: 'Erős havazás',
-    95: 'Zivatar',
-    96: 'Zivatar jégesővel',
-  };
-  return map[code] || 'Ismeretlen';
+  const descriptions = i18n.t('weather.codes', { returnObjects: true }) as Record<string, string>;
+  return descriptions[String(code)] ?? i18n.t('weather.unknown');
 };

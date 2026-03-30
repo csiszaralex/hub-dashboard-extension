@@ -1,4 +1,5 @@
 import { Sparkles, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const GithubIcon = () => (
   <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4'>
@@ -53,6 +54,7 @@ const stripMarkdown = (text: string): string =>
     .trim();
 
 export const WhatsNewModal = ({ version, onClose }: Props) => {
+  const { t } = useTranslation();
   const sections = parseSections(__CHANGELOG__);
   const hasSections = sections.length > 0;
 
@@ -62,7 +64,7 @@ export const WhatsNewModal = ({ version, onClose }: Props) => {
       <div className='flex items-center justify-between gap-6'>
         <div className='flex items-center gap-2.5'>
           <Sparkles className='w-4 h-4 text-white/60 shrink-0' />
-          <span className='text-xs text-white/50 uppercase tracking-widest'>Frissítve</span>
+          <span className='text-xs text-white/50 uppercase tracking-widest'>{t('whatsNew.updated')}</span>
           <span className='text-sm font-bold text-white/90'>v{version}</span>
           <a
             href='https://github.com/csiszaralex/hub-dashboard-extension'

@@ -1,17 +1,13 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import i18n from '../i18n/i18n';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
 const WORKER_URL = 'https://hub-api.csiszaralex.workers.dev/api/background';
-
-const DEFAULT_BG: BackgroundData = {
-  url: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop',
-  location: 'Völgy a hegyekben',
-  photographer: 'Ismeretlen',
-  photographerUrl: '',
-};
+const DEFAULT_BG_URL =
+  'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop';
 
 const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
   try {
@@ -35,8 +31,14 @@ export const useBackground = () => {
   const prevQueryRef = useRef(settings.unsplashQuery);
 
   const [bgData, setBgData] = useState<BackgroundData>(() => {
-    const cached = getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current);
-    return cached || DEFAULT_BG;
+    return (
+      getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current) || {
+        url: DEFAULT_BG_URL,
+        location: i18n.t('background.defaultLocation'),
+        photographer: i18n.t('background.unknownPhotographer'),
+        photographerUrl: '',
+      }
+    );
   });
 
   const fetchNewImage = useCallback(

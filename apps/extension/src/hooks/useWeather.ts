@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import i18n from '../i18n/i18n';
 import { useSettings } from './useSettings';
 
 export interface RainData {
@@ -127,7 +128,7 @@ export const useWeather = () => {
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset&timezone=auto`,
         );
 
-        let city = 'Helyi időjárás';
+        let city = i18n.t('weather.localWeather');
         let cityPromise: Promise<{ city?: string; locality?: string } | null> | null = null;
 
         if (source === 'settings' && settings.locationCity) {

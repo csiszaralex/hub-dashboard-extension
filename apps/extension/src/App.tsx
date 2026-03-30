@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
@@ -17,6 +18,7 @@ function App() {
   const { bgData, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
+  const { t } = useTranslation();
 
   if (!isLoaded) {
     return <div className='w-screen h-screen bg-black' />;
@@ -69,7 +71,7 @@ function App() {
             onClick={() => refreshBackground()}
             disabled={bgLoading}
             className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
-            title='Új háttérkép kérése'
+            title={t('app.newBackground')}
           >
             <RefreshCw
               className={`w-4 h-4 text-white/70 group-hover:text-white ${bgLoading ? 'animate-spin' : ''}`}

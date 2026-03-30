@@ -1,5 +1,6 @@
 import { Edit3, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNote } from '../hooks/useNote';
 
 export const QuickNote = () => {
@@ -7,8 +8,8 @@ export const QuickNote = () => {
   const { note, setNote } = useNote();
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation();
 
-  // Bezárás, ha kívülre kattintasz (Click Outside logic)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -18,7 +19,6 @@ export const QuickNote = () => {
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      // Fókusz a textarea-ra nyitáskor
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
 
@@ -27,7 +27,7 @@ export const QuickNote = () => {
 
   return (
     <div ref={containerRef} className='absolute bottom-8 right-8 z-30 flex flex-col items-end'>
-      {/* --- A JEGYZET PANEL (Animált megjelenés) --- */}
+      {/* Note panel (animated appearance) */}
       <div
         className={`
           mb-4 w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right
@@ -37,12 +37,12 @@ export const QuickNote = () => {
         {/* Header */}
         <div className='flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5'>
           <span className='text-xs font-bold text-white/70 uppercase tracking-widest'>
-            Jegyzetek
+            {t('notes.title')}
           </span>
           <button
-            onClick={() => setNote('')} // Törlés
+            onClick={() => setNote('')}
             className='text-white/40 hover:text-red-400 transition-colors'
-            title='Törlés'
+            title={t('notes.delete')}
           >
             <Trash2 className='w-3.5 h-3.5' />
           </button>
@@ -53,13 +53,13 @@ export const QuickNote = () => {
           ref={textareaRef}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder='Írj valamit mára...'
+          placeholder={t('notes.placeholder')}
           className='w-full h-48 bg-transparent text-white p-4 resize-none outline-none font-sans text-sm leading-relaxed placeholder:text-white/20 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent'
           spellCheck={false}
         />
       </div>
 
-      {/* --- LEBEGŐ GOMB (Toggle) --- */}
+      {/* Floating toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`

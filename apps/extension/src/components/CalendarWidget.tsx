@@ -1,7 +1,8 @@
 import { differenceInMinutes, format, isToday, isTomorrow, parseISO } from 'date-fns';
-import { hu } from 'date-fns/locale';
+import { enUS, hu } from 'date-fns/locale';
 import { Calendar, MapPin, Video } from 'lucide-react';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCalendar, type CalendarEvent } from '../hooks/useCalendar';
 import { useSettings } from '../hooks/useSettings';
 
@@ -10,13 +11,17 @@ interface EventRowProps {
   state: 'current' | 'next' | 'future';
 }
 
-const formatEventTime = (date: Date) => {
-  if (isToday(date)) return format(date, 'HH:mm');
-  if (isTomorrow(date)) return `Holnap ${format(date, 'HH:mm')}`;
-  return format(date, 'MMM. d. HH:mm', { locale: hu });
-};
-
 const EventRow = ({ event, state }: EventRowProps) => {
+  const { t, i18n } = useTranslation();
+  const isHu = i18n.language.startsWith('hu');
+  const dateLocale = isHu ? hu : enUS;
+
+  const formatEventTime = (date: Date) => {
+    if (isToday(date)) return format(date, 'HH:mm');
+    if (isTomorrow(date)) return `${t('calendar.tomorrow')} ${format(date, 'HH:mm')}`;
+    return format(date, t('calendar.dateFormat'), { locale: dateLocale });
+  };
+
   const start = parseISO(event.start.dateTime!);
   const end = parseISO(event.end.dateTime!);
 
@@ -24,12 +29,11 @@ const EventRow = ({ event, state }: EventRowProps) => {
   const isNext = state === 'next';
   const diff = differenceInMinutes(start, new Date());
 
-  // Időpont formázási logika egységesítése
   let timeDisplay = '';
   if (isCurrent) {
     timeDisplay = `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`;
   } else if (isNext && isToday(start) && diff < 60 && diff > 0) {
-    timeDisplay = `${diff} perc múlva | ${format(end, 'HH:mm')}`;
+    timeDisplay = `${t('calendar.minutesUntil', { count: diff })} | ${format(end, 'HH:mm')}`;
   } else {
     timeDisplay = `${formatEventTime(start)} | ${format(end, 'HH:mm')}`;
   }
@@ -48,15 +52,15 @@ const EventRow = ({ event, state }: EventRowProps) => {
       className={`relative flex items-center gap-3 p-2.5 rounded-lg transition-colors group ${bgClass} ${opacityClass}`}
       title={cleanDescription}
     >
-      {/* Naptárszín indikátor */}
+      {/* Calendar color indicator */}
       <div
         className='w-0.5 h-8 rounded-full shrink-0'
         style={{ backgroundColor: event.calendarColor }}
       ></div>
 
-      {/* Bal oldal: Cím, Idő és Helyszín */}
+      {/* Left: Title, Time & Location */}
       <div className='flex-1 min-w-0 flex flex-col gap-0.5 justify-center'>
-        {/* FELSŐ SOR: Cím és Aktív indikátor */}
+        {/* Top row: Title & Active indicator */}
         <div className='flex items-center gap-2'>
           {isCurrent && (
             <span className='relative flex h-2 w-2 shrink-0'>
@@ -71,7 +75,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
           </h4>
         </div>
 
-        {/* ALSÓ SOR: Idő és Helyszín */}
+        {/* Bottom row: Time & Location */}
         <div
           className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${isCurrent ? 'text-indigo-300' : isNext ? 'text-blue-300' : 'text-white/50'} truncate`}
         >
@@ -93,12 +97,12 @@ const EventRow = ({ event, state }: EventRowProps) => {
         </div>
       </div>
 
-      {/* Jobb oldal: Kiemelt Call to Action (Meet gomb) */}
+      {/* Right: Call to Action (Meet button) */}
       {event.hangoutLink && (
         <a
           href={event.hangoutLink}
           className='flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400/80 hover:text-emerald-400 transition-colors shrink-0'
-          title='Csatlakozás a híváshoz'
+          title={t('calendar.joinCall')}
         >
           <Video className='w-4 h-4' />
         </a>
@@ -113,6 +117,7 @@ export const CalendarWidget = () => {
     settings.selectedCalendars,
     settingsLoaded,
   );
+  const { t } = useTranslation();
 
   const { currentEvents, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
     const now = new Date();
@@ -166,7 +171,7 @@ export const CalendarWidget = () => {
           className='flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all text-sm font-medium shadow-lg'
         >
           <Calendar className='w-4 h-4' />
-          <span>Naptár csatolása</span>
+          <span>{t('calendar.attach')}</span>
         </button>
       </div>
     );
@@ -179,8 +184,8 @@ export const CalendarWidget = () => {
           <Calendar className='w-4 h-4' />
         </div>
         <div>
-          <p className='text-sm font-bold text-white/90'>Üres naptár</p>
-          <p className='text-[10px] text-white/50 uppercase tracking-wider'>Flow state ON</p>
+          <p className='text-sm font-bold text-white/90'>{t('calendar.empty')}</p>
+          <p className='text-[10px] text-white/50 uppercase tracking-wider'>{t('calendar.flowState')}</p>
         </div>
       </div>
     );
@@ -188,7 +193,7 @@ export const CalendarWidget = () => {
 
   return (
     <div className='absolute top-8 left-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-2'>
-      {/* 1. EGÉSZ NAPOS ESEMÉNYEK */}
+      {/* 1. ALL-DAY EVENTS */}
       {allDayEvents.length > 0 && (
         <div className='flex flex-wrap gap-1.5 pb-2 border-b border-white/5'>
           {allDayEvents.map((e) => (
@@ -209,7 +214,7 @@ export const CalendarWidget = () => {
         </div>
       )}
 
-      {/* 2. ESEMÉNYEK LISTÁJA */}
+      {/* 2. EVENT LIST */}
       <div className='flex flex-col gap-1'>
         {currentEvents.map((e) => (
           <EventRow key={e.id} event={e} state='current' />
@@ -223,7 +228,7 @@ export const CalendarWidget = () => {
 
         {!nextEvent && currentEvents.length === 0 && (
           <div className='text-center py-4'>
-            <p className='text-xs text-white/40'>Nincs további program a láthatáron.</p>
+            <p className='text-xs text-white/40'>{t('calendar.noEvents')}</p>
           </div>
         )}
       </div>

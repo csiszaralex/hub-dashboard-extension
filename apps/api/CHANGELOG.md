@@ -1,3 +1,13 @@
+## 1.0.6 (2026-03-30)
+
+### 🩹 Fixes
+
+- **repo:** remove author acknowledgment from CHANGELOGs ([b0a727e](https://github.com/csiszaralex/hub-dashboard-extension/commit/b0a727e))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.2
+
 ## 1.0.5 (2026-03-22)
 
 This was a version bump only for api to align it with other projects, there were no code changes.

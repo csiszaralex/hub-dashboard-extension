@@ -1,0 +1,93 @@
+{
+  "greeting": {
+    "night": "Good night",
+    "morning": "Good morning",
+    "day": "Good day",
+    "evening": "Good evening"
+  },
+  "weather": {
+    "refresh": "Refresh weather",
+    "wind": "Wind",
+    "sunset": "Sunset",
+    "sunrise": "Sunrise",
+    "precipitation": "Precipitation (next 12h)",
+    "noPrecipitation": "No precipitation expected",
+    "now": "Now",
+    "localWeather": "Local weather",
+    "unknown": "Unknown",
+    "codes": {
+      "0": "Clear sky",
+      "1": "Mainly clear",
+      "2": "Partly cloudy",
+      "3": "Overcast",
+      "45": "Fog",
+      "48": "Icy fog",
+      "51": "Light drizzle",
+      "53": "Moderate drizzle",
+      "55": "Dense drizzle",
+      "61": "Light rain",
+      "63": "Rain",
+      "65": "Heavy rain",
+      "71": "Light snowfall",
+      "73": "Snowfall",
+      "75": "Heavy snowfall",
+      "95": "Thunderstorm",
+      "96": "Thunderstorm with hail"
+    }
+  },
+  "calendar": {
+    "attach": "Connect calendar",
+    "empty": "Empty calendar",
+    "flowState": "Flow state ON",
+    "noEvents": "Nothing else on the horizon.",
+    "joinCall": "Join the call",
+    "tomorrow": "Tomorrow",
+    "minutesUntil": "in {{count}} min",
+    "dateFormat": "MMM d, HH:mm"
+  },
+  "countdown": {
+    "days": "Days",
+    "hours": "Hrs",
+    "minutes": "Min",
+    "seconds": "Sec"
+  },
+  "notes": {
+    "title": "Notes",
+    "placeholder": "Write something for today...",
+    "delete": "Delete"
+  },
+  "popup": {
+    "title": "Hub Dashboard",
+    "loading": "Loading...",
+    "appearance": "Appearance & Background",
+    "appearancePlaceholder": "e.g. landscape, dark, city",
+    "appearanceHint": "English keywords, comma separated.",
+    "weatherLocation": "Weather Location",
+    "weatherLocationPlaceholder": "Optional (e.g. Budapest)",
+    "weatherLocationHint": "Leave empty for automatic (IP based).",
+    "countdown": "Focus Countdown",
+    "countdownHint": "When the time is up, the timer disappears.",
+    "calendars": "Calendars",
+    "googleLogin": "Google Login / Refresh",
+    "loadingCalendars": "Loading calendars...",
+    "saving": "Saving...",
+    "saved": "✓ Saved successfully!",
+    "save": "Apply settings",
+    "cityNotFound": "The specified city was not found.",
+    "cityError": "Error identifying the city.",
+    "networkError": "Network error fetching calendars.",
+    "noToken": "No token.",
+    "authError": "Auth error: {{message}}",
+    "apiError": "API error: {{status}}"
+  },
+  "app": {
+    "newBackground": "Request new background"
+  },
+  "whatsNew": {
+    "updated": "Updated"
+  },
+  "background": {
+    "defaultLocation": "Valley in the mountains",
+    "unknownPhotographer": "Unknown"
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "greeting": {
+    "night": "Jó pihenést",
+    "morning": "Jó reggelt",
+    "day": "Szép napot",
+    "evening": "Kellemes estét"
+  },
+  "weather": {
+    "refresh": "Időjárás frissítése",
+    "wind": "Szél",
+    "sunset": "Nyugta",
+    "sunrise": "Kelte",
+    "precipitation": "Csapadék (köv. 12 óra)",
+    "noPrecipitation": "Nincs várható csapadék",
+    "now": "Most",
+    "localWeather": "Helyi időjárás",
+    "unknown": "Ismeretlen",
+    "codes": {
+      "0": "Tiszta égbolt",
+      "1": "Túlnyomóan derűs",
+      "2": "Változóan felhős",
+      "3": "Borult",
+      "45": "Köd",
+      "48": "Zúzmarás köd",
+      "51": "Szitálás",
+      "53": "Mérsékelt szitálás",
+      "55": "Sűrű szitálás",
+      "61": "Gyenge eső",
+      "63": "Eső",
+      "65": "Heves eső",
+      "71": "Hószállingózás",
+      "73": "Havazás",
+      "75": "Erős havazás",
+      "95": "Zivatar",
+      "96": "Zivatar jégesővel"
+    }
+  },
+  "calendar": {
+    "attach": "Naptár csatolása",
+    "empty": "Üres naptár",
+    "flowState": "Flow state ON",
+    "noEvents": "Nincs további program a láthatáron.",
+    "joinCall": "Csatlakozás a híváshoz",
+    "tomorrow": "Holnap",
+    "minutesUntil": "{{count}} perc múlva",
+    "dateFormat": "MMM. d. HH:mm"
+  },
+  "countdown": {
+    "days": "Nap",
+    "hours": "Óra",
+    "minutes": "Perc",
+    "seconds": "Mp"
+  },
+  "notes": {
+    "title": "Jegyzetek",
+    "placeholder": "Írj valamit mára...",
+    "delete": "Törlés"
+  },
+  "popup": {
+    "title": "Hub Dashboard",
+    "loading": "Betöltés...",
+    "appearance": "Kinézet & Háttér",
+    "appearancePlaceholder": "pl. landscape, dark, city",
+    "appearanceHint": "Angol kifejezések, vesszővel elválasztva.",
+    "weatherLocation": "Időjárás Lokáció",
+    "weatherLocationPlaceholder": "Opcionális (pl. Budapest)",
+    "weatherLocationHint": "Üresen hagyva automatikus (IP alapján).",
+    "countdown": "Fókusz Visszaszámláló",
+    "countdownHint": "Ha a megadott idő letelik, a számláló eltűnik.",
+    "calendars": "Naptárak",
+    "googleLogin": "Google Belépés / Frissítés",
+    "loadingCalendars": "Naptárak betöltése folyamatban...",
+    "saving": "Mentés...",
+    "saved": "✓ Sikeresen mentve!",
+    "save": "Beállítások alkalmazása",
+    "cityNotFound": "A megadott város nem található.",
+    "cityError": "Hiba a város azonosítása során.",
+    "networkError": "Hálózati hiba a naptárak lekérésekor.",
+    "noToken": "Nincs token.",
+    "authError": "Auth hiba: {{message}}",
+    "apiError": "API hiba: {{status}}"
+  },
+  "app": {
+    "newBackground": "Új háttérkép kérése"
+  },
+  "whatsNew": {
+    "updated": "Frissítve"
+  },
+  "background": {
+    "defaultLocation": "Völgy a hegyekben",
+    "unknownPhotographer": "Ismeretlen"
+  }
+}

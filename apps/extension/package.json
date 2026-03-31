@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "pack": "pnpm build && bestzip extension-release.zip dist/*",
+    "typecheck": "tsc -b",
     "lint": "eslint .",
+    "check": "pnpm typecheck && pnpm lint",
     "preview": "vite preview"
   },
   "dependencies": {

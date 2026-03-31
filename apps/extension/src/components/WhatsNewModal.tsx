@@ -65,7 +65,7 @@ export const WhatsNewModal = ({ version, onClose }: Props) => {
         <div className='flex items-center gap-2.5'>
           <Sparkles className='w-4 h-4 text-white/60 shrink-0' />
           <span className='text-xs text-white/50 uppercase tracking-widest'>{t('whatsNew.updated')}</span>
-          <span className='text-sm font-bold text-white/90'>v{version}</span>
+          <span className='text-sm font-bold text-white/90'>{`v${version}`}</span>
           <a
             href='https://github.com/csiszaralex/hub-dashboard-extension'
             target='_blank'

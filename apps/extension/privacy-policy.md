@@ -48,6 +48,25 @@ Hub interacts with the following third-party APIs to fetch content. When Hub mak
 
 These third-party services have their own privacy policies governing the data they process during API requests.
 
+## Data Protection
+
+Hub takes the following measures to protect sensitive data, particularly Google user data accessed via OAuth:
+
+- **OAuth 2.0:** Authentication with Google is performed exclusively through Chrome's built-in `chrome.identity` API using the OAuth 2.0 protocol. Hub never handles or stores your Google account credentials.
+- **HTTPS only:** All API requests to Google services and third-party services are made exclusively over HTTPS, ensuring data is encrypted in transit.
+- **No server-side storage:** We operate no backend servers. Google user data (e.g., calendar events) is fetched directly in your browser and never transmitted to, stored on, or processed by any server we control.
+- **Read-only access:** Hub requests only read-only scopes (`calendar.events.readonly`), limiting the extent of access to your Google account to the minimum required for the feature.
+- **Token scope limitation:** OAuth tokens are requested with the minimum necessary scopes and are managed entirely by the Chrome browser runtime.
+
+## Data Retention and Deletion
+
+Hub does not retain Google user data beyond the immediate session:
+
+- **Google Calendar data:** Calendar events are fetched on-demand and held only in your browser's runtime memory for the duration of the current session. This data is never written to disk, local storage, or any external system, and is automatically cleared when you close or reload the extension.
+- **OAuth tokens:** Google OAuth access tokens are managed by Chrome's `identity` API. You can revoke Hub's access to your Google account at any time via your [Google Account permissions page](https://myaccount.google.com/permissions). Revoking access immediately removes Hub's ability to fetch any Google user data.
+- **Local preferences:** Settings stored in `chrome.storage` (such as API keys or cached data) are stored solely on your device and can be deleted at any time by clearing the extension's storage via Chrome settings or by uninstalling the extension.
+- **No long-term retention:** We do not collect or archive any Google user data — there is no data held by Hub beyond your local device that would need to be deleted.
+
 ## Data Sharing and Selling
 
 We do not sell, trade, rent, or otherwise share your personal information or browsing data with any third party. The extension operates entirely on your local machine.

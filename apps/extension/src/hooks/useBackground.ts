@@ -1,6 +1,6 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDailyData, setDailyData } from '../utils/dailyStorage';
+import { getDailyData, getTodayData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
@@ -32,12 +32,11 @@ const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);
-  const prevQueryRef = useRef(settings.unsplashQuery);
+  const prevQueryRef = useRef<string | undefined>(undefined);
 
-  const [bgData, setBgData] = useState<BackgroundData>(() => {
-    const cached = getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current);
-    return cached || DEFAULT_BG;
-  });
+  const [bgData, setBgData] = useState<BackgroundData>(
+    () => getTodayData<BackgroundData>(CACHE_KEY) ?? DEFAULT_BG,
+  );
 
   const fetchNewImage = useCallback(
     async (force = false, currentQuery = settings.unsplashQuery) => {
@@ -76,10 +75,10 @@ export const useBackground = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    const forceUpdate = prevQueryRef.current !== settings.unsplashQuery;
-    fetchNewImage(forceUpdate, settings.unsplashQuery);
-
-    prevQueryRef.current = settings.unsplashQuery;
+    const currentQuery = settings.unsplashQuery;
+    const forceUpdate = prevQueryRef.current !== undefined && prevQueryRef.current !== currentQuery;
+    prevQueryRef.current = currentQuery;
+    fetchNewImage(forceUpdate, currentQuery);
   }, [fetchNewImage, isLoaded, settings.unsplashQuery]);
 
   return {

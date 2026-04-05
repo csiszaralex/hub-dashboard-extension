@@ -78,7 +78,9 @@
     "networkError": "Network error fetching calendars.",
     "noToken": "No token.",
     "authError": "Auth error: {{message}}",
-    "apiError": "API error: {{status}}"
+    "apiError": "API error: {{status}}",
+    "language": "Language",
+    "languageAuto": "Auto (browser default)"
   },
   "app": {
     "newBackground": "Request new background"

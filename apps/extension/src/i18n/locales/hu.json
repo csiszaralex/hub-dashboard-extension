@@ -78,7 +78,9 @@
     "networkError": "Hálózati hiba a naptárak lekérésekor.",
     "noToken": "Nincs token.",
     "authError": "Auth hiba: {{message}}",
-    "apiError": "API hiba: {{status}}"
+    "apiError": "API hiba: {{status}}",
+    "language": "Nyelv",
+    "languageAuto": "Automatikus (böngésző alapján)"
   },
   "app": {
     "newBackground": "Új háttérkép kérése"

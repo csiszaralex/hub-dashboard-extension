@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { useSettings, type HubSettings } from '../hooks/useSettings';
 
 declare const chrome: {
@@ -9,6 +10,11 @@ declare const chrome: {
   runtime: {
     lastError?: { message: string };
   };
+};
+
+const getLanguageLabel = (lang: string): string => {
+  const name = new Intl.DisplayNames([lang], { type: 'language' }).of(lang) ?? lang;
+  return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
 interface CalendarListEntry {
@@ -29,6 +35,12 @@ function PopupForm({
   const [city, setCity] = useState(initialSettings.locationCity);
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
+  const [language, setLanguage] = useState(initialSettings.language);
+
+  useEffect(() => {
+    const autoDetect = navigator.language.startsWith('hu') ? 'hu' : 'en';
+    void i18n.changeLanguage(language || autoDetect);
+  }, [language]);
 
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,6 +135,7 @@ function PopupForm({
       locationLon: lon,
       selectedCalendars: selectedCals,
       countdownTarget: countdownTarget || null,
+      language,
     });
 
     setLoading(false);
@@ -239,6 +252,28 @@ function PopupForm({
             <p className='text-[10px] text-white/40 italic'>{t('popup.loadingCalendars')}</p>
           )
         )}
+      </div>
+
+      <div className='bg-white/5 border border-white/5 p-3.5 rounded-lg flex flex-col gap-2 min-w-0'>
+        <label
+          htmlFor='language'
+          className='text-xs font-semibold text-white/80 uppercase tracking-wider'
+        >
+          {t('popup.language')}
+        </label>
+        <select
+          id='language'
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className='w-full min-w-0 px-3 py-2 rounded bg-black/40 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all text-sm'
+        >
+          <option value=''>{t('popup.languageAuto')}</option>
+          {AVAILABLE_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {getLanguageLabel(lang)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <button

@@ -1,3 +1,9 @@
+## 2.1.2 (2026-04-04)
+
+### 🩹 Fixes
+
+- **extension:** improve background fetching logic and query handling ([#2](https://github.com/csiszaralex/hub-dashboard-extension/pull/2))
+
 ## 2.1.1 (2026-03-30)
 
 ### 🩹 Fixes

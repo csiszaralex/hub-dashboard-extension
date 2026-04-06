@@ -7,6 +7,7 @@ export interface HubSettings {
   locationLon: number | null;
   selectedCalendars: string[];
   countdownTarget: string | null;
+  language: string;
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: HubSettings = {
   locationLon: null,
   selectedCalendars: ['primary'],
   countdownTarget: null,
+  language: '',
 };
 
 export const useSettings = () => {
@@ -33,6 +35,7 @@ export const useSettings = () => {
           locationLon: res.locationLon ?? DEFAULT_SETTINGS.locationLon,
           selectedCalendars: res.selectedCalendars ?? DEFAULT_SETTINGS.selectedCalendars,
           countdownTarget: res.countdownTarget ?? DEFAULT_SETTINGS.countdownTarget,
+          language: res.language ?? DEFAULT_SETTINGS.language,
         });
         setIsLoaded(true);
       },
@@ -49,6 +52,7 @@ export const useSettings = () => {
             (changes.selectedCalendars?.newValue as string[]) ?? prev.selectedCalendars,
           countdownTarget:
             (changes.countdownTarget?.newValue as string | null) ?? prev.countdownTarget,
+          language: (changes.language?.newValue as string) ?? prev.language,
         }));
       }
     };

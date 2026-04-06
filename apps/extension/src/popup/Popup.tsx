@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { useSettings, type HubSettings } from '../hooks/useSettings';
 
 declare const chrome: {
@@ -8,6 +10,11 @@ declare const chrome: {
   runtime: {
     lastError?: { message: string };
   };
+};
+
+const getLanguageLabel = (lang: string): string => {
+  const name = new Intl.DisplayNames([lang], { type: 'language' }).of(lang) ?? lang;
+  return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
 interface CalendarListEntry {
@@ -23,10 +30,17 @@ function PopupForm({
   initialSettings: HubSettings;
   onSave: (settings: Partial<HubSettings>) => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialSettings.unsplashQuery);
   const [city, setCity] = useState(initialSettings.locationCity);
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
+  const [language, setLanguage] = useState(initialSettings.language);
+
+  useEffect(() => {
+    const autoDetect = navigator.language.startsWith('hu') ? 'hu' : 'en';
+    void i18n.changeLanguage(language || autoDetect);
+  }, [language]);
 
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,9 +52,9 @@ function PopupForm({
     chrome.identity.getAuthToken({ interactive }, async (token: string) => {
       setCalError(null);
       if (chrome.runtime.lastError || !token) {
-        const errorMsg = chrome.runtime.lastError?.message || 'Nincs token.';
-        console.error('Auth hiba a popupban:', errorMsg);
-        setCalError(`Auth hiba: ${errorMsg}`);
+        const errorMsg = chrome.runtime.lastError?.message || t('popup.noToken');
+        console.error('Auth error in popup:', errorMsg);
+        setCalError(t('popup.authError', { message: errorMsg }));
         return;
       }
 
@@ -58,15 +72,15 @@ function PopupForm({
           setAvailableCals(normalizedItems);
         } else {
           const errText = await res.text();
-          console.error('API hiba:', errText);
-          setCalError(`API hiba: ${res.status}`);
+          console.error('API error:', errText);
+          setCalError(t('popup.apiError', { status: res.status }));
         }
       } catch (e) {
-        console.error('Fetch hiba:', e);
-        setCalError('Hálózati hiba a naptárak lekérésekor.');
+        console.error('Fetch error:', e);
+        setCalError(t('popup.networkError'));
       }
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadCalendars(false);
@@ -100,12 +114,12 @@ function PopupForm({
           validCity = data.results[0].name;
           setCity(validCity);
         } else {
-          setError('A megadott város nem található.');
+          setError(t('popup.cityNotFound'));
           setLoading(false);
           return;
         }
       } catch {
-        setError('Hiba a város azonosítása során.');
+        setError(t('popup.cityError'));
         setLoading(false);
         return;
       }
@@ -121,6 +135,7 @@ function PopupForm({
       locationLon: lon,
       selectedCalendars: selectedCals,
       countdownTarget: countdownTarget || null,
+      language,
     });
 
     setLoading(false);
@@ -135,7 +150,7 @@ function PopupForm({
           htmlFor='query'
           className='text-xs font-semibold text-white/80 uppercase tracking-wider'
         >
-          Kinézet & Háttér
+          {t('popup.appearance')}
         </label>
         <input
           id='query'
@@ -143,9 +158,9 @@ function PopupForm({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className='w-full min-w-0 px-3 py-2 rounded bg-black/40 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all text-sm'
-          placeholder='pl. landscape, dark, city'
+          placeholder={t('popup.appearancePlaceholder')}
         />
-        <p className='text-[10px] text-white/40'>Angol kifejezések, vesszővel elválasztva.</p>
+        <p className='text-[10px] text-white/40'>{t('popup.appearanceHint')}</p>
       </div>
 
       <div className='bg-white/5 border border-white/5 p-3.5 rounded-lg flex flex-col gap-2 min-w-0'>
@@ -153,7 +168,7 @@ function PopupForm({
           htmlFor='city'
           className='text-xs font-semibold text-white/80 uppercase tracking-wider'
         >
-          Időjárás Lokáció
+          {t('popup.weatherLocation')}
         </label>
         <input
           id='city'
@@ -165,12 +180,12 @@ function PopupForm({
               ? 'border-red-500/50 focus:ring-red-500/50'
               : 'border-white/10 focus:ring-white/30'
           }`}
-          placeholder='Opcionális (pl. Budapest)'
+          placeholder={t('popup.weatherLocationPlaceholder')}
         />
         {error ? (
           <p className='text-[10px] text-red-400'>{error}</p>
         ) : (
-          <p className='text-[10px] text-white/40'>Üresen hagyva automatikus (IP alapján).</p>
+          <p className='text-[10px] text-white/40'>{t('popup.weatherLocationHint')}</p>
         )}
       </div>
 
@@ -179,7 +194,7 @@ function PopupForm({
           htmlFor='countdownTarget'
           className='text-xs font-semibold text-white/80 uppercase tracking-wider'
         >
-          Fókusz Visszaszámláló
+          {t('popup.countdown')}
         </label>
         <input
           id='countdownTarget'
@@ -188,20 +203,20 @@ function PopupForm({
           onChange={(e) => setCountdownTarget(e.target.value)}
           className='w-full min-w-0 px-3 py-2 rounded bg-black/40 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all text-sm text-white scheme-dark'
         />
-        <p className='text-[10px] text-white/40'>Ha a megadott idő letelik, a számláló eltűnik.</p>
+        <p className='text-[10px] text-white/40'>{t('popup.countdownHint')}</p>
       </div>
 
       <div className='bg-white/5 border border-white/5 p-3.5 rounded-lg flex flex-col gap-3 min-w-0'>
         <div className='flex justify-between items-center'>
           <label className='text-xs font-semibold text-white/80 uppercase tracking-wider'>
-            Naptárak
+            {t('popup.calendars')}
           </label>
           <button
             type='button'
             onClick={() => loadCalendars(true)}
             className='text-[10px] font-medium bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded transition-colors shrink-0'
           >
-            Google Belépés / Frissítés
+            {t('popup.googleLogin')}
           </button>
         </div>
 
@@ -234,9 +249,31 @@ function PopupForm({
           </div>
         ) : (
           !calError && (
-            <p className='text-[10px] text-white/40 italic'>Naptárak betöltése folyamatban...</p>
+            <p className='text-[10px] text-white/40 italic'>{t('popup.loadingCalendars')}</p>
           )
         )}
+      </div>
+
+      <div className='bg-white/5 border border-white/5 p-3.5 rounded-lg flex flex-col gap-2 min-w-0'>
+        <label
+          htmlFor='language'
+          className='text-xs font-semibold text-white/80 uppercase tracking-wider'
+        >
+          {t('popup.language')}
+        </label>
+        <select
+          id='language'
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className='w-full min-w-0 px-3 py-2 rounded bg-black/40 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all text-sm'
+        >
+          <option value=''>{t('popup.languageAuto')}</option>
+          {AVAILABLE_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {getLanguageLabel(lang)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <button
@@ -244,7 +281,7 @@ function PopupForm({
         disabled={loading}
         className='mt-2 w-full bg-white text-black hover:bg-white/90 transition-colors py-2.5 rounded-md text-sm font-semibold disabled:opacity-50'
       >
-        {loading ? 'Mentés...' : saved ? '✓ Sikeresen mentve!' : 'Beállítások alkalmazása'}
+        {loading ? t('popup.saving') : saved ? t('popup.saved') : t('popup.save')}
       </button>
     </form>
   );
@@ -252,18 +289,19 @@ function PopupForm({
 
 export function Popup() {
   const { settings, isLoaded, saveSettings } = useSettings();
+  const { t } = useTranslation();
 
   if (!isLoaded)
     return (
       <div className='w-85 flex items-center justify-center h-40 bg-zinc-950 text-white/50 text-sm'>
-        Betöltés...
+        {t('popup.loading')}
       </div>
     );
 
   return (
     <div className='w-85 p-5 bg-zinc-950 text-white flex flex-col gap-4 overflow-hidden box-border'>
       <h2 className='text-lg font-semibold text-white/90 border-b border-white/10 pb-3'>
-        Hub Dashboard
+        {t('popup.title')}
       </h2>
       <PopupForm initialSettings={settings} onSave={saveSettings} />
     </div>

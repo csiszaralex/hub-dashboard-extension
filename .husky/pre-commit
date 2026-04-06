@@ -1,0 +1,2 @@
+pnpm -r typecheck
+pnpm -r --if-present lint

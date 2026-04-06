@@ -1,3 +1,9 @@
+## 0.1.3 (2026-04-06)
+
+### 🚀 Features
+
+- **extension:** implement internationalization support with i18next and localization files ([#3](https://github.com/csiszaralex/hub-dashboard-extension/pull/3))
+
 ## 0.1.2 (2026-03-30)
 
 ### 🩹 Fixes

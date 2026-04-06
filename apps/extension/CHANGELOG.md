@@ -1,3 +1,14 @@
+## 2.2.0 (2026-04-06)
+
+### 🚀 Features
+
+- **extension:** add tabs in popup ([#4](https://github.com/csiszaralex/hub-dashboard-extension/pull/4))
+- **extension:** implement internationalization support with i18next and localization files ([#3](https://github.com/csiszaralex/hub-dashboard-extension/pull/3))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.3
+
 ## 2.1.2 (2026-04-04)
 
 ### 🩹 Fixes

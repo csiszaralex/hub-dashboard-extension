@@ -1,7 +1,7 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import i18n from '../i18n/i18n';
-import { getDailyData, getTodayData, setDailyData } from '../utils/dailyStorage';
+import { getDailyData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
@@ -28,11 +28,11 @@ const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);
-  const prevQueryRef = useRef<string | undefined>(undefined);
+  const prevQueryRef = useRef(settings.unsplashQuery);
 
   const [bgData, setBgData] = useState<BackgroundData>(() => {
     return (
-      getTodayData<BackgroundData>(CACHE_KEY) || {
+      getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current) || {
         url: DEFAULT_BG_URL,
         location: i18n.t('background.defaultLocation'),
         photographer: i18n.t('background.unknownPhotographer'),
@@ -78,10 +78,10 @@ export const useBackground = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    const currentQuery = settings.unsplashQuery;
-    const forceUpdate = prevQueryRef.current !== undefined && prevQueryRef.current !== currentQuery;
-    prevQueryRef.current = currentQuery;
-    fetchNewImage(forceUpdate, currentQuery);
+    const forceUpdate = prevQueryRef.current !== settings.unsplashQuery;
+    fetchNewImage(forceUpdate, settings.unsplashQuery);
+
+    prevQueryRef.current = settings.unsplashQuery;
   }, [fetchNewImage, isLoaded, settings.unsplashQuery]);
 
   return {
@@ -91,4 +91,3 @@ export const useBackground = () => {
     isSettingsLoaded: isLoaded,
   };
 };
-

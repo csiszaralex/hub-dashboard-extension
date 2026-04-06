@@ -80,7 +80,12 @@
     "authError": "Auth hiba: {{message}}",
     "apiError": "API hiba: {{status}}",
     "language": "Nyelv",
-    "languageAuto": "Automatikus (böngésző alapján)"
+    "languageAuto": "Automatikus (böngésző alapján)",
+    "tabGeneral": "Általános",
+    "tabAppearance": "Háttér",
+    "tabWeather": "Időjárás",
+    "tabCountdown": "Számláló",
+    "tabCalendars": "Naptárak"
   },
   "app": {
     "newBackground": "Új háttérkép kérése"

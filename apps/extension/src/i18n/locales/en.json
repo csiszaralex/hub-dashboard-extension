@@ -80,7 +80,12 @@
     "authError": "Auth error: {{message}}",
     "apiError": "API error: {{status}}",
     "language": "Language",
-    "languageAuto": "Auto (browser default)"
+    "languageAuto": "Auto (browser default)",
+    "tabGeneral": "General",
+    "tabAppearance": "Background",
+    "tabWeather": "Weather",
+    "tabCountdown": "Countdown",
+    "tabCalendars": "Calendars"
   },
   "app": {
     "newBackground": "Request new background"

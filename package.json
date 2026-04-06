@@ -8,7 +8,11 @@
   "author": "Alex Csiszar <hub@csalex.dev>",
   "license": "MIT",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "check": "pnpm -r typecheck && pnpm -r --if-present lint",
+    "build": "pnpm --filter extension build"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",

@@ -4,6 +4,19 @@ interface CachePacket<T> {
   data: T;
 }
 
+export const getTodayData = <T>(key: string): T | null => {
+  const json = localStorage.getItem(key);
+  if (!json) return null;
+  try {
+    const packet: CachePacket<T> = JSON.parse(json);
+    const today = new Date().toISOString().split('T')[0];
+    if (packet.date !== today) return null;
+    return packet.data;
+  } catch {
+    return null;
+  }
+};
+
 export const getDailyData = <T>(key: string, currentQuery?: string): T | null => {
   const json = localStorage.getItem(key);
   if (!json) return null;

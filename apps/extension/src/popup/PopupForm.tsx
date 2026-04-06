@@ -147,7 +147,7 @@ export function PopupForm({
     <form onSubmit={handleSubmit} className='flex flex-col gap-3 min-w-0'>
       <TabNav active={activeTab} onChange={handleTabChange} />
 
-      <div className='min-h-28'>
+      <div>
         {activeTab === 'general' && (
           <Field id='language' label={t('popup.language')}>
             <select

@@ -5,9 +5,11 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-body {
-  @apply antialiased text-white;
-  /* Hogy a háttérkép ne ugráljon */
-  @apply min-h-screen overflow-hidden bg-gray-900;
+@layer base {
+  body {
+    @apply antialiased text-white;
+    /* Hogy a háttérkép ne ugráljon */
+    @apply min-h-screen overflow-hidden bg-gray-900;
+  }
 }
 

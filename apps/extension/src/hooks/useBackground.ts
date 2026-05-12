@@ -1,13 +1,19 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import i18n from '../i18n/i18n';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
 const WORKER_URL = 'https://hub-api.csiszaralex.workers.dev/api/background';
-const DEFAULT_BG_URL =
+const FALLBACK_BG_URL =
   'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop';
+
+const EMPTY_BG_DATA: BackgroundData = {
+  url: '',
+  location: null,
+  photographer: '',
+  photographerUrl: '',
+};
 
 const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
   try {
@@ -31,14 +37,7 @@ export const useBackground = () => {
   const prevQueryRef = useRef(settings.unsplashQuery);
 
   const [bgData, setBgData] = useState<BackgroundData>(() => {
-    return (
-      getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current) || {
-        url: DEFAULT_BG_URL,
-        location: i18n.t('background.defaultLocation'),
-        photographer: i18n.t('background.unknownPhotographer'),
-        photographerUrl: '',
-      }
-    );
+    return getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current) || EMPTY_BG_DATA;
   });
 
   const fetchNewImage = useCallback(
@@ -68,6 +67,7 @@ export const useBackground = () => {
         setBgData(newBgData);
       } catch (error) {
         console.error('Failed to fetch background:', error);
+        setBgData((prev) => (prev.url ? prev : { ...EMPTY_BG_DATA, url: FALLBACK_BG_URL }));
       } finally {
         setLoading(false);
       }
@@ -91,3 +91,4 @@ export const useBackground = () => {
     isSettingsLoaded: isLoaded,
   };
 };
+

@@ -18,15 +18,17 @@ export const BackgroundInfo = ({ data }: Props) => {
         </div>
       )}
 
-      <a
-        href={data.photographerUrl}
-        target='_blank'
-        rel='noopener noreferrer'
-        className='flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer'
-      >
-        <span>{data.photographer} {t('background.creditSuffix')}</span>
-        <Camera className='w-3 h-3' />
-      </a>
+      {data.photographer && (
+        <a
+          href={data.photographerUrl}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer'
+        >
+          <span>{data.photographer} {t('background.creditSuffix')}</span>
+          <Camera className='w-3 h-3' />
+        </a>
+      )}
     </div>
   );
 };

@@ -26,9 +26,11 @@ function App() {
 
   return (
     <main
-      className='relative w-screen h-screen flex flex-col items-center justify-center text-white bg-cover bg-center transition-all duration-1000 overflow-hidden'
+      className='relative w-screen h-screen flex flex-col items-center justify-center text-white bg-black bg-cover bg-center transition-all duration-1000 overflow-hidden'
       style={{
-        backgroundImage: `url(${!navigator.onLine && bgData.localImage ? bgData.localImage : bgData.url})`,
+        backgroundImage: bgData.url || bgData.localImage
+          ? `url(${!navigator.onLine && bgData.localImage ? bgData.localImage : bgData.url})`
+          : undefined,
       }}
       onDoubleClick={() => setUiVisible(!uiVisible)}
     >

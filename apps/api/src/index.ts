@@ -9,6 +9,14 @@ type Bindings = {
   UNSPLASH_ACCESS_KEY: string; // secretként van felvéve
 };
 
+/**
+ * Photo as stored in KV. `downloadLocation` is needed to report usage back to
+ * Unsplash but is not part of the public response.
+ */
+interface PooledPhoto extends BackgroundData {
+  downloadLocation?: string;
+}
+
 const POOL_TTL_SECONDS = 3 * 24 * 60 * 60;
 const POOL_SIZE = 30;
 
@@ -18,6 +26,14 @@ const POOL_SIZE = 30;
  * this a stream of unique tags would drain the quota for every user.
  */
 const HOURLY_UNSPLASH_BUDGET = 40;
+
+/** Attribution parameters required by the Unsplash API guidelines. */
+const UTM = 'utm_source=hub&utm_medium=referral';
+
+const withUtm = (url: string): string => {
+  if (!url) return '';
+  return `${url}${url.includes('?') ? '&' : '?'}${UTM}`;
+};
 
 const budgetKey = () => `budget:${new Date().toISOString().slice(0, 13)}`;
 
@@ -31,7 +47,7 @@ const claimUnsplashCall = async (kv: KVNamespace): Promise<boolean> => {
   return true;
 };
 
-const fetchPool = async (tags: string, accessKey: string): Promise<BackgroundData[]> => {
+const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]> => {
   const unsplashUrl = new URL('https://api.unsplash.com/photos/random');
   unsplashUrl.searchParams.set('count', String(POOL_SIZE));
   unsplashUrl.searchParams.set('query', tags);
@@ -46,8 +62,9 @@ const fetchPool = async (tags: string, accessKey: string): Promise<BackgroundDat
   return rawData.map((img) => ({
     url: `${img.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`,
     location: img.location?.name || null,
-    photographer: img.user?.name || 'Ismeretlen',
-    photographerUrl: img.links?.html || '',
+    photographer: img.user?.name || 'Unknown',
+    photographerUrl: withUtm(img.user?.links?.html || img.links?.html || ''),
+    downloadLocation: img.links?.download_location,
   }));
 };
 
@@ -59,7 +76,7 @@ app.get('/api/background', async (c) => {
   const tags = resolveTags(c.req.query('tags'));
   const cacheKey = poolKey(tags);
 
-  let pool = await c.env.UNSPLASH_CACHE.get<BackgroundData[]>(cacheKey, 'json');
+  let pool = await c.env.UNSPLASH_CACHE.get<PooledPhoto[]>(cacheKey, 'json');
 
   if (!pool || pool.length === 0) {
     if (await claimUnsplashCall(c.env.UNSPLASH_CACHE)) {
@@ -79,7 +96,7 @@ app.get('/api/background', async (c) => {
     // Budget spent or Unsplash unavailable — degrade to the default pool
     // rather than failing the new tab page.
     if (!pool || pool.length === 0) {
-      pool = await c.env.UNSPLASH_CACHE.get<BackgroundData[]>(DEFAULT_POOL_KEY, 'json');
+      pool = await c.env.UNSPLASH_CACHE.get<PooledPhoto[]>(DEFAULT_POOL_KEY, 'json');
     }
   }
 
@@ -87,7 +104,18 @@ app.get('/api/background', async (c) => {
     return c.json({ error: 'No background available' }, 503);
   }
 
-  return c.json(pool[Math.floor(Math.random() * pool.length)]);
+  const { downloadLocation, ...selected } = pool[Math.floor(Math.random() * pool.length)];
+
+  // Unsplash requires a download event whenever a photo is actually used.
+  if (downloadLocation) {
+    c.executionCtx.waitUntil(
+      fetch(downloadLocation, {
+        headers: { Authorization: `Client-ID ${c.env.UNSPLASH_ACCESS_KEY}` },
+      }).catch((error) => console.error('Download ping failed:', error)),
+    );
+  }
+
+  return c.json(selected satisfies BackgroundData);
 });
 
 export default app;

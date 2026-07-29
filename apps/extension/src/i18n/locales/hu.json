@@ -94,6 +94,6 @@
     "updated": "Frissítve"
   },
   "background": {
-    "creditSuffix": "/ Unsplash"
+    "photographerLabel": "{{name}} fotója az Unsplash-en"
   }
 }

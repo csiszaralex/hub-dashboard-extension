@@ -43,3 +43,15 @@ export const setDailyData = <T>(key: string, data: T, query?: string) => {
   };
   localStorage.setItem(key, JSON.stringify(packet));
 };
+
+// Returns stored data ignoring date/query expiry — for displaying stale content while revalidating
+export const getStaleData = <T>(key: string): T | null => {
+  const json = localStorage.getItem(key);
+  if (!json) return null;
+  try {
+    const packet: CachePacket<T> = JSON.parse(json);
+    return packet.data;
+  } catch {
+    return null;
+  }
+};

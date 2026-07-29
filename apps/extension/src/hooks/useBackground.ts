@@ -1,6 +1,6 @@
 import type { BackgroundData } from '@hub/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDailyData, setDailyData } from '../utils/dailyStorage';
+import { useCallback, useEffect, useState } from 'react';
+import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
@@ -34,11 +34,11 @@ const fetchImageAsBase64 = async (url: string): Promise<string | undefined> => {
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);
-  const prevQueryRef = useRef(settings.unsplashQuery);
 
-  const [bgData, setBgData] = useState<BackgroundData>(() => {
-    return getDailyData<BackgroundData>(CACHE_KEY, prevQueryRef.current) || EMPTY_BG_DATA;
-  });
+  // Paint whatever we have on disk immediately — the effect below revalidates.
+  const [bgData, setBgData] = useState<BackgroundData>(
+    () => getStaleData<BackgroundData>(CACHE_KEY) ?? EMPTY_BG_DATA,
+  );
 
   const fetchNewImage = useCallback(
     async (force = false, currentQuery = settings.unsplashQuery) => {
@@ -78,10 +78,9 @@ export const useBackground = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    const forceUpdate = prevQueryRef.current !== settings.unsplashQuery;
-    fetchNewImage(forceUpdate, settings.unsplashQuery);
-
-    prevQueryRef.current = settings.unsplashQuery;
+    // No force flag needed: the cache packet stores the query it was built for,
+    // so a changed query is already a cache miss inside fetchNewImage.
+    fetchNewImage(false, settings.unsplashQuery);
   }, [fetchNewImage, isLoaded, settings.unsplashQuery]);
 
   return {

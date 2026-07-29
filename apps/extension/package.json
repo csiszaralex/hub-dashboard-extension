@@ -9,7 +9,9 @@
     "pack": "pnpm build && bestzip extension-release.zip dist/*",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "check": "pnpm typecheck && pnpm lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
     "preview": "vite preview"
   },
   "dependencies": {

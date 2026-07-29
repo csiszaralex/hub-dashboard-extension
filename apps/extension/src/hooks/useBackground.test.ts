@@ -42,6 +42,14 @@ const stubFetch = () => {
   return fetchMock;
 };
 
+const stubOfflineFetch = () =>
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }),
+  );
+
 const backgroundRequests = (fetchMock: ReturnType<typeof stubFetch>) =>
   fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/background'));
 
@@ -61,6 +69,43 @@ describe('useBackground', () => {
 
     expect(backgroundRequests(fetchMock)).toHaveLength(0);
     expect(result.current.bgData.photographer).toBe('Cached');
+  });
+
+  it('keeps the image bytes out of localStorage', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
+    await waitFor(() => expect(localStorage.getItem(CACHE_KEY)).toBeTruthy());
+
+    const packet = localStorage.getItem(CACHE_KEY)!;
+    expect(packet).not.toContain('data:image');
+    // Metadata only — a packet carrying pixels would be orders of magnitude larger.
+    expect(packet.length).toBeLessThan(1000);
+  });
+
+  it('serves the background from the local image cache on a later load', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const first = renderHook(() => useBackground());
+    await waitFor(() => expect(first.result.current.bgData.photographer).toBe('Fresh'));
+    await waitFor(() => expect(localStorage.getItem(CACHE_KEY)).toBeTruthy());
+    first.unmount();
+
+    // Next new tab, but offline: the image must still come from the cache.
+    stubOfflineFetch();
+    const { result } = renderHook(() => useBackground());
+
+    // The remote URL is truthy from the start, so wait for the local copy itself.
+    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
+    expect(result.current.imageSrc).toBeTruthy();
   });
 
   it('fetches a new image when the saved query no longer matches the cache', async () => {

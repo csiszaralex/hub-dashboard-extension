@@ -15,7 +15,7 @@ import { useWhatsNew } from './hooks/useWhatsNew';
 
 function App() {
   const { isLoaded } = useSettings();
-  const { bgData, refreshBackground, loading: bgLoading } = useBackground();
+  const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
   const { t } = useTranslation();
@@ -28,9 +28,7 @@ function App() {
     <main
       className='relative w-screen h-screen flex flex-col items-center justify-center text-white bg-black bg-cover bg-center transition-all duration-1000 overflow-hidden'
       style={{
-        backgroundImage: bgData.url || bgData.localImage
-          ? `url(${!navigator.onLine && bgData.localImage ? bgData.localImage : bgData.url})`
-          : undefined,
+        backgroundImage: imageSrc ? `url(${imageSrc})` : undefined,
       }}
       onDoubleClick={() => setUiVisible(!uiVisible)}
     >

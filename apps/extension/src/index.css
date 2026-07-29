@@ -1,8 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;400;600;800&display=swap');
+/* Self-hosted: a remote font request would block the render of every new tab
+   and hand Google a hit each time the page opens. */
+@import '@fontsource-variable/inter';
 @import 'tailwindcss';
 
 :root {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
 }
 
 @layer base {

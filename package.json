@@ -9,10 +9,12 @@
   "license": "MIT",
   "scripts": {
     "prepare": "husky",
-    "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r --if-present lint",
-    "check": "pnpm -r typecheck && pnpm -r --if-present lint",
-    "build": "pnpm --filter extension build"
+    "typecheck": "nx run-many -t typecheck",
+    "lint": "nx run-many -t lint",
+    "test": "nx run-many -t test",
+    "check": "nx run-many -t typecheck lint test",
+    "build": "nx run-many -t build",
+    "affected": "nx affected -t typecheck lint test build"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",

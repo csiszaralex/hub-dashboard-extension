@@ -1,2 +1,1 @@
-pnpm --filter extension build
-
+pnpm nx run-many -t build

@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'hub_last_seen_version';
 
 export const useWhatsNew = () => {
   const currentVersion = __APP_VERSION__;
 
-  const [shouldShow, setShouldShow] = useState(() => {
-    const lastSeen = localStorage.getItem(STORAGE_KEY);
-    if (lastSeen !== currentVersion) {
-      localStorage.setItem(STORAGE_KEY, currentVersion);
-      return true;
-    }
-    return false;
-  });
+  // The initialiser only reads. Marking the version as seen is a side effect and
+  // belongs in an effect, so a render React discards cannot silently consume the
+  // announcement.
+  const [shouldShow, setShouldShow] = useState(
+    () => localStorage.getItem(STORAGE_KEY) !== currentVersion,
+  );
+
+  useEffect(() => {
+    if (shouldShow) localStorage.setItem(STORAGE_KEY, currentVersion);
+  }, [shouldShow, currentVersion]);
 
   const dismiss = () => setShouldShow(false);
 

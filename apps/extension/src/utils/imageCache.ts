@@ -6,11 +6,12 @@
  * and the image silently re-downloads on every load. The Cache API stores the
  * response as a blob, has its own (far larger) quota, and needs no encoding.
  */
-const CACHE_NAME = 'hub-background-v1';
+const CACHE_PREFIX = 'hub-background-v';
+export const IMAGE_CACHE_NAME = `${CACHE_PREFIX}1`;
 
 const openCache = async (): Promise<Cache | null> => {
   try {
-    return await caches.open(CACHE_NAME);
+    return await caches.open(IMAGE_CACHE_NAME);
   } catch {
     return null;
   }
@@ -44,6 +45,25 @@ export const getCachedImageSrc = async (url: string): Promise<string | null> => 
   } catch (error) {
     console.error('Failed to read cached background image:', error);
     return null;
+  }
+};
+
+/**
+ * Drops background caches written by an older cache format.
+ *
+ * Safe to call from the service worker: it touches only the CacheStorage API,
+ * which exists in worker scope, and never creates object URLs.
+ */
+export const deleteObsoleteImageCaches = async (): Promise<void> => {
+  try {
+    const names = await caches.keys();
+    await Promise.all(
+      names
+        .filter((name) => name.startsWith(CACHE_PREFIX) && name !== IMAGE_CACHE_NAME)
+        .map((name) => caches.delete(name)),
+    );
+  } catch (error) {
+    console.error('Failed to clean up old background caches:', error);
   }
 };
 

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cacheImage, getCachedImageSrc, pruneImageCache } from './imageCache';
+import {
+  IMAGE_CACHE_NAME,
+  cacheImage,
+  deleteObsoleteImageCaches,
+  getCachedImageSrc,
+  pruneImageCache,
+} from './imageCache';
 
 const REMOTE = 'https://images.unsplash.com/photo-a?w=3840';
 const OTHER = 'https://images.unsplash.com/photo-b?w=3840';
@@ -48,6 +54,16 @@ describe('imageCache', () => {
     );
 
     expect(await cacheImage(REMOTE)).toBe(false);
+  });
+
+  it('removes background caches left behind by earlier versions', async () => {
+    await caches.open('hub-background-v0');
+    await caches.open(IMAGE_CACHE_NAME);
+    await caches.open('unrelated-cache');
+
+    await deleteObsoleteImageCaches();
+
+    expect(await caches.keys()).toEqual([IMAGE_CACHE_NAME, 'unrelated-cache']);
   });
 
   it('drops cached images that are no longer referenced', async () => {

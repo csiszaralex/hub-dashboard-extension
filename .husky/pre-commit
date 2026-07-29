@@ -1,2 +1,1 @@
-pnpm -r typecheck
-pnpm -r --if-present lint
+pnpm nx run-many -t typecheck lint test

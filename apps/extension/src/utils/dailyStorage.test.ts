@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDailyData, setDailyData } from './dailyStorage';
+import { getDailyData, getStaleData, setDailyData } from './dailyStorage';
 
 const KEY = 'test_key';
 const today = () => new Date().toISOString().split('T')[0];
@@ -47,5 +47,25 @@ describe('setDailyData', () => {
     setDailyData(KEY, { value: 7 }, 'forest');
 
     expect(JSON.parse(localStorage.getItem(KEY)!).date).toBe(today());
+  });
+});
+
+describe('getStaleData', () => {
+  it('returns data from an earlier day so something can be shown while revalidating', () => {
+    writePacket({ date: '2000-01-01', query: 'forest', data: { value: 42 } });
+
+    expect(getStaleData<{ value: number }>(KEY)).toEqual({ value: 42 });
+  });
+
+  it('ignores the query the data was stored under', () => {
+    setDailyData(KEY, { value: 42 }, 'forest');
+
+    expect(getStaleData<{ value: number }>(KEY)).toEqual({ value: 42 });
+  });
+
+  it('returns null instead of throwing on corrupted storage', () => {
+    localStorage.setItem(KEY, '{broken');
+
+    expect(getStaleData(KEY)).toBeNull();
   });
 });

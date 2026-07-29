@@ -1,0 +1,43 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: check-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # Nx affected diffs against the base branch, which needs its history.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A pull request only checks what it touched; a push to main checks
+      # everything, so the release that follows is never unverified.
+      - name: Check affected projects
+        if: github.event_name == 'pull_request'
+        run: pnpm nx affected --base=origin/${{ github.base_ref }} -t typecheck lint test build
+
+      - name: Check all projects
+        if: github.event_name != 'pull_request'
+        run: pnpm nx run-many -t typecheck lint test build

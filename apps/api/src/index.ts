@@ -1,11 +1,54 @@
 import { BackgroundData } from '@hub/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { DEFAULT_POOL_KEY, poolKey, resolveTags } from './tags';
 import { Photo } from './types';
 
 type Bindings = {
   UNSPLASH_CACHE: KVNamespace;
-  UNSPLASH_ACCESS_KEY: string; // Ezt secretként fogjuk felvenni
+  UNSPLASH_ACCESS_KEY: string; // secretként van felvéve
+};
+
+const POOL_TTL_SECONDS = 3 * 24 * 60 * 60;
+const POOL_SIZE = 30;
+
+/**
+ * Ceiling on Unsplash API calls per hour, kept below the account's own rate
+ * limit. The endpoint is public and the tag list is caller-supplied, so without
+ * this a stream of unique tags would drain the quota for every user.
+ */
+const HOURLY_UNSPLASH_BUDGET = 40;
+
+const budgetKey = () => `budget:${new Date().toISOString().slice(0, 13)}`;
+
+/** Claims one Unsplash call from this hour's budget. Returns false when spent. */
+const claimUnsplashCall = async (kv: KVNamespace): Promise<boolean> => {
+  const key = budgetKey();
+  const used = Number((await kv.get(key)) ?? '0');
+  if (!Number.isFinite(used) || used >= HOURLY_UNSPLASH_BUDGET) return false;
+
+  await kv.put(key, String(used + 1), { expirationTtl: 3600 });
+  return true;
+};
+
+const fetchPool = async (tags: string, accessKey: string): Promise<BackgroundData[]> => {
+  const unsplashUrl = new URL('https://api.unsplash.com/photos/random');
+  unsplashUrl.searchParams.set('count', String(POOL_SIZE));
+  unsplashUrl.searchParams.set('query', tags);
+  unsplashUrl.searchParams.set('orientation', 'landscape');
+
+  const res = await fetch(unsplashUrl.toString(), {
+    headers: { Authorization: `Client-ID ${accessKey}` },
+  });
+  if (!res.ok) throw new Error(`Unsplash API error: ${res.status}`);
+
+  const rawData: Photo[] = await res.json();
+  return rawData.map((img) => ({
+    url: `${img.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`,
+    location: img.location?.name || null,
+    photographer: img.user?.name || 'Ismeretlen',
+    photographerUrl: img.links?.html || '',
+  }));
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -13,48 +56,38 @@ const app = new Hono<{ Bindings: Bindings }>();
 app.use('/api/*', cors());
 
 app.get('/api/background', async (c) => {
-  const rawTags = c.req.query('tags') || 'landscape,forest,mountain,fog,nature view';
-  const normalizedTags = rawTags
-    .split(',')
-    .map((tag) => tag.trim().toLowerCase())
-    .filter(Boolean)
-    .sort()
-    .join(',');
+  const tags = resolveTags(c.req.query('tags'));
+  const cacheKey = poolKey(tags);
 
-  const cacheKey = `pool:${normalizedTags}`;
   let pool = await c.env.UNSPLASH_CACHE.get<BackgroundData[]>(cacheKey, 'json');
 
-  // 3. Cache Miss: Új pool lekérése az Unsplash-től
   if (!pool || pool.length === 0) {
-    const unsplashUrl = new URL('https://api.unsplash.com/photos/random');
-    unsplashUrl.searchParams.set('count', '30');
-    unsplashUrl.searchParams.set('query', normalizedTags);
-    unsplashUrl.searchParams.set('orientation', 'landscape');
-
-    const res = await fetch(unsplashUrl.toString(), {
-      headers: {
-        Authorization: `Client-ID ${c.env.UNSPLASH_ACCESS_KEY}`,
-      },
-    });
-    if (!res.ok) {
-      return c.json({ error: 'Unsplash API hiba' }, res.status as any);
+    if (await claimUnsplashCall(c.env.UNSPLASH_CACHE)) {
+      try {
+        pool = await fetchPool(tags, c.env.UNSPLASH_ACCESS_KEY);
+      } catch (error) {
+        console.error(error);
+        pool = null;
+      }
+      if (pool?.length) {
+        await c.env.UNSPLASH_CACHE.put(cacheKey, JSON.stringify(pool), {
+          expirationTtl: POOL_TTL_SECONDS,
+        });
+      }
     }
-    const rawData: Photo[] = await res.json();
-    pool = rawData.map((img) => ({
-      url: `${img.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`,
-      location: img.location?.name || null,
-      photographer: img.user?.name || 'Ismeretlen',
-      photographerUrl: img.links?.html || '',
-    }));
-    await c.env.UNSPLASH_CACHE.put(cacheKey, JSON.stringify(pool), {
-      expirationTtl: 3 * 24 * 60 * 60, // 3 nap
-    });
+
+    // Budget spent or Unsplash unavailable — degrade to the default pool
+    // rather than failing the new tab page.
+    if (!pool || pool.length === 0) {
+      pool = await c.env.UNSPLASH_CACHE.get<BackgroundData[]>(DEFAULT_POOL_KEY, 'json');
+    }
   }
 
-  const randomIndex = Math.floor(Math.random() * pool.length);
-  const selectedImage = pool[randomIndex];
+  if (!pool || pool.length === 0) {
+    return c.json({ error: 'No background available' }, 503);
+  }
 
-  return c.json(selectedImage);
+  return c.json(pool[Math.floor(Math.random() * pool.length)]);
 });
 
 export default app;

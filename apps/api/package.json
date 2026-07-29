@@ -7,8 +7,10 @@
     "dev": "wrangler dev src/index.ts",
     "deploy": "wrangler deploy src/index.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
     "@hub/shared": "workspace:^",

@@ -22,7 +22,9 @@
   "permissions": ["storage", "geolocation", "identity"],
   "host_permissions": [
     "https://api.open-meteo.com/*",
+    "https://geocoding-api.open-meteo.com/*",
     "https://api.bigdatacloud.net/*",
+    "https://get.geojs.io/*",
     "https://images.unsplash.com/*",
     "https://hub-api.csiszaralex.workers.dev/*",
     "https://stoic.tekloon.net/stoic-quote",

@@ -94,6 +94,6 @@
     "updated": "Updated"
   },
   "background": {
-    "creditSuffix": "/ Unsplash"
+    "photographerLabel": "Photo by {{name}} on Unsplash"
   }
 }

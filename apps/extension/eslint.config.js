@@ -63,7 +63,8 @@ export default defineConfig([
             exclude: ['t', 'format', 'padStart', 'split'],
           },
           words: {
-            exclude: ['^[•°%:]$', '^"$', 'km\\/h'],
+            // Separators and brand names that must not be translated.
+            exclude: ['^[•°%:/]$', '^"$', 'km\\/h', '^Unsplash$'],
           },
         },
       ],

@@ -13,11 +13,32 @@ A Cloudflare Worker that serves random background images from Unsplash with KV-b
   "url": "https://images.unsplash.com/photo-...?w=3840&q=90&fm=jpg&fit=crop",
   "location": "Dolomites, Italy",
   "photographer": "John Doe",
-  "photographerUrl": "https://unsplash.com/@johndoe"
+  "photographerUrl": "https://unsplash.com/@johndoe?utm_source=hub&utm_medium=referral"
 }
 ```
 
 `tags` defaults to `landscape,forest,mountain,fog,nature view` when omitted.
+
+### Tag normalisation
+
+Tags are lowercased, stripped of anything outside `[a-z0-9 -]`, deduplicated,
+sorted, and capped at 5 before becoming the KV cache key. `Forest, MOUNTAIN` and
+`mountain,forest` therefore share one cache entry rather than spending two
+Unsplash calls. Normalisation lives in [`src/tags.ts`](src/tags.ts).
+
+### Unsplash quota protection
+
+The endpoint is public and the tag list comes from the caller, so a stream of
+unique tags would otherwise drain the account's rate limit. A KV counter caps
+Unsplash calls per hour; once it is spent the worker serves the default pool
+instead of calling Unsplash, degrading variety rather than failing.
+
+### Attribution
+
+Per the [Unsplash API guidelines](https://help.unsplash.com/en/articles/2511245-unsplash-api-guidelines),
+the worker pings each photo's `download_location` when it hands the photo out,
+and attribution links carry `utm_source=hub&utm_medium=referral`.
+`photographerUrl` points at the photographer's profile, not the photo page.
 
 ## Local development
 
@@ -53,10 +74,13 @@ Test it:
 curl "http://localhost:8787/api/background?tags=mountain"
 ```
 
-### Type checking
+### Checks
 
 ```bash
-pnpm typecheck
+pnpm typecheck   # tsc --noEmit
+pnpm lint        # ESLint
+pnpm test        # Vitest — exercises the Hono app against an in-memory KV stub
+pnpm check       # all three
 ```
 
 ## Deployment

@@ -38,6 +38,21 @@ Run each app from its own directory — see individual READMEs:
 - [apps/api/README.md](apps/api/README.md)
 - [apps/extension/README.md](apps/extension/README.md)
 
+Workspace-wide tasks run through Nx and are cached:
+
+| Command         | Description                                            |
+| --------------- | ------------------------------------------------------ |
+| `pnpm typecheck`| TypeScript check across all projects                   |
+| `pnpm lint`     | ESLint across all projects                             |
+| `pnpm test`     | Vitest across all projects                             |
+| `pnpm check`    | typecheck + lint + test                                |
+| `pnpm build`    | Production build of every buildable project            |
+| `pnpm affected` | The same targets, limited to projects changed vs `main`|
+
+Husky runs `check` before each commit and `build` before each push; CI
+([`check.yml`](.github/workflows/check.yml)) repeats them on every pull request
+and on `main`.
+
 ## Releases
 
 Both apps version independently using git tags. Pushing a tag triggers the corresponding GitHub Actions deployment.
@@ -63,4 +78,8 @@ feat(extension): add countdown widget
 fix(api): handle empty Unsplash response
 chore(release): publish
 ```
+
+## License
+
+[MIT](LICENSE)
 

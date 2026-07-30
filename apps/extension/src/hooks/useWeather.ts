@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '../i18n/i18n';
+import { summarizeDaily, type DailyForecast } from '../utils/forecast';
 import { summarizePrecipitation, type RainData } from '../utils/precipitation';
 import { useSettings } from './useSettings';
 
@@ -11,6 +12,7 @@ export interface WeatherData {
   sunrise: string;
   sunset: string;
   rain: RainData;
+  daily: DailyForecast[];
 }
 
 interface ResolveLocationResult {
@@ -32,7 +34,10 @@ export const useWeather = () => {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        return parsed.weather || null;
+        if (parsed.weather) {
+          // A cache entry written before this field existed has no `daily`.
+          return { ...parsed.weather, daily: parsed.weather.daily ?? [] };
+        }
       }
     } catch {
       // ignore
@@ -65,7 +70,7 @@ export const useWeather = () => {
               : true;
 
           if (isTimeValid && isSettingsValid) {
-            setData(cachedData.weather);
+            setData({ ...cachedData.weather, daily: cachedData.weather.daily ?? [] });
             setLoading(false);
             return;
           }
@@ -120,7 +125,7 @@ export const useWeather = () => {
         const { lat, lon, source } = await resolveLocation();
 
         const weatherPromise = fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset&timezone=auto`,
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`,
         );
 
         let city = i18n.t('weather.localWeather');
@@ -152,6 +157,7 @@ export const useWeather = () => {
           sunset: wData.daily.sunset[0],
           city,
           rain: summarizePrecipitation(wData.hourly, new Date()),
+          daily: summarizeDaily(wData.daily),
         };
 
         localStorage.setItem(

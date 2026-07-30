@@ -62,6 +62,8 @@
     "appearance": "Kinézet & Háttér",
     "appearancePlaceholder": "pl. landscape, dark, city",
     "appearanceHint": "Angol kifejezések, vesszővel elválasztva.",
+    "dim": "Háttér sötétítése",
+    "dimHint": "{{value}}% — világos képeken emeld, ha nehéz olvasni a szöveget.",
     "weatherLocation": "Időjárás Lokáció",
     "weatherLocationPlaceholder": "Opcionális (pl. Budapest)",
     "weatherLocationHint": "Üresen hagyva automatikus (IP alapján).",

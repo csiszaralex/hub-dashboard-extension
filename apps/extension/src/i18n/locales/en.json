@@ -62,6 +62,8 @@
     "appearance": "Appearance & Background",
     "appearancePlaceholder": "e.g. landscape, dark, city",
     "appearanceHint": "English keywords, comma separated.",
+    "dim": "Background dimming",
+    "dimHint": "{{value}}% — raise this if text is hard to read on bright photos.",
     "weatherLocation": "Weather Location",
     "weatherLocationPlaceholder": "Optional (e.g. Budapest)",
     "weatherLocationHint": "Leave empty for automatic (IP based).",

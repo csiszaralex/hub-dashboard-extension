@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react';
+import { DEFAULT_DIM } from '../utils/dim';
 
 export interface HubSettings {
   unsplashQuery: string;
+  backgroundDim: number;
   locationCity: string;
   locationLat: number | null;
   locationLon: number | null;
@@ -12,6 +14,7 @@ export interface HubSettings {
 
 const DEFAULT_SETTINGS: HubSettings = {
   unsplashQuery: 'landscape,forest,mountain,fog,nature view',
+  backgroundDim: DEFAULT_DIM,
   locationCity: '',
   locationLat: null,
   locationLon: null,

@@ -64,12 +64,27 @@ After code changes, run `pnpm build` again and click the refresh icon on the ext
 
 ## Scripts
 
-| Command      | Description                                      |
-| ------------ | ------------------------------------------------ |
-| `pnpm dev`   | Start Vite dev server at `http://localhost:5173` |
-| `pnpm build` | Type-check + production build → `dist/`          |
-| `pnpm pack`  | Build and zip `dist/` → `extension-release.zip`  |
-| `pnpm lint`  | Run ESLint                                       |
+| Command            | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `pnpm dev`         | Start Vite dev server at `http://localhost:5173` |
+| `pnpm build`       | Type-check + production build → `dist/`          |
+| `pnpm pack`        | Build and zip `dist/` → `extension-release.zip`  |
+| `pnpm lint`        | Run ESLint                                       |
+| `pnpm test`        | Run Vitest once                                  |
+| `pnpm test:watch`  | Run Vitest in watch mode                         |
+| `pnpm check`       | Type-check + lint + test                         |
+
+## Tests
+
+Vitest with happy-dom. `src/test/` provides stubs for the `chrome` APIs and the
+Cache API; `setup.ts` reinstalls them and calls `vi.resetModules()` before every
+test, so hooks that read module-level state (`useSettings`) must be imported
+inside the test with `await import(...)` rather than at the top of the file.
+
+Covered: settings store, background fetching and caching, image cache, daily
+cache expiry, calendar event categorisation, precipitation aggregation,
+changelog parsing, and the version banner. Rendering is verified manually in
+Chrome.
 
 ## Deployment
 
@@ -121,6 +136,13 @@ Settings sync across devices via Chrome Storage Sync.
 | `geolocation` | Auto-detect location for weather         |
 | `identity`    | Google Calendar OAuth login              |
 
+OAuth scope: `https://www.googleapis.com/auth/calendar.readonly` — read-only, and
+covers both the calendar list (for the picker and calendar colours) and events.
+
+Every host the extension calls must also appear in `host_permissions` in
+[manifest.json](manifest.json), and any change to permissions, scopes or hosts
+must be mirrored in [privacy-policy.md](./privacy-policy.md).
+
 ## Stack
 
 | Tool                                       | Purpose                      |
@@ -131,17 +153,20 @@ Settings sync across devices via Chrome Storage Sync.
 | [Tailwind CSS 4](https://tailwindcss.com/) | Styling                      |
 | [Lucide React](https://lucide.dev/)        | Icons                        |
 | [date-fns](https://date-fns.org/)          | Date formatting              |
+| [Fontsource](https://fontsource.org/)      | Self-hosted Inter font       |
+| [Vitest](https://vitest.dev/)              | Tests (happy-dom)            |
 | TypeScript                                 | Language                     |
 
 ## External APIs
 
-| API                                             | Used for           | Auth             |
-| ----------------------------------------------- | ------------------ | ---------------- |
-| [Open-Meteo](https://open-meteo.com/)           | Weather data       | None (free)      |
-| [BigDataCloud](https://www.bigdatacloud.com/)   | Reverse geocoding  | None (free tier) |
-| Hub API (`apps/api`)                            | Background images  | None             |
-| [stoic.tekloon.net](https://stoic.tekloon.net/) | Daily Stoic quotes | None             |
-| Google Calendar API                             | Calendar events    | OAuth 2.0        |
+| API                                             | Used for                        | Auth             |
+| ----------------------------------------------- | ------------------------------- | ---------------- |
+| [Open-Meteo](https://open-meteo.com/)           | Weather data, city lookup       | None (free)      |
+| [BigDataCloud](https://www.bigdatacloud.com/)   | Reverse geocoding               | None (free tier) |
+| [GeoJS](https://www.geojs.io/)                  | IP location fallback            | None (free)      |
+| Hub API (`apps/api`)                            | Background images               | None             |
+| [stoic.tekloon.net](https://stoic.tekloon.net/) | Daily Stoic quotes              | None             |
+| Google Calendar API                             | Calendar events                 | OAuth 2.0        |
 
 ## Privacy policy
 

@@ -1,7 +1,7 @@
-import { Calendar, Cloud, Globe, Image, Timer } from 'lucide-react';
+import { Calendar, Cloud, Globe, Image, LayoutGrid, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-export type TabId = 'general' | 'appearance' | 'weather' | 'countdown' | 'calendars';
+export type TabId = 'general' | 'appearance' | 'weather' | 'countdown' | 'calendars' | 'widgets';
 
 const TABS = [
   { id: 'general' as const, icon: Globe, labelKey: 'popup.tabGeneral' as const },
@@ -9,6 +9,7 @@ const TABS = [
   { id: 'weather' as const, icon: Cloud, labelKey: 'popup.tabWeather' as const },
   { id: 'countdown' as const, icon: Timer, labelKey: 'popup.tabCountdown' as const },
   { id: 'calendars' as const, icon: Calendar, labelKey: 'popup.tabCalendars' as const },
+  { id: 'widgets' as const, icon: LayoutGrid, labelKey: 'popup.tabWidgets' as const },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (tab: TabId) => void }) {

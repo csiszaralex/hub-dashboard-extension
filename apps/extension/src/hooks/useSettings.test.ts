@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { MAX_DIM } from '../utils/dim';
+import type { HubSettings } from './useSettings';
 
 const loadUseSettings = async () => (await import('./useSettings')).useSettings;
 
@@ -50,6 +52,37 @@ describe('useSettings', () => {
     });
 
     await waitFor(() => expect(result.current[1].settings.locationCity).toBe('Debrecen'));
+  });
+
+  it('clamps a corrupt backgroundDim and drops an unknown hidden widget id from the initial storage read', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ backgroundDim: 500, hiddenWidgets: ['weather', 'ghost-widget'] });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.backgroundDim).toBe(MAX_DIM);
+    expect(result.current.settings.hiddenWidgets).toEqual(['weather']);
+  });
+
+  it('sanitises a corrupt backgroundDim and unknown hidden widget id written through a live storage change', async () => {
+    installChromeStub();
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    await act(async () => {
+      result.current.saveSettings({
+        backgroundDim: -50,
+        hiddenWidgets: ['note', 'ghost-widget'],
+      } as unknown as Partial<HubSettings>);
+      await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+    });
+
+    await waitFor(() => expect(result.current.settings.backgroundDim).toBe(0));
+    expect(result.current.settings.hiddenWidgets).toEqual(['note']);
   });
 
   it('keeps a stable saveSettings reference across renders', async () => {

@@ -87,7 +87,9 @@
     "tabAppearance": "Background",
     "tabWeather": "Weather",
     "tabCountdown": "Countdown",
-    "tabCalendars": "Calendars"
+    "tabCalendars": "Calendars",
+    "tabWidgets": "Widgets",
+    "widgets": "Visible widgets"
   },
   "app": {
     "newBackground": "Request new background"
@@ -97,5 +99,15 @@
   },
   "background": {
     "photographerLabel": "Photo by {{name}} on Unsplash"
+  },
+  "widgets": {
+    "clock": "Clock",
+    "quote": "Daily quote",
+    "weather": "Weather",
+    "calendar": "Calendar",
+    "note": "Quick note",
+    "countdown": "Countdown",
+    "backgroundInfo": "Photo credit",
+    "pomodoro": "Focus timer"
   }
 }

@@ -15,6 +15,7 @@
     "now": "Now",
     "localWeather": "Local weather",
     "unknown": "Unknown",
+    "forecast": "Next days",
     "codes": {
       "0": "Clear sky",
       "1": "Mainly clear",

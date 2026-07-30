@@ -1,4 +1,5 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { enUS, hu } from 'date-fns/locale';
 import { MapPin, RefreshCw, Sunrise, Sunset, Umbrella, Wind } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWeather } from '../hooks/useWeather';
@@ -6,7 +7,7 @@ import { getWeatherDescription, getWeatherIcon } from '../utils/weatherMapping';
 
 export const WeatherWidget = () => {
   const { data, loading, refresh } = useWeather();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (loading && !data) {
     return (
@@ -58,6 +59,8 @@ export const WeatherWidget = () => {
     if (rainDate.getTime() <= now.getTime()) return t('weather.now');
     return format(rainDate, 'HH:mm');
   };
+
+  const dateLocale = i18n.language.startsWith('hu') ? hu : enUS;
 
   return (
     <div className='group absolute top-8 right-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
@@ -144,6 +147,29 @@ export const WeatherWidget = () => {
             </span>
           </div>
         </div>
+
+        {data.daily.length > 0 && (
+          <div
+            className='grid grid-cols-4 gap-1.5 pt-1.5 border-t border-white/5'
+            aria-label={t('weather.forecast')}
+          >
+            {data.daily.map((day) => (
+              <div
+                key={day.date}
+                className='flex flex-col items-center gap-1 p-1.5 rounded-lg bg-white/5 hover:bg-white/[0.07] transition-colors'
+                title={format(parseISO(day.date), 'PPP', { locale: dateLocale })}
+              >
+                <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
+                  {format(parseISO(day.date), 'EEEEEE', { locale: dateLocale })}
+                </span>
+                <div className='scale-[0.7]'>{getWeatherIcon(day.code, true)}</div>
+                <span className='text-[10px] font-medium text-white/90'>
+                  {day.max}° <span className='text-white/40'>{day.min}°</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

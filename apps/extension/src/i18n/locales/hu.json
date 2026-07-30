@@ -15,6 +15,7 @@
     "now": "Most",
     "localWeather": "Helyi időjárás",
     "unknown": "Ismeretlen",
+    "forecast": "Következő napok",
     "codes": {
       "0": "Tiszta égbolt",
       "1": "Túlnyomóan derűs",

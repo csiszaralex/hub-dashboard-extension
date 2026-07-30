@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { type HubSettings } from '../hooks/useSettings';
+import { clampDim, MAX_DIM } from '../utils/dim';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
 import { TabNav, type TabId } from './TabNav';
@@ -32,6 +33,7 @@ export function PopupForm({
     () => (localStorage.getItem('popup_tab') as TabId | null) ?? 'general',
   );
   const [query, setQuery] = useState(initialSettings.unsplashQuery);
+  const [dim, setDim] = useState(clampDim(initialSettings.backgroundDim));
   const [city, setCity] = useState(initialSettings.locationCity);
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
@@ -131,6 +133,7 @@ export function PopupForm({
 
     onSave({
       unsplashQuery: query.trim(),
+      backgroundDim: clampDim(dim),
       locationCity: validCity,
       locationLat: lat,
       locationLon: lon,
@@ -167,16 +170,31 @@ export function PopupForm({
         )}
 
         {activeTab === 'appearance' && (
-          <Field id='query' label={t('popup.appearance')} hint={t('popup.appearanceHint')}>
-            <input
-              id='query'
-              type='text'
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className={inputCls}
-              placeholder={t('popup.appearancePlaceholder')}
-            />
-          </Field>
+          <div className='flex flex-col gap-3'>
+            <Field id='query' label={t('popup.appearance')} hint={t('popup.appearanceHint')}>
+              <input
+                id='query'
+                type='text'
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className={inputCls}
+                placeholder={t('popup.appearancePlaceholder')}
+              />
+            </Field>
+
+            <Field id='dim' label={t('popup.dim')} hint={t('popup.dimHint', { value: dim })}>
+              <input
+                id='dim'
+                type='range'
+                min={0}
+                max={MAX_DIM}
+                step={5}
+                value={dim}
+                onChange={(e) => setDim(Number(e.target.value))}
+                className='w-full accent-white'
+              />
+            </Field>
+          </div>
         )}
 
         {activeTab === 'weather' && (

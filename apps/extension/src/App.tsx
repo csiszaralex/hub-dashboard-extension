@@ -12,9 +12,10 @@ import { WhatsNewModal } from './components/WhatsNewModal';
 import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
 import { useWhatsNew } from './hooks/useWhatsNew';
+import { dimToOpacity } from './utils/dim';
 
 function App() {
-  const { isLoaded } = useSettings();
+  const { settings, isLoaded } = useSettings();
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
@@ -33,9 +34,8 @@ function App() {
       onDoubleClick={() => setUiVisible(!uiVisible)}
     >
       <div
-        className={`absolute inset-0 bg-black/30 pointer-events-none transition-opacity duration-1000 ${
-          uiVisible ? 'opacity-100' : 'opacity-0'
-        }`}
+        className='absolute inset-0 bg-black pointer-events-none transition-opacity duration-1000'
+        style={{ opacity: uiVisible ? dimToOpacity(settings.backgroundDim) : 0 }}
       />
 
       <div

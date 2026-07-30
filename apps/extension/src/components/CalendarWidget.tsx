@@ -3,8 +3,10 @@ import { enUS, hu } from 'date-fns/locale';
 import { Calendar, MapPin, Video } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCalendar, type CalendarEvent } from '../hooks/useCalendar';
+import { useCalendar } from '../hooks/useCalendar';
 import { useSettings } from '../hooks/useSettings';
+import type { CalendarEvent } from '../types/calendar';
+import { categorizeEvents } from '../utils/calendarEvents';
 
 interface EventRowProps {
   event: CalendarEvent;
@@ -119,47 +121,10 @@ export const CalendarWidget = () => {
   );
   const { t } = useTranslation();
 
-  const { currentEvents, nextEvent, allDayEvents, futureEvents } = useMemo(() => {
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-
-    const _allDay: CalendarEvent[] = [];
-    const _timed: CalendarEvent[] = [];
-
-    events.forEach((e) => {
-      if (e.start.date && e.end.date) {
-        if (e.start.date <= todayStr && e.end.date > todayStr) _allDay.push(e);
-      } else if (e.start.dateTime) {
-        _timed.push(e);
-      }
-    });
-
-    const current: CalendarEvent[] = [];
-    let next: CalendarEvent | null = null;
-    const future: CalendarEvent[] = [];
-
-    for (const e of _timed) {
-      const start = parseISO(e.start.dateTime!);
-      const end = parseISO(e.end.dateTime!);
-
-      if (start <= now && end > now) current.push(e);
-      else if (start > now) {
-        if (!next) next = e;
-        else future.push(e);
-      }
-    }
-
-    current.sort(
-      (a, b) => parseISO(a.end.dateTime!).getTime() - parseISO(b.end.dateTime!).getTime(),
-    );
-
-    return {
-      currentEvents: current,
-      nextEvent: next,
-      allDayEvents: _allDay,
-      futureEvents: future.slice(0, 3),
-    };
-  }, [events]);
+  const { currentEvents, nextEvent, allDayEvents, futureEvents } = useMemo(
+    () => categorizeEvents(events, new Date()),
+    [events],
+  );
 
   if (!settingsLoaded || loading) return null;
 

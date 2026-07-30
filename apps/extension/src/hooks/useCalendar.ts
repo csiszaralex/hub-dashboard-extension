@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { CalendarEvent } from '../types/calendar';
 import type { ICalendarList } from '../types/calendarList';
 
 declare const chrome: {
@@ -9,17 +10,6 @@ declare const chrome: {
     lastError?: { message: string };
   };
 };
-
-export interface CalendarEvent {
-  id: string;
-  summary: string;
-  description?: string;
-  hangoutLink?: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  location?: string;
-  calendarColor?: string;
-}
 
 export const useCalendar = (
   selectedCalendars: string[] = ['primary'],

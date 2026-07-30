@@ -13,9 +13,11 @@ import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import { dimToOpacity } from './utils/dim';
+import { isWidgetVisible, type WidgetId } from './widgets';
 
 function App() {
   const { settings, isLoaded } = useSettings();
+  const showWidget = (id: WidgetId) => isWidgetVisible(settings.hiddenWidgets, id);
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const [uiVisible, setUiVisible] = useState(true);
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
@@ -49,20 +51,20 @@ function App() {
           {shouldShow ? (
             <WhatsNewModal version={currentVersion} onClose={dismiss} />
           ) : (
-            <CountdownWidget />
+            showWidget('countdown') && <CountdownWidget />
           )}
         </div>
 
         <div className='flex flex-col items-center gap-6 mb-10'>
-          <Clock />
-          <QuoteWidget />
+          {showWidget('clock') && <Clock />}
+          {showWidget('quote') && <QuoteWidget />}
         </div>
 
-        <CalendarWidget />
-        <WeatherWidget />
+        {showWidget('calendar') && <CalendarWidget />}
+        {showWidget('weather') && <WeatherWidget />}
         {/* If uncomment add topSites to manifest.json */}
         {/* <TopSitesWidget /> */}
-        <QuickNote />
+        {showWidget('note') && <QuickNote />}
 
         {/* ALSÓ SÁV */}
         <div className='absolute bottom-4 left-4 flex items-end gap-3'>
@@ -77,7 +79,7 @@ function App() {
               className={`w-4 h-4 text-white/70 group-hover:text-white ${bgLoading ? 'animate-spin' : ''}`}
             />
           </button>
-          <BackgroundInfo data={bgData} />
+          {showWidget('backgroundInfo') && <BackgroundInfo data={bgData} />}
         </div>
       </div>
     </main>

@@ -11,6 +11,7 @@ const baseSettings: HubSettings = {
   selectedCalendars: ['primary'],
   countdownTarget: null,
   language: 'en',
+  hiddenWidgets: [],
 };
 
 describe('PopupForm', () => {

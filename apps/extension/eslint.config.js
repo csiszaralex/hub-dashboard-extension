@@ -60,7 +60,9 @@ export default defineConfig([
             ],
           },
           callees: {
-            exclude: ['t', 'format', 'padStart', 'split'],
+            // `showWidget` is App.tsx's `isWidgetVisible` wrapper — its argument is
+            // a typed WidgetId, not user-facing text, so it isn't a translation gap.
+            exclude: ['t', 'format', 'padStart', 'split', 'showWidget'],
           },
           words: {
             // Separators and brand names that must not be translated.

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_DIM } from '../utils/dim';
+import { clampDim, DEFAULT_DIM } from '../utils/dim';
+import { sanitizeHiddenWidgets, type WidgetId } from '../widgets';
 
 export interface HubSettings {
   unsplashQuery: string;
@@ -10,6 +11,7 @@ export interface HubSettings {
   selectedCalendars: string[];
   countdownTarget: string | null;
   language: string;
+  hiddenWidgets: WidgetId[];
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -21,6 +23,7 @@ const DEFAULT_SETTINGS: HubSettings = {
   selectedCalendars: ['primary'],
   countdownTarget: null,
   language: '',
+  hiddenWidgets: [],
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof HubSettings)[];
@@ -52,6 +55,8 @@ const merge = (stored: Partial<HubSettings>): HubSettings => {
       (next as Record<string, unknown>)[key] = value;
     }
   }
+  next.hiddenWidgets = sanitizeHiddenWidgets(next.hiddenWidgets);
+  next.backgroundDim = clampDim(next.backgroundDim);
   return next;
 };
 
@@ -67,6 +72,8 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
   }
 
   if (!changed) return;
+  next.hiddenWidgets = sanitizeHiddenWidgets(next.hiddenWidgets);
+  next.backgroundDim = clampDim(next.backgroundDim);
   state = { settings: next, isLoaded: state.isLoaded };
   emit();
 };

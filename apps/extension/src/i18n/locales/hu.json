@@ -87,7 +87,9 @@
     "tabAppearance": "Háttér",
     "tabWeather": "Időjárás",
     "tabCountdown": "Számláló",
-    "tabCalendars": "Naptárak"
+    "tabCalendars": "Naptárak",
+    "tabWidgets": "Widgetek",
+    "widgets": "Látható widgetek"
   },
   "app": {
     "newBackground": "Új háttérkép kérése"
@@ -97,5 +99,15 @@
   },
   "background": {
     "photographerLabel": "{{name}} fotója az Unsplash-en"
+  },
+  "widgets": {
+    "clock": "Óra",
+    "quote": "Napi idézet",
+    "weather": "Időjárás",
+    "calendar": "Naptár",
+    "note": "Jegyzet",
+    "countdown": "Visszaszámláló",
+    "backgroundInfo": "Fotó kredit",
+    "pomodoro": "Fókusz időzítő"
   }
 }

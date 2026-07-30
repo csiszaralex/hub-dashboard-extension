@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { type HubSettings } from '../hooks/useSettings';
 import { clampDim, MAX_DIM } from '../utils/dim';
+import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
 import { TabNav, type TabId } from './TabNav';
+import { WidgetsSection } from './WidgetsSection';
 
 declare const chrome: {
   identity: {
@@ -38,6 +40,7 @@ export function PopupForm({
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
   const [language, setLanguage] = useState(initialSettings.language);
+  const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -96,6 +99,9 @@ export function PopupForm({
   const toggleCalendar = (id: string) =>
     setSelectedCals((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
 
+  const toggleWidget = (id: WidgetId) =>
+    setHiddenWidgets((prev) => (prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]));
+
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setCityError(null);
@@ -140,6 +146,7 @@ export function PopupForm({
       selectedCalendars: selectedCals,
       countdownTarget: countdownTarget || null,
       language,
+      hiddenWidgets,
     });
     setLoading(false);
     setSaved(true);
@@ -234,6 +241,10 @@ export function PopupForm({
             onToggle={toggleCalendar}
             onLogin={() => loadCalendars(true)}
           />
+        )}
+
+        {activeTab === 'widgets' && (
+          <WidgetsSection hidden={hiddenWidgets} onToggle={toggleWidget} />
         )}
       </div>
 

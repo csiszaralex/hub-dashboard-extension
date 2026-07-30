@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '../i18n/i18n';
+import { summarizePrecipitation, type RainData } from '../utils/precipitation';
 import { useSettings } from './useSettings';
-
-export interface RainData {
-  probability: number;
-  amount: number;
-  nextTime: string | null;
-}
 
 export interface WeatherData {
   temp: number;
@@ -149,27 +144,6 @@ export const useWeather = () => {
           if (cityData.locality) city = cityData.locality;
         }
 
-        const nowTime = Date.now();
-        const startIndex = wData.hourly.time.findIndex(
-          (t: string) => new Date(t).getTime() > nowTime - 3600000,
-        );
-        const safeStartIndex = startIndex !== -1 ? startIndex : 0;
-
-        const next12hProb = wData.hourly.precipitation_probability.slice(
-          safeStartIndex,
-          safeStartIndex + 12,
-        );
-        const next12hAmount = wData.hourly.precipitation.slice(safeStartIndex, safeStartIndex + 12);
-
-        const maxProb = Math.max(...next12hProb);
-        const totalAmount = Number(
-          next12hAmount.reduce((sum: number, val: number) => sum + val, 0).toFixed(1),
-        );
-
-        const firstRainIndex = next12hProb.findIndex((p: number) => p > 40);
-        const nextTime =
-          firstRainIndex !== -1 ? wData.hourly.time[safeStartIndex + firstRainIndex] : null;
-
         const weather: WeatherData = {
           temp: Math.round(wData.current.temperature_2m),
           code: wData.current.weather_code,
@@ -177,7 +151,7 @@ export const useWeather = () => {
           sunrise: wData.daily.sunrise[0],
           sunset: wData.daily.sunset[0],
           city,
-          rain: { probability: maxProb, amount: totalAmount, nextTime },
+          rain: summarizePrecipitation(wData.hourly, new Date()),
         };
 
         localStorage.setItem(

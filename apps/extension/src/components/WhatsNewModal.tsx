@@ -1,5 +1,6 @@
 import { Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { parseSections, stripMarkdown } from '../utils/changelog';
 
 const GithubIcon = () => (
   <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4'>
@@ -11,47 +12,6 @@ interface Props {
   version: string;
   onClose: () => void;
 }
-
-interface ChangelogSection {
-  heading: string;
-  items: string[];
-}
-
-const parseSections = (text: string): ChangelogSection[] => {
-  const sections: ChangelogSection[] = [];
-  let current: ChangelogSection | null = null;
-
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    if (/^#{2,4}\s+/.test(trimmed)) {
-      current = { heading: trimmed.replace(/^#+\s+/, ''), items: [] };
-      sections.push(current);
-    } else if (/^[-*]\s+/.test(trimmed)) {
-      const item = trimmed.replace(/^[-*]\s+/, '');
-      if (current) {
-        current.items.push(item);
-      } else {
-        if (sections.length === 0 || sections[sections.length - 1].heading !== '') {
-          current = { heading: '', items: [] };
-          sections.push(current);
-        }
-        sections[sections.length - 1].items.push(item);
-      }
-    } else if (trimmed && sections.length === 0) {
-      sections.push({ heading: '', items: [trimmed] });
-    }
-  }
-
-  return sections;
-};
-
-const stripMarkdown = (text: string): string =>
-  text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\s*\(\[?[a-f0-9]{7,}\]?(?:\([^)]+\))?\)/g, '')
-    .trim();
 
 export const WhatsNewModal = ({ version, onClose }: Props) => {
   const { t } = useTranslation();

@@ -1,6 +1,6 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** July 29, 2026
+**Effective Date:** July 31, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
@@ -35,7 +35,7 @@ Hub uses your browser's storage to save:
 
 - Your preferences — background search tags, weather location, selected calendars, countdown target and language — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
 - Your quick notes, in `localStorage` on the device only.
-- Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it.
+- Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
 
 Hub does not store any API keys on your device. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
 

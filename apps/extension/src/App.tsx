@@ -68,17 +68,19 @@ function App() {
 
         {/* ALSÓ SÁV */}
         <div className='absolute bottom-4 left-4 flex items-end gap-3'>
-          {/* HÁTTÉR FRISSÍTŐ GOMB */}
-          <button
-            onClick={() => refreshBackground()}
-            disabled={bgLoading}
-            className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
-            title={t('app.newBackground')}
-          >
-            <RefreshCw
-              className={`w-4 h-4 text-white/70 group-hover:text-white ${bgLoading ? 'animate-spin' : ''}`}
-            />
-          </button>
+          {/* HÁTTÉR FRISSÍTŐ GOMB — a custom background has no rotating pool to refresh */}
+          {settings.backgroundSource !== 'custom' && (
+            <button
+              onClick={() => refreshBackground()}
+              disabled={bgLoading}
+              className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
+              title={t('app.newBackground')}
+            >
+              <RefreshCw
+                className={`w-4 h-4 text-white/70 group-hover:text-white ${bgLoading ? 'animate-spin' : ''}`}
+              />
+            </button>
+          )}
           {showWidget('backgroundInfo') && <BackgroundInfo data={bgData} />}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { sanitizeHiddenWidgets, type WidgetId } from '../widgets';
 
 export interface HubSettings {
   unsplashQuery: string;
+  backgroundSource: 'unsplash' | 'custom';
   backgroundDim: number;
   locationCity: string;
   locationLat: number | null;
@@ -16,6 +17,7 @@ export interface HubSettings {
 
 const DEFAULT_SETTINGS: HubSettings = {
   unsplashQuery: 'landscape,forest,mountain,fog,nature view',
+  backgroundSource: 'unsplash',
   backgroundDim: DEFAULT_DIM,
   locationCity: '',
   locationLat: null,

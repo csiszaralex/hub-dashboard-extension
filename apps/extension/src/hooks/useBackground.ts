@@ -1,7 +1,7 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
-import { cacheImage, getCachedImageSrc, pruneImageCache } from '../utils/imageCache';
+import { CUSTOM_IMAGE_KEY, cacheImage, getCachedImageSrc, pruneImageCache } from '../utils/imageCache';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
@@ -28,6 +28,12 @@ export const useBackground = () => {
 
   const fetchNewImage = useCallback(
     async (force = false, currentQuery = settings.unsplashQuery) => {
+      // Guard the fetch itself, not just its callers: `refreshBackground` and the
+      // revalidation effect both funnel through here, and a custom background must
+      // never be silently replaced by a real Unsplash photo fetched under its cover
+      // (that photo would render via `cachedSrc` with `bgData` still reporting
+      // `EMPTY_BG_DATA`, i.e. an Unsplash image on screen with no attribution).
+      if (settings.backgroundSource === 'custom') return;
       if (!force && getDailyData(CACHE_KEY, currentQuery)) return;
 
       setLoading(true);
@@ -57,28 +63,42 @@ export const useBackground = () => {
         setLoading(false);
       }
     },
-    [settings.unsplashQuery],
+    [settings.backgroundSource, settings.unsplashQuery],
   );
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (settings.backgroundSource === 'custom') return;
 
     // No force flag needed: the cache packet stores the query it was built for,
     // so a changed query is already a cache miss inside fetchNewImage.
     fetchNewImage(false, settings.unsplashQuery);
-  }, [fetchNewImage, isLoaded, settings.unsplashQuery]);
+  }, [fetchNewImage, isLoaded, settings.backgroundSource, settings.unsplashQuery]);
+
+  const custom = settings.backgroundSource === 'custom';
+  const cacheKey = custom ? CUSTOM_IMAGE_KEY : bgData.url;
 
   // Resolve the locally cached copy of whatever image is currently selected.
   useEffect(() => {
-    if (!bgData.url) return;
+    if (!cacheKey) return;
 
     let revoked = false;
     let objectUrl: string | null = null;
 
-    getCachedImageSrc(bgData.url).then((src) => {
-      if (!src) return;
+    getCachedImageSrc(cacheKey).then((src) => {
       if (revoked) {
-        URL.revokeObjectURL(src);
+        if (src) URL.revokeObjectURL(src);
+        return;
+      }
+      if (!src) {
+        // Resolution for this key genuinely failed — e.g. "custom" is selected
+        // but nothing has been uploaded. A src left over from a *different* key
+        // must not keep showing, so clear it here. This is deliberately not a
+        // pre-emptive clear at the top of the effect: an ordinary Unsplash
+        // rotation resolves successfully, and until it does, the outgoing image
+        // is still legitimate to display — clearing on every key change instead
+        // of only on failure would blank the background between every rotation.
+        setCachedSrc(null);
         return;
       }
       objectUrl = src;
@@ -89,12 +109,12 @@ export const useBackground = () => {
       revoked = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [bgData.url]);
+  }, [cacheKey]);
 
   return {
-    bgData,
+    bgData: custom ? EMPTY_BG_DATA : bgData,
     // Prefer the local copy: it renders instantly and survives being offline.
-    imageSrc: cachedSrc ?? bgData.url ?? '',
+    imageSrc: cachedSrc ?? (custom ? '' : bgData.url) ?? '',
     refreshBackground: () => fetchNewImage(true, settings.unsplashQuery),
     loading,
     isSettingsLoaded: isLoaded,

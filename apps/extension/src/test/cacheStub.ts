@@ -12,7 +12,18 @@ class MemoryCache {
   }
 
   async put(request: RequestInfo, response: Response): Promise<void> {
-    this.entries.set(toKey(request), response.clone());
+    const url = toKey(request);
+    // Mirrors a hard requirement of the real Cache API (Service Workers spec):
+    // `put()` throws for any request whose scheme is not http(s). Silently
+    // accepting other schemes here would let tests pass against a store the
+    // real browser would refuse to write to.
+    const { protocol } = new URL(url);
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      throw new TypeError(
+        `Failed to execute 'put' on 'Cache': Request scheme '${protocol.replace(':', '')}' is unsupported`,
+      );
+    }
+    this.entries.set(url, response.clone());
   }
 
   async delete(request: RequestInfo): Promise<boolean> {

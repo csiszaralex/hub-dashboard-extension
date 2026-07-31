@@ -1,11 +1,18 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { backgroundRequestUrl } from '../utils/api';
 import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
-import { CUSTOM_IMAGE_KEY, cacheImage, getCachedImageSrc, pruneImageCache } from '../utils/imageCache';
+import {
+  CUSTOM_IMAGE_KEY,
+  cacheImage,
+  getCachedImageSrc,
+  hasCachedImage,
+  pruneImageCache,
+} from '../utils/imageCache';
+import { clearPrefetch, readPrefetch } from '../utils/prefetch';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
-const WORKER_URL = 'https://hub-api.csiszaralex.workers.dev/api/background';
 const FALLBACK_BG_URL =
   'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop';
 
@@ -15,6 +22,8 @@ const EMPTY_BG_DATA: BackgroundData = {
   photographer: '',
   photographerUrl: '',
 };
+
+const todayIso = () => new Date().toISOString().split('T')[0];
 
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
@@ -36,14 +45,39 @@ export const useBackground = () => {
       if (settings.backgroundSource === 'custom') return;
       if (!force && getDailyData(CACHE_KEY, currentQuery)) return;
 
-      setLoading(true);
-      try {
-        const url = new URL(WORKER_URL);
-        if (currentQuery) {
-          url.searchParams.set('tags', currentQuery);
+      // Read the service worker's hand-off slot once. It decides whether this
+      // load can skip the network entirely, and — when it cannot — its image
+      // still has to survive the prune further down.
+      let packet = await readPrefetch();
+
+      // The worker may already have today's image cached.
+      if (!force && packet && packet.date === todayIso() && packet.query === currentQuery) {
+        // The pointer alone is not enough. The worker writes it only after the
+        // bytes land in the Cache API, but Chrome can evict that bucket later
+        // without touching `chrome.storage.local` — and adopting an image that
+        // is no longer there would write the daily cache, suppress every retry
+        // until midnight and leave nothing to render offline. Checking is one
+        // local cache lookup; being wrong costs a whole day.
+        if (await hasCachedImage(packet.data.url)) {
+          setBgData(packet.data);
+          setDailyData(CACHE_KEY, packet.data, currentQuery);
+          await clearPrefetch();
+          // Nothing else prunes on this path: a day that ends in an adoption
+          // never reaches the fetch below, so yesterday's photo would otherwise
+          // stay in the cache forever.
+          await pruneImageCache([packet.data.url]);
+          return;
         }
 
-        const res = await fetch(url.toString());
+        // The pointer outlived its image. Drop it rather than re-examine it on
+        // every load, and fetch the day's background the ordinary way.
+        await clearPrefetch();
+        packet = null;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch(backgroundRequestUrl(currentQuery));
         if (!res.ok) throw new Error('Worker API error');
 
         const data: BackgroundData = await res.json();
@@ -54,7 +88,10 @@ export const useBackground = () => {
 
         if (await cacheImage(data.url)) {
           setCachedSrc(await getCachedImageSrc(data.url));
-          await pruneImageCache([data.url]);
+          // A packet that is not for today is the worker's work for a later
+          // day. Pruning it away would leave a pointer to an image nobody has,
+          // which is exactly what the prefetch ordering exists to prevent.
+          await pruneImageCache(packet ? [data.url, packet.data.url] : [data.url]);
         }
       } catch (error) {
         console.error('Failed to fetch background:', error);

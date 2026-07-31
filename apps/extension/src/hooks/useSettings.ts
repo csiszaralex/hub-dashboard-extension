@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { DEFAULT_UNSPLASH_QUERY } from '../utils/api';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
 import { sanitizeHiddenWidgets, type WidgetId } from '../widgets';
 
@@ -16,7 +17,9 @@ export interface HubSettings {
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
-  unsplashQuery: 'landscape,forest,mountain,fog,nature view',
+  // Shared with the service worker, which cannot import this module — see
+  // `utils/api`. The two must never drift apart.
+  unsplashQuery: DEFAULT_UNSPLASH_QUERY,
   backgroundSource: 'unsplash',
   backgroundDim: DEFAULT_DIM,
   locationCity: '',

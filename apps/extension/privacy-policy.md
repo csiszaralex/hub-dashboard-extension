@@ -39,6 +39,13 @@ Hub uses your browser's storage to save:
 
 Hub does not store any API keys on your device. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
 
+### 4. Scheduled Background Prefetch (`alarms` permission)
+
+Hub schedules a daily task that downloads the next day's background image in advance, so opening a new tab never waits on the network.
+
+- **Usage:** The task sends only your configured background search tags to the Hub API, exactly as the dashboard itself does. It reads no browsing data and runs no other work.
+- **Storage:** The downloaded image goes into the browser's Cache storage and its metadata into `chrome.storage.local`, both on your device only.
+
 ## Hub API
 
 Background images are requested from the Hub API, a Cloudflare Worker we operate at `hub-api.csiszaralex.workers.dev`. It exists so that the Unsplash API key stays on the server instead of being shipped inside the extension.

@@ -10,6 +10,12 @@ const loadUseBackground = async () => (await import('./useBackground')).useBackg
 
 const today = () => new Date().toISOString().split('T')[0];
 
+const tomorrow = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+};
+
 const seedCache = (query: string, url = 'https://images.unsplash.com/cached') => {
   localStorage.setItem(
     CACHE_KEY,
@@ -72,6 +78,17 @@ const stubOfflineFetch = () =>
       throw new TypeError('Failed to fetch');
     }),
   );
+
+/**
+ * Puts a prefetched image's bytes into the cache, the way the service worker
+ * does before it writes the pointer. A packet without them is not adoptable.
+ */
+const seedPrefetchedBytes = async (url = 'https://images.unsplash.com/prefetched') => {
+  const { IMAGE_CACHE_NAME } = await import('../utils/imageCache');
+  const cache = await caches.open(IMAGE_CACHE_NAME);
+  await cache.put(url, new Response(new Blob(['image-bytes'], { type: 'image/jpeg' })));
+  return cache;
+};
 
 const backgroundRequests = (fetchMock: ReturnType<typeof stubFetch>) =>
   fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/background'));
@@ -257,5 +274,206 @@ describe('useBackground', () => {
 
     await waitFor(() => expect(result.current.imageSrc).not.toBe(firstSrc));
     expect(result.current.imageSrc).toBeTruthy();
+  });
+
+  it('adopts a prefetched image instead of making a request', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    await seedPrefetchedBytes();
+    const fetchMock = stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Prefetched'));
+    expect(backgroundRequests(fetchMock)).toHaveLength(0);
+  });
+
+  it('ignores a prefetched image built for a different query', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    const fetchMock = stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
+    expect(backgroundRequests(fetchMock)).toHaveLength(1);
+  });
+
+  it('consumes the prefetch slot so the next day cannot adopt a stale image', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    await seedPrefetchedBytes();
+    stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Prefetched'));
+    await waitFor(() => expect(chromeStub.readLocal('prefetched_bg')).toBeUndefined());
+    // The metadata moved into the page's own daily cache on the way through.
+    expect(localStorage.getItem(CACHE_KEY)).toContain('Prefetched');
+  });
+
+  it('drops the previous image from the cache when it adopts a prefetch', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    stubFetch();
+    const cache = await seedPrefetchedBytes();
+    // Yesterday's photo, still in the cache. Only the on-demand fetch used to
+    // prune, so an uninterrupted prefetch-and-adopt cycle would otherwise pile
+    // up a multi-megabyte image per day forever.
+    await cache.put('https://images.unsplash.com/yesterday', new Response(new Blob(['old'])));
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Prefetched'));
+    await waitFor(async () =>
+      expect(await cache.match('https://images.unsplash.com/yesterday')).toBeUndefined(),
+    );
+  });
+
+  it('fetches normally when the prefetched image is no longer in the cache', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    // Deliberately no bytes. Chrome can evict the Cache API bucket without
+    // touching `chrome.storage.local`, so a pointer can outlive its image.
+    // Adopting on the pointer alone marks the day done in the daily cache,
+    // suppresses every retry until midnight, and leaves nothing to render
+    // offline — worse than never having prefetched at all.
+    const fetchMock = stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
+    expect(backgroundRequests(fetchMock)).toHaveLength(1);
+    // The dead pointer is dropped rather than re-examined on every load.
+    await waitFor(() => expect(chromeStub.readLocal('prefetched_bg')).toBeUndefined());
+    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
+  });
+
+  it('adopts a prefetch made with the default query when the settings were never saved', async () => {
+    // No `seedSync`: the hook falls back to its merged default, and the worker
+    // must have prefetched under that exact string for the packet to be usable.
+    const chromeStub = installChromeStub();
+    const { DEFAULT_UNSPLASH_QUERY } = await import('../utils/api');
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: DEFAULT_UNSPLASH_QUERY,
+        data: {
+          url: 'https://images.unsplash.com/prefetched',
+          location: null,
+          photographer: 'Prefetched',
+          photographerUrl: '',
+        },
+      },
+    });
+    await seedPrefetchedBytes();
+    const fetchMock = stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Prefetched'));
+    expect(backgroundRequests(fetchMock)).toHaveLength(0);
+  });
+
+  it('keeps an image the service worker prefetched for a later day', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    // The alarm fired before the first new tab of the day, so the slot already
+    // holds tomorrow's image. Today's load cannot adopt it, and pruning it away
+    // would leave a pointer to an image nobody has — tomorrow would then adopt
+    // a packet with nothing behind it and be worse off than with no prefetch.
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: tomorrow(),
+        query: 'forest',
+        data: {
+          url: 'https://images.unsplash.com/tomorrow',
+          location: null,
+          photographer: 'Tomorrow',
+          photographerUrl: '',
+        },
+      },
+    });
+    stubFetch();
+    const { IMAGE_CACHE_NAME } = await import('../utils/imageCache');
+    const cache = await caches.open(IMAGE_CACHE_NAME);
+    await cache.put('https://images.unsplash.com/tomorrow', new Response(new Blob(['bytes'])));
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
+    await waitFor(async () =>
+      expect(await cache.match('https://images.unsplash.com/fresh')).toBeDefined(),
+    );
+    expect(await cache.match('https://images.unsplash.com/tomorrow')).toBeDefined();
+    expect(chromeStub.readLocal('prefetched_bg')).toBeTruthy();
   });
 });

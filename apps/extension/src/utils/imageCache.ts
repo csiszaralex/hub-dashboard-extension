@@ -62,11 +62,25 @@ export const putCustomImage = async (file: Blob): Promise<boolean> => {
   }
 };
 
-export const hasCustomImage = async (): Promise<boolean> => {
+/**
+ * Whether `url` has bytes in the cache, without creating an object URL for them.
+ *
+ * Cheaper than `getCachedImageSrc` when the answer is all that is needed —
+ * an object URL nobody revokes leaks the blob for the lifetime of the page.
+ */
+export const hasCachedImage = async (url: string): Promise<boolean> => {
   const cache = await openCache();
   if (!cache) return false;
-  return (await cache.match(CUSTOM_IMAGE_KEY)) !== undefined;
+
+  try {
+    return (await cache.match(url)) !== undefined;
+  } catch (error) {
+    console.error('Failed to look up a cached background image:', error);
+    return false;
+  }
 };
+
+export const hasCustomImage = (): Promise<boolean> => hasCachedImage(CUSTOM_IMAGE_KEY);
 
 /** Object URL for a previously cached image, or null when it is not cached. */
 export const getCachedImageSrc = async (url: string): Promise<string | null> => {

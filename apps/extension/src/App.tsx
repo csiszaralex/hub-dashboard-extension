@@ -1,5 +1,4 @@
 import { RefreshCw } from 'lucide-react';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
@@ -11,6 +10,7 @@ import { WeatherWidget } from './components/WeatherWidget';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
+import { useUiVisibility } from './hooks/useUiVisibility';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import { dimToOpacity } from './utils/dim';
 import { isWidgetVisible, type WidgetId } from './widgets';
@@ -19,7 +19,7 @@ function App() {
   const { settings, isLoaded } = useSettings();
   const showWidget = (id: WidgetId) => isWidgetVisible(settings.hiddenWidgets, id);
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
-  const [uiVisible, setUiVisible] = useState(true);
+  const { uiVisible, toggle } = useUiVisibility();
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
   const { t } = useTranslation();
 
@@ -33,7 +33,7 @@ function App() {
       style={{
         backgroundImage: imageSrc ? `url(${imageSrc})` : undefined,
       }}
-      onDoubleClick={() => setUiVisible(!uiVisible)}
+      onDoubleClick={toggle}
     >
       <div
         className='absolute inset-0 bg-black pointer-events-none transition-opacity duration-1000'
@@ -83,6 +83,10 @@ function App() {
           )}
           {showWidget('backgroundInfo') && <BackgroundInfo data={bgData} />}
         </div>
+
+        <p className='absolute bottom-4 right-4 text-[10px] text-white/30 select-none'>
+          {t('app.toggleHint')}
+        </p>
       </div>
     </main>
   );

@@ -164,8 +164,7 @@ must be mirrored in [privacy-policy.md](./privacy-policy.md).
 | [Open-Meteo](https://open-meteo.com/)           | Weather data, city lookup       | None (free)      |
 | [BigDataCloud](https://www.bigdatacloud.com/)   | Reverse geocoding               | None (free tier) |
 | [GeoJS](https://www.geojs.io/)                  | IP location fallback            | None (free)      |
-| Hub API (`apps/api`)                            | Background images               | None             |
-| [stoic.tekloon.net](https://stoic.tekloon.net/) | Daily Stoic quotes              | None             |
+| Hub API (`apps/api`)                            | Background images, daily quotes | None             |
 | Google Calendar API                             | Calendar events                 | OAuth 2.0        |
 
 ## Privacy policy

@@ -1,10 +1,10 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** July 31, 2026
+**Effective Date:** August 1, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
-Hub operates one backend service of its own: the Hub API, a Cloudflare Worker that supplies background images. It is described under "Hub API" below. No personal data, calendar data, location, or note content is ever sent to it.
+Hub operates one backend service of its own: the Hub API, a Cloudflare Worker that supplies background images and daily quotes. It is described under "Hub API" below. No personal data, calendar data, location, or note content is ever sent to it.
 
 ## Data We Access and How We Use It
 
@@ -48,10 +48,10 @@ Hub schedules a daily task that downloads the next day's background image in adv
 
 ## Hub API
 
-Background images are requested from the Hub API, a Cloudflare Worker we operate at `hub-api.csiszaralex.workers.dev`. It exists so that the Unsplash API key stays on the server instead of being shipped inside the extension.
+Background images are requested from the Hub API, a Cloudflare Worker we operate at `hub-api.csiszaralex.workers.dev`. It exists so that the Unsplash API key stays on the server instead of being shipped inside the extension. Daily quotes are also fetched through this same Worker, which proxies and caches them from the upstream Stoic Quote API on Hub's behalf.
 
-- **What is sent:** only the background search tags you configured (for example `landscape,forest`). No account identifier, location, calendar data, or note content is included. As with any web request, your IP address and standard browser headers are visible to Cloudflare.
-- **What is stored:** the Worker caches pools of Unsplash image metadata, keyed by search tags. Nothing user-identifying is written to that cache, and we keep no request logs beyond Cloudflare's standard, short-lived operational logging.
+- **What is sent:** only the background search tags you configured (for example `landscape,forest`) for background images; the quote request sends nothing. No account identifier, location, calendar data, or note content is included. As with any web request, your IP address and standard browser headers are visible to Cloudflare.
+- **What is stored:** the Worker caches pools of Unsplash image metadata, keyed by search tags, and caches the daily quote by date. Nothing user-identifying is written to that cache, and we keep no request logs beyond Cloudflare's standard, short-lived operational logging.
 
 ## Third-Party Services
 
@@ -62,7 +62,6 @@ Hub interacts with the following third-party APIs to fetch content. When Hub mak
 - **Open-Meteo:** Weather forecasts, and city lookup when you type a city name in the settings.
 - **BigDataCloud:** Turns coordinates into a place name for the weather widget.
 - **GeoJS:** Approximate location from your IP address, used only as a fallback when the settings and browser geolocation do not provide one.
-- **Stoic Quote API:** Used to fetch daily quotes.
 
 These third-party services have their own privacy policies governing the data they process during API requests.
 

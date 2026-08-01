@@ -101,7 +101,8 @@
     "widgets": "Visible widgets"
   },
   "app": {
-    "newBackground": "Request new background"
+    "newBackground": "Request new background",
+    "toggleHint": "Press . to hide — Esc to bring it back"
   },
   "whatsNew": {
     "updated": "Updated"

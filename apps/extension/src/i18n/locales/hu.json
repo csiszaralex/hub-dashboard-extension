@@ -101,7 +101,8 @@
     "widgets": "Látható widgetek"
   },
   "app": {
-    "newBackground": "Új háttérkép kérése"
+    "newBackground": "Új háttérkép kérése",
+    "toggleHint": "A . elrejti — az Esc visszahozza"
   },
   "whatsNew": {
     "updated": "Frissítve"

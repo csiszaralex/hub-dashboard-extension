@@ -5,3 +5,9 @@ export interface BackgroundData {
   photographer: string;
   photographerUrl: string;
 }
+
+/** Response shape of `GET /api/quote`. */
+export interface QuoteData {
+  text: string;
+  author: string;
+}

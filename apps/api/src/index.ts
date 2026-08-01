@@ -1,6 +1,7 @@
 import { BackgroundData } from '@hub/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { quoteRoutes } from './quote';
 import { DEFAULT_POOL_KEY, poolKey, resolveTags } from './tags';
 import { Photo } from './types';
 
@@ -71,6 +72,7 @@ const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/api/*', cors());
+app.route('/', quoteRoutes);
 
 app.get('/api/background', async (c) => {
   const tags = resolveTags(c.req.query('tags'));

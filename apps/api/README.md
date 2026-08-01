@@ -40,6 +40,44 @@ the worker pings each photo's `download_location` when it hands the photo out,
 and attribution links carry `utm_source=hub&utm_medium=referral`.
 `photographerUrl` points at the photographer's profile, not the photo page.
 
+## GET /api/quote
+
+Proxies [`stoic.tekloon.net`](https://stoic.tekloon.net/) behind a daily KV
+cache, keyed by the current UTC date (`quote:YYYY-MM-DD`). The first request
+of the day fetches from upstream and caches the result; every other caller
+that day — across all users — reads the cached quote, so the upstream is hit
+once per day in total rather than once per user.
+
+**Response:**
+
+```json
+{
+  "text": "Waste no more time arguing about what a good man should be. Be one.",
+  "author": "Marcus Aurelius"
+}
+```
+
+### Fallback when upstream is down
+
+`stoic.tekloon.net` is a single-person service with no SLA. Every successful
+fetch also updates a `quote:latest` pointer to the newest good quote. If the
+upstream request fails, times out, or returns a body with no quote text, the
+worker serves `quote:latest` instead of failing the widget. Only when nothing
+has ever been cached (or the pointer has expired) does the endpoint return
+`503`. A KV read failure (day cache or `quote:latest`) is treated the same
+way as an upstream failure rather than surfacing as a raw `500` — it degrades
+along the same fallback chain. A KV write failure never discards a quote
+that was already fetched successfully; caching is best-effort on top of the
+response, not a precondition for it.
+
+"Once per day in total" is the steady-state behaviour, not a hard guarantee:
+the day-cache check is a plain check-then-act with no request coalescing, so
+concurrent callers who all arrive before the first one has written the day
+key each read a miss and call upstream independently. In practice this is a
+handful of requests around UTC day rollover, not a whole day's traffic —
+building true coalescing would need a Durable Object to serialise callers,
+which is disproportionate to that blast radius.
+
 ## Local development
 
 ### 1. Install dependencies

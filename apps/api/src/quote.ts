@@ -1,9 +1,6 @@
 import { QuoteData } from '@hub/shared';
 import { Hono } from 'hono';
-
-type Bindings = {
-  UNSPLASH_CACHE: KVNamespace;
-};
+import { Bindings } from './bindings';
 
 const UPSTREAM = 'https://stoic.tekloon.net/stoic-quote';
 

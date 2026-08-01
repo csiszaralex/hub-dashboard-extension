@@ -1,47 +1,38 @@
+import type { QuoteData } from '@hub/shared';
 import { useEffect, useState } from 'react';
+import { QUOTE_ENDPOINT } from '../utils/api';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
-
-interface QuoteData {
-  text: string;
-  author: string;
-}
+import { pickFallbackQuote } from '../utils/quoteFallback';
 
 const CACHE_KEY = 'daily_quote';
 
-const DEFAULT_QUOTE: QuoteData = {
-  text: 'First, solve the problem. Then, write the code.',
-  author: 'John Johnson',
-};
+const todayIso = () => new Date().toISOString().split('T')[0];
 
-export const useQuote = () => {
-  // JAVÍTÁS: Lazy init itt is
-  const [quote, setQuote] = useState<QuoteData>(() => {
-    const cached = getDailyData<QuoteData>(CACHE_KEY);
-    return cached || DEFAULT_QUOTE;
-  });
+export const useQuote = (): QuoteData => {
+  const [quote, setQuote] = useState<QuoteData>(
+    () => getDailyData<QuoteData>(CACHE_KEY) ?? pickFallbackQuote(todayIso()),
+  );
 
   useEffect(() => {
     if (getDailyData(CACHE_KEY)) return;
 
     const fetchQuote = async () => {
       try {
-        const res = await fetch('https://stoic.tekloon.net/stoic-quote');
-        const json = await res.json();
+        const res = await fetch(QUOTE_ENDPOINT);
+        if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
 
-        // JAVÍTÁS: A te API válaszod alapján 'json.data.quote' kell
-        const newQuote: QuoteData = {
-          text: json.data.quote, // Itt volt a hiba
-          author: json.data.author,
-        };
+        const data = (await res.json()) as QuoteData;
+        if (!data.text) throw new Error('Quote API returned no text');
 
-        setDailyData(CACHE_KEY, newQuote);
-        setQuote(newQuote);
+        setDailyData(CACHE_KEY, data);
+        setQuote(data);
       } catch (error) {
-        console.error('Quote fetch error', error);
+        // The bundled set is already showing; nothing else to do.
+        console.error('Quote fetch failed:', error);
       }
     };
 
-    fetchQuote();
+    void fetchQuote();
   }, []);
 
   return quote;

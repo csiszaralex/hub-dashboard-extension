@@ -63,6 +63,26 @@ describe('clampPomodoroMinutes', () => {
   it('falls back to the given default for NaN', () => {
     expect(clampPomodoroMinutes(Number.NaN, 25)).toBe(25);
   });
+
+  // `Number('')` is `0`, not `NaN`, so an emptied input field would otherwise
+  // sail past the `Number.isFinite` guard and clamp up to the minimum instead
+  // of falling back — "nothing was entered" must be treated as "no value",
+  // distinct from a deliberate `0`.
+  it('falls back to the given default for an empty string', () => {
+    expect(clampPomodoroMinutes('', 25)).toBe(25);
+  });
+
+  it('falls back to the given default for a whitespace-only string', () => {
+    expect(clampPomodoroMinutes('   ', 25)).toBe(25);
+  });
+
+  // A user who deliberately types 0 is saying "as short as possible"; that
+  // must still clamp up to the minimum rather than collapse into the
+  // empty-string fallback behaviour above.
+  it('still clamps an explicit 0 up to the minimum rather than falling back', () => {
+    expect(clampPomodoroMinutes(0, 25)).toBe(MIN_MINUTES);
+    expect(clampPomodoroMinutes('0', 25)).toBe(MIN_MINUTES);
+  });
 });
 
 describe('formatRemaining', () => {

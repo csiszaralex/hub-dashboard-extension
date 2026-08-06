@@ -52,8 +52,11 @@ export function PopupForm({
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
   const [language, setLanguage] = useState(initialSettings.language);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
-  const [workMinutes, setWorkMinutes] = useState(initialSettings.pomodoroWorkMinutes);
-  const [breakMinutes, setBreakMinutes] = useState(initialSettings.pomodoroBreakMinutes);
+  // Held as the raw typed string, not a number: `Number('')` is `0`, so a
+  // number-typed state would redisplay `0` the instant the field is cleared
+  // and turn a fresh `3` into `03`. Parsed and clamped once, at submit time.
+  const [workMinutes, setWorkMinutes] = useState(String(initialSettings.pomodoroWorkMinutes));
+  const [breakMinutes, setBreakMinutes] = useState(String(initialSettings.pomodoroBreakMinutes));
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -192,9 +195,11 @@ export function PopupForm({
       hiddenWidgets,
       // Clamped here too, not just where settings are read back
       // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
-      // when another tab is selected, so a value left at `0` after clearing
-      // the field would otherwise reach `chrome.storage.sync.set` verbatim
-      // and only get caught on the next read.
+      // when another tab is selected, so a value left cleared or corrupt
+      // would otherwise reach `chrome.storage.sync.set` verbatim and only
+      // get caught on the next read. Passed as the raw string (not
+      // `Number(...)`-converted first) so `clampPomodoroMinutes` can tell an
+      // emptied field apart from a deliberate `0` and fall back accordingly.
       pomodoroWorkMinutes: clampPomodoroMinutes(workMinutes, DEFAULT_WORK_MINUTES),
       pomodoroBreakMinutes: clampPomodoroMinutes(breakMinutes, DEFAULT_BREAK_MINUTES),
     });
@@ -324,7 +329,7 @@ export function PopupForm({
                 min={1}
                 max={180}
                 value={workMinutes}
-                onChange={(e) => setWorkMinutes(Number(e.target.value))}
+                onChange={(e) => setWorkMinutes(e.target.value)}
                 className={inputCls}
               />
             </Field>
@@ -335,7 +340,7 @@ export function PopupForm({
                 min={1}
                 max={180}
                 value={breakMinutes}
-                onChange={(e) => setBreakMinutes(Number(e.target.value))}
+                onChange={(e) => setBreakMinutes(e.target.value)}
                 className={inputCls}
               />
             </Field>

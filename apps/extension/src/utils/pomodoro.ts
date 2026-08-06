@@ -32,6 +32,11 @@ export const phaseDurationMs = (
  * is rounded and clamped, not replaced.
  */
 export const clampPomodoroMinutes = (value: unknown, fallback: number): number => {
+  // An empty or whitespace-only string means "nothing was entered" — distinct
+  // from a deliberate `0`, which should still clamp up to the minimum below.
+  // `Number('')` is `0`, not `NaN`, so without this check it would sail past
+  // the `Number.isFinite` guard and never reach the fallback.
+  if (typeof value === 'string' && value.trim() === '') return fallback;
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(n)));

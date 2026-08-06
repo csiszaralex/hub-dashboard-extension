@@ -47,12 +47,15 @@ function App() {
           ${uiVisible ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-sm scale-105 pointer-events-none'}
         `}
       >
-        {/* FELSŐ KÖZÉPSŐ SÁV - Visszaszámláló / Frissítés */}
-        <div className='absolute top-10 left-1/2 -translate-x-1/2'>
+        {/* FELSŐ KÖZÉPSŐ SÁV - Visszaszámláló / Pomodoro / Frissítés */}
+        <div className='absolute top-10 left-1/2 -translate-x-1/2 flex flex-wrap items-start justify-center gap-4 max-w-[calc(100vw-40rem)]'>
           {shouldShow ? (
             <WhatsNewModal version={currentVersion} onClose={dismiss} />
           ) : (
-            showWidget('countdown') && <CountdownWidget />
+            <>
+              {showWidget('countdown') && <CountdownWidget />}
+              {showWidget('pomodoro') && <PomodoroWidget />}
+            </>
           )}
         </div>
 
@@ -66,7 +69,6 @@ function App() {
         {/* If uncomment add topSites to manifest.json */}
         {/* <TopSitesWidget /> */}
         {showWidget('note') && <QuickNote />}
-        {showWidget('pomodoro') && <PomodoroWidget />}
 
         {/* ALSÓ SÁV */}
         <div className='absolute bottom-4 left-4 flex items-end gap-3'>

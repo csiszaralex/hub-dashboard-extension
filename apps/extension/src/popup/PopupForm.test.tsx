@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { HubSettings } from '../hooks/useSettings';
+import { DEFAULT_WORK_MINUTES } from '../utils/pomodoro';
 
 const baseSettings: HubSettings = {
   unsplashQuery: 'landscape',
@@ -123,24 +124,61 @@ describe('PopupForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('clamps an emptied focus length to the minimum, even after switching away from its tab', async () => {
+  it('falls back to the default focus length when emptied, even after switching away from its tab', async () => {
     localStorage.setItem('popup_tab', 'pomodoro');
     const { PopupForm } = await import('./PopupForm');
     const onSave = vi.fn();
 
     render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
 
-    // Clearing the field yields `Number('') === 0`, not NaN — this is the
-    // popup-side half of the clamp, distinct from `useSettings`'s NaN/corrupt-
-    // value guard.
+    // Clearing the field yields an empty string. `clampPomodoroMinutes`
+    // treats "nothing entered" as distinct from a deliberate `0` and falls
+    // back to the default, rather than clamping up to the one-minute floor.
     fireEvent.change(screen.getByLabelText('Focus length (minutes)'), { target: { value: '' } });
 
     // The `pomodoro` tab's input unmounts on tab switch; its React state does
-    // not reset, so submitting later must still see (and clamp) that 0.
+    // not reset, so submitting later must still see (and fall back for) that
+    // emptied value.
     fireEvent.click(screen.getByRole('button', { name: 'General' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply settings' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
-    expect(onSave.mock.calls[0][0]).toMatchObject({ pomodoroWorkMinutes: 1 });
+    expect(onSave.mock.calls[0][0]).toMatchObject({ pomodoroWorkMinutes: DEFAULT_WORK_MINUTES });
+  });
+
+  it('saves the default focus length, not 1, when the field is emptied and submitted', async () => {
+    localStorage.setItem('popup_tab', 'pomodoro');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    // Start from a value that is neither the default nor the minimum, so a
+    // pass caused by "value happens to be unchanged" or "value happens to be
+    // 1 already" can't masquerade as the fallback actually firing.
+    render(
+      <PopupForm initialSettings={{ ...baseSettings, pomodoroWorkMinutes: 40 }} onSave={onSave} />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Focus length (minutes)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply settings' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toMatchObject({ pomodoroWorkMinutes: DEFAULT_WORK_MINUTES });
+  });
+
+  it('lets the focus length be cleared and retyped without a leading zero', async () => {
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+    render(
+      <PopupForm initialSettings={{ ...baseSettings, pomodoroWorkMinutes: 25 }} onSave={onSave} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /focus/i }));
+    const input = screen.getByLabelText(/focus length/i) as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input.value).toBe('');
+
+    fireEvent.change(input, { target: { value: '3' } });
+    expect(input.value).toBe('3');
   });
 });

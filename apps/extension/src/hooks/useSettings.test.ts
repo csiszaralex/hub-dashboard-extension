@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
 import { MAX_DIM } from '../utils/dim';
+import { MAX_MINUTES, MIN_MINUTES } from '../utils/pomodoro';
 import type { HubSettings } from './useSettings';
 
 const loadUseSettings = async () => (await import('./useSettings')).useSettings;
@@ -83,6 +84,37 @@ describe('useSettings', () => {
 
     await waitFor(() => expect(result.current.settings.backgroundDim).toBe(0));
     expect(result.current.settings.hiddenWidgets).toEqual(['note']);
+  });
+
+  it('clamps an out-of-range pomodoro work/break length from the initial storage read', async () => {
+    const chromeStub = installChromeStub();
+    // A cleared popup field syncs as 0 (see PopupForm); an absurd hand-edited
+    // value is the other end of the same defect class this guards against.
+    chromeStub.seedSync({ pomodoroWorkMinutes: 0, pomodoroBreakMinutes: 500 });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.pomodoroWorkMinutes).toBe(MIN_MINUTES);
+    expect(result.current.settings.pomodoroBreakMinutes).toBe(MAX_MINUTES);
+  });
+
+  it('clamps an out-of-range pomodoro length written through a live storage change', async () => {
+    installChromeStub();
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    await act(async () => {
+      result.current.saveSettings({
+        pomodoroWorkMinutes: 0,
+      } as unknown as Partial<HubSettings>);
+      await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+    });
+
+    await waitFor(() => expect(result.current.settings.pomodoroWorkMinutes).toBe(MIN_MINUTES));
   });
 
   it('keeps a stable saveSettings reference across renders', async () => {

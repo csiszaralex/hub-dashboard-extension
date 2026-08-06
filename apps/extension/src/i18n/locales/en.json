@@ -98,7 +98,10 @@
     "tabCountdown": "Countdown",
     "tabCalendars": "Calendars",
     "tabWidgets": "Widgets",
-    "widgets": "Visible widgets"
+    "widgets": "Visible widgets",
+    "tabPomodoro": "Focus",
+    "pomodoroWork": "Focus length (minutes)",
+    "pomodoroBreak": "Break length (minutes)"
   },
   "app": {
     "newBackground": "Request new background",
@@ -119,5 +122,14 @@
     "countdown": "Countdown",
     "backgroundInfo": "Photo credit",
     "pomodoro": "Focus timer"
+  },
+  "pomodoro": {
+    "work": "Focus",
+    "break": "Break",
+    "start": "Start",
+    "reset": "Reset",
+    "notificationTitle": "Hub",
+    "workStarted": "Focus time — back to it.",
+    "breakStarted": "Break time — step away."
   }
 }

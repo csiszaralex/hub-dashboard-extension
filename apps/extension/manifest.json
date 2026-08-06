@@ -19,7 +19,7 @@
     "default_popup": "popup.html",
     "default_title": "Hub Settings"
   },
-  "permissions": ["storage", "geolocation", "identity", "alarms"],
+  "permissions": ["storage", "geolocation", "identity", "alarms", "notifications"],
   "host_permissions": [
     "https://api.open-meteo.com/*",
     "https://geocoding-api.open-meteo.com/*",

@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { type HubSettings } from '../hooks/useSettings';
 import { clampDim, MAX_DIM } from '../utils/dim';
+import {
+  clampPomodoroMinutes,
+  DEFAULT_BREAK_MINUTES,
+  DEFAULT_WORK_MINUTES,
+} from '../utils/pomodoro';
 import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
@@ -47,6 +52,8 @@ export function PopupForm({
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
   const [language, setLanguage] = useState(initialSettings.language);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
+  const [workMinutes, setWorkMinutes] = useState(initialSettings.pomodoroWorkMinutes);
+  const [breakMinutes, setBreakMinutes] = useState(initialSettings.pomodoroBreakMinutes);
   const [availableCals, setAvailableCals] = useState<CalendarListEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -183,6 +190,13 @@ export function PopupForm({
       countdownTarget: countdownTarget || null,
       language,
       hiddenWidgets,
+      // Clamped here too, not just where settings are read back
+      // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
+      // when another tab is selected, so a value left at `0` after clearing
+      // the field would otherwise reach `chrome.storage.sync.set` verbatim
+      // and only get caught on the next read.
+      pomodoroWorkMinutes: clampPomodoroMinutes(workMinutes, DEFAULT_WORK_MINUTES),
+      pomodoroBreakMinutes: clampPomodoroMinutes(breakMinutes, DEFAULT_BREAK_MINUTES),
     });
     setLoading(false);
     setSaved(true);
@@ -299,6 +313,33 @@ export function PopupForm({
               className={`${inputCls} text-white scheme-dark`}
             />
           </Field>
+        )}
+
+        {activeTab === 'pomodoro' && (
+          <div className='flex flex-col gap-3'>
+            <Field id='work' label={t('popup.pomodoroWork')}>
+              <input
+                id='work'
+                type='number'
+                min={1}
+                max={180}
+                value={workMinutes}
+                onChange={(e) => setWorkMinutes(Number(e.target.value))}
+                className={inputCls}
+              />
+            </Field>
+            <Field id='break' label={t('popup.pomodoroBreak')}>
+              <input
+                id='break'
+                type='number'
+                min={1}
+                max={180}
+                value={breakMinutes}
+                onChange={(e) => setBreakMinutes(Number(e.target.value))}
+                className={inputCls}
+              />
+            </Field>
+          </div>
         )}
 
         {activeTab === 'calendars' && (

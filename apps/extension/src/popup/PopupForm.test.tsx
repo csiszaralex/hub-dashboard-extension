@@ -13,6 +13,8 @@ const baseSettings: HubSettings = {
   countdownTarget: null,
   language: 'en',
   hiddenWidgets: [],
+  pomodoroWorkMinutes: 25,
+  pomodoroBreakMinutes: 5,
 };
 
 describe('PopupForm', () => {
@@ -119,5 +121,26 @@ describe('PopupForm', () => {
 
     expect(await screen.findByText('Choose an image before saving this option.')).not.toBeNull();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('clamps an emptied focus length to the minimum, even after switching away from its tab', async () => {
+    localStorage.setItem('popup_tab', 'pomodoro');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    // Clearing the field yields `Number('') === 0`, not NaN — this is the
+    // popup-side half of the clamp, distinct from `useSettings`'s NaN/corrupt-
+    // value guard.
+    fireEvent.change(screen.getByLabelText('Focus length (minutes)'), { target: { value: '' } });
+
+    // The `pomodoro` tab's input unmounts on tab switch; its React state does
+    // not reset, so submitting later must still see (and clamp) that 0.
+    fireEvent.click(screen.getByRole('button', { name: 'General' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply settings' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toMatchObject({ pomodoroWorkMinutes: 1 });
   });
 });

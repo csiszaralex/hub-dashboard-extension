@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_UNSPLASH_QUERY } from '../utils/api';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
+import {
+  clampPomodoroMinutes,
+  DEFAULT_BREAK_MINUTES,
+  DEFAULT_WORK_MINUTES,
+} from '../utils/pomodoro';
 import { sanitizeHiddenWidgets, type WidgetId } from '../widgets';
 
 export interface HubSettings {
@@ -14,6 +19,8 @@ export interface HubSettings {
   countdownTarget: string | null;
   language: string;
   hiddenWidgets: WidgetId[];
+  pomodoroWorkMinutes: number;
+  pomodoroBreakMinutes: number;
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -29,6 +36,8 @@ const DEFAULT_SETTINGS: HubSettings = {
   countdownTarget: null,
   language: '',
   hiddenWidgets: [],
+  pomodoroWorkMinutes: DEFAULT_WORK_MINUTES,
+  pomodoroBreakMinutes: DEFAULT_BREAK_MINUTES,
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof HubSettings)[];
@@ -62,6 +71,11 @@ const merge = (stored: Partial<HubSettings>): HubSettings => {
   }
   next.hiddenWidgets = sanitizeHiddenWidgets(next.hiddenWidgets);
   next.backgroundDim = clampDim(next.backgroundDim);
+  next.pomodoroWorkMinutes = clampPomodoroMinutes(next.pomodoroWorkMinutes, DEFAULT_WORK_MINUTES);
+  next.pomodoroBreakMinutes = clampPomodoroMinutes(
+    next.pomodoroBreakMinutes,
+    DEFAULT_BREAK_MINUTES,
+  );
   return next;
 };
 
@@ -79,6 +93,11 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
   if (!changed) return;
   next.hiddenWidgets = sanitizeHiddenWidgets(next.hiddenWidgets);
   next.backgroundDim = clampDim(next.backgroundDim);
+  next.pomodoroWorkMinutes = clampPomodoroMinutes(next.pomodoroWorkMinutes, DEFAULT_WORK_MINUTES);
+  next.pomodoroBreakMinutes = clampPomodoroMinutes(
+    next.pomodoroBreakMinutes,
+    DEFAULT_BREAK_MINUTES,
+  );
   state = { settings: next, isLoaded: state.isLoaded };
   emit();
 };

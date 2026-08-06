@@ -4,6 +4,7 @@ import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
 import { CountdownWidget } from './components/CountdownWidget';
+import { PomodoroWidget } from './components/PomodoroWidget';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
 import { WeatherWidget } from './components/WeatherWidget';
@@ -65,6 +66,7 @@ function App() {
         {/* If uncomment add topSites to manifest.json */}
         {/* <TopSitesWidget /> */}
         {showWidget('note') && <QuickNote />}
+        {showWidget('pomodoro') && <PomodoroWidget />}
 
         {/* ALSÓ SÁV */}
         <div className='absolute bottom-4 left-4 flex items-end gap-3'>

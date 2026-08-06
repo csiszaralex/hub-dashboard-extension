@@ -98,7 +98,10 @@
     "tabCountdown": "Számláló",
     "tabCalendars": "Naptárak",
     "tabWidgets": "Widgetek",
-    "widgets": "Látható widgetek"
+    "widgets": "Látható widgetek",
+    "tabPomodoro": "Fókusz",
+    "pomodoroWork": "Fókusz hossza (perc)",
+    "pomodoroBreak": "Szünet hossza (perc)"
   },
   "app": {
     "newBackground": "Új háttérkép kérése",
@@ -119,5 +122,14 @@
     "countdown": "Visszaszámláló",
     "backgroundInfo": "Fotó kredit",
     "pomodoro": "Fókusz időzítő"
+  },
+  "pomodoro": {
+    "work": "Fókusz",
+    "break": "Szünet",
+    "start": "Indítás",
+    "reset": "Visszaállítás",
+    "notificationTitle": "Hub",
+    "workStarted": "Fókusz idő — vissza a munkához.",
+    "breakStarted": "Szünet — állj fel egy kicsit."
   }
 }

@@ -7,6 +7,19 @@ type AlarmListener = (alarm: Alarm) => void;
 type InstalledDetails = { reason: string; previousVersion?: string };
 type InstalledListener = (details: InstalledDetails) => void;
 
+/**
+ * Only the subset `basic` notifications use. The real API also supports
+ * `image`, `list` and `progress` types with their own required fields; those
+ * are not modelled because nothing in this codebase creates them.
+ */
+type NotificationOptions = {
+  type?: string;
+  iconUrl?: string;
+  title?: string;
+  message?: string;
+  [key: string]: unknown;
+};
+
 /** `chrome.storage.local.QUOTA_BYTES` — 10 MB, unless `unlimitedStorage` is granted. */
 const LOCAL_QUOTA_BYTES = 10_485_760;
 
@@ -54,6 +67,8 @@ export interface ChromeStub {
   fireStartup: () => void;
   /** Token handed back by `identity.getAuthToken`; `null` simulates a signed-out user. */
   setAuthToken: (token: string | null) => void;
+  /** Every notification successfully created, in order. */
+  sentNotifications: () => NotificationOptions[];
 }
 
 /**
@@ -71,6 +86,7 @@ export const installChromeStub = (): ChromeStub => {
   const alarmListeners = new Set<AlarmListener>();
   const installedListeners = new Set<InstalledListener>();
   const startupListeners = new Set<() => void>();
+  const notifications: NotificationOptions[] = [];
   let getCount = 0;
   let authToken: string | null = null;
 
@@ -189,6 +205,26 @@ export const installChromeStub = (): ChromeStub => {
       getAuthToken: (_options: { interactive: boolean }, cb: (token: string) => void) =>
         queueMicrotask(() => cb(authToken as string)),
     },
+    notifications: {
+      /**
+       * Like `alarms.create` and `storage.set`'s serialization check above,
+       * Chrome validates a notification's options against its schema before
+       * the call reaches the browser process — a `basic` notification missing
+       * `type`, `iconUrl`, `title` or `message` throws synchronously rather
+       * than silently creating a notification nobody would ever see.
+       */
+      create: (id: string, options: NotificationOptions, cb?: (id: string) => void) => {
+        const required: (keyof NotificationOptions)[] = ['type', 'iconUrl', 'title', 'message'];
+        const missing = required.filter((key) => options?.[key] === undefined);
+        if (missing.length > 0) {
+          throw new TypeError(
+            `Error in invocation of notifications.create(string notificationId, NotificationOptions options, function callback): Error at parameter 'options': Missing required properties: ${missing.join(', ')}.`,
+          );
+        }
+        notifications.push(options);
+        queueMicrotask(() => cb?.(id));
+      },
+    },
     runtime: {
       lastError: undefined as { message: string } | undefined,
       onInstalled: {
@@ -227,5 +263,6 @@ export const installChromeStub = (): ChromeStub => {
       authToken = token;
       chromeStub.runtime.lastError = token ? undefined : { message: 'not signed in' };
     },
+    sentNotifications: () => [...notifications],
   };
 };

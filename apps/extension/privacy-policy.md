@@ -1,6 +1,6 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** August 1, 2026
+**Effective Date:** August 6, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
@@ -45,6 +45,12 @@ Hub schedules a daily task that downloads the next day's background image in adv
 
 - **Usage:** The task sends only your configured background search tags to the Hub API, exactly as the dashboard itself does. It reads no browsing data and runs no other work.
 - **Storage:** The downloaded image goes into the browser's Cache storage and its metadata into `chrome.storage.local`, both on your device only.
+
+### 5. Focus Timer Notifications (`notifications` permission)
+
+Hub includes an optional Pomodoro-style focus timer. When a work or break interval ends, Hub shows a local system notification to let you know.
+
+- **Usage:** The notification is generated entirely on your device by the browser's native notification system. No data about your focus sessions, timings, or usage is collected, stored remotely, or sent anywhere — this permission is used solely to display that one local notification.
 
 ## Hub API
 

@@ -1,13 +1,21 @@
-import { Calendar, Cloud, Globe, Image, LayoutGrid, Timer } from 'lucide-react';
+import { Calendar, Cloud, Globe, Hourglass, Image, LayoutGrid, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-export type TabId = 'general' | 'appearance' | 'weather' | 'countdown' | 'calendars' | 'widgets';
+export type TabId =
+  | 'general'
+  | 'appearance'
+  | 'weather'
+  | 'countdown'
+  | 'pomodoro'
+  | 'calendars'
+  | 'widgets';
 
 const TABS = [
   { id: 'general' as const, icon: Globe, labelKey: 'popup.tabGeneral' as const },
   { id: 'appearance' as const, icon: Image, labelKey: 'popup.tabAppearance' as const },
   { id: 'weather' as const, icon: Cloud, labelKey: 'popup.tabWeather' as const },
   { id: 'countdown' as const, icon: Timer, labelKey: 'popup.tabCountdown' as const },
+  { id: 'pomodoro' as const, icon: Hourglass, labelKey: 'popup.tabPomodoro' as const },
   { id: 'calendars' as const, icon: Calendar, labelKey: 'popup.tabCalendars' as const },
   { id: 'widgets' as const, icon: LayoutGrid, labelKey: 'popup.tabWidgets' as const },
 ];

@@ -7,6 +7,17 @@ type AlarmListener = (alarm: Alarm) => void;
 type InstalledDetails = { reason: string; previousVersion?: string };
 type InstalledListener = (details: InstalledDetails) => void;
 
+type MessageSender = { id: string; url: string };
+type SendResponse = (response?: unknown) => void;
+type MessageListener = (
+  message: unknown,
+  sender: MessageSender,
+  sendResponse: SendResponse,
+) => boolean | void;
+
+/** Only the shape matters; Chrome hands out a 32-character extension id. */
+const EXTENSION_ID = 'hubtestextensionidaaaaaaaaaaaaaa';
+
 /**
  * Only the subset `basic` notifications use. The real API also supports
  * `image`, `list` and `progress` types with their own required fields; those
@@ -59,6 +70,14 @@ export interface ChromeStub {
   createdAlarms: () => { name: string; info: AlarmCreateInfo }[];
   /** Alarms currently scheduled, i.e. what `alarms.get` would hand back. */
   scheduledAlarms: () => Alarm[];
+  /**
+   * Registers an alarm that already existed before the code under test ran —
+   * Chrome keeps pending alarms across a browser restart and delivers an
+   * overdue one shortly afterwards, which is a state no `alarms.create` call in
+   * this run can produce. Deliberately absent from `createdAlarms()`, which
+   * records only what this run created.
+   */
+  seedAlarm: (name: string, scheduledTime: number) => void;
   /** Delivers `onAlarm` for a scheduled alarm. Throws when nothing scheduled it. */
   fireAlarm: (name: string) => void;
   /** Delivers `runtime.onInstalled`. */
@@ -69,6 +88,8 @@ export interface ChromeStub {
   setAuthToken: (token: string | null) => void;
   /** Every notification successfully created, in order. */
   sentNotifications: () => NotificationOptions[];
+  /** Every `runtime.sendMessage` payload in order, whether or not anything received it. */
+  sentMessages: () => unknown[];
 }
 
 /**
@@ -86,9 +107,63 @@ export const installChromeStub = (): ChromeStub => {
   const alarmListeners = new Set<AlarmListener>();
   const installedListeners = new Set<InstalledListener>();
   const startupListeners = new Set<() => void>();
+  const messageListeners = new Set<MessageListener>();
   const notifications: NotificationOptions[] = [];
+  const messageLog: unknown[] = [];
   let getCount = 0;
   let authToken: string | null = null;
+
+  /**
+   * Chrome reports a failed call through `runtime.lastError` — readable only
+   * from inside the callback — rather than by throwing. A caller that passes no
+   * callback gets the "Unchecked runtime.lastError" console warning and nothing
+   * else, so there is nothing to report here either.
+   */
+  const failCallback = (cb: SendResponse | undefined, message: string) => {
+    if (!cb) return;
+    chromeStub.runtime.lastError = { message };
+    cb(undefined);
+    chromeStub.runtime.lastError = undefined;
+  };
+
+  const deliverMessage = (message: unknown, cb?: SendResponse) => {
+    // Chrome delivers to the listeners of every *other* context, never back to
+    // the sender's own. Tests run page and worker code in one realm, so that
+    // split is not modelled; nothing in this codebase both sends and listens.
+    const sender: MessageSender = {
+      id: EXTENSION_ID,
+      url: `chrome-extension://${EXTENSION_ID}/index.html`,
+    };
+
+    // A message nobody is listening for is not silently fine: it is exactly
+    // what a typo'd message type or an unregistered handler produces, and
+    // Chrome says so.
+    if (messageListeners.size === 0) {
+      failCallback(cb, 'Could not establish connection. Receiving end does not exist.');
+      return;
+    }
+
+    let responded = false;
+    let keepChannelOpen = false;
+    const sendResponse: SendResponse = (response) => {
+      if (responded) return;
+      responded = true;
+      cb?.(response);
+    };
+
+    for (const listener of messageListeners) {
+      // Only a literal `true` keeps the response channel open. An `async`
+      // listener returns a Promise — truthy, but Chrome closes the channel
+      // regardless, which is the classic MV3 "message port closed before a
+      // response was received" bug. Anything other than `true` means "no
+      // answer is coming".
+      if (listener(message, sender, sendResponse) === true) keepChannelOpen = true;
+    }
+
+    if (!responded && !keepChannelOpen) {
+      failCallback(cb, 'The message port closed before a response was received.');
+    }
+  };
 
   const chromeStub = {
     storage: {
@@ -105,7 +180,13 @@ export const installChromeStub = (): ChromeStub => {
         set: (items: Record<string, unknown>, cb?: () => void) => {
           const changes: Record<string, StorageChange> = {};
           for (const [key, value] of Object.entries(items)) {
-            changes[key] = { oldValue: store.get(key), newValue: value };
+            // Chrome omits `oldValue` entirely for a key that did not exist,
+            // rather than reporting it as `undefined` — code that distinguishes
+            // a first write from an overwrite with `'oldValue' in change` has to
+            // see the same thing here.
+            changes[key] = store.has(key)
+              ? { oldValue: store.get(key), newValue: value }
+              : { newValue: value };
             store.set(key, value);
           }
           queueMicrotask(() => {
@@ -126,14 +207,28 @@ export const installChromeStub = (): ChromeStub => {
           }
           queueMicrotask(() => cb(result));
         },
+        // `onChanged` fires for the local area too, not just for sync — that is
+        // how a second tab learns about a write it did not make, and how the
+        // page learns about one the service worker made. A stub that stayed
+        // silent here would let a component that never subscribes look correct.
         set: (items: Record<string, unknown>, cb?: () => void) => {
           const pending = new Map(localStore);
-          for (const [key, value] of Object.entries(items)) pending.set(key, serialize(value));
+          const changes: Record<string, StorageChange> = {};
+          for (const [key, value] of Object.entries(items)) {
+            const next = serialize(value);
+            // As above: no `oldValue` property at all for a key that was never
+            // written, which is what Chrome reports.
+            changes[key] = localStore.has(key)
+              ? { oldValue: localStore.get(key), newValue: next }
+              : { newValue: next };
+            pending.set(key, next);
+          }
 
           // Over quota the write is refused and the failure is reported through
           // `runtime.lastError` — silently accepting megabytes here would hide
           // exactly the mistake this store exists to avoid (image bytes belong
-          // in the Cache API, not in `chrome.storage`).
+          // in the Cache API, not in `chrome.storage`). A refused write changes
+          // nothing, so it announces nothing either.
           if (storedBytes(pending) > LOCAL_QUOTA_BYTES) {
             queueMicrotask(() => {
               chromeStub.runtime.lastError = { message: 'QUOTA_BYTES quota exceeded' };
@@ -144,12 +239,26 @@ export const installChromeStub = (): ChromeStub => {
           }
 
           for (const [key, value] of pending) localStore.set(key, value);
-          queueMicrotask(() => cb?.());
+          queueMicrotask(() => {
+            listeners.forEach((l) => l(changes, 'local'));
+            cb?.();
+          });
         },
         remove: (keys: string[] | string, cb?: () => void) => {
           const unwanted = Array.isArray(keys) ? keys : [keys];
-          for (const key of unwanted) localStore.delete(key);
-          queueMicrotask(() => cb?.());
+          const changes: Record<string, StorageChange> = {};
+          for (const key of unwanted) {
+            // Removing a key that was never there is not a change, so Chrome
+            // reports nothing for it. The removal that did happen arrives with
+            // `oldValue` and no `newValue` at all.
+            if (!localStore.has(key)) continue;
+            changes[key] = { oldValue: localStore.get(key) };
+            localStore.delete(key);
+          }
+          queueMicrotask(() => {
+            if (Object.keys(changes).length > 0) listeners.forEach((l) => l(changes, 'local'));
+            cb?.();
+          });
         },
       },
       onChanged: {
@@ -164,8 +273,15 @@ export const installChromeStub = (): ChromeStub => {
        * Modelling the replacement is what lets a test notice a `create` on every
        * browser start pushing a 24 h alarm permanently out of reach.
        *
-       * Note that Chrome also refuses a period below 0.5 minutes; that is not
-       * modelled because nothing here schedules anything that short.
+       * A `when` already in the past is kept rather than dropped: Chrome fires
+       * such an alarm at the next opportunity, so `fireAlarm` must still be
+       * able to deliver it.
+       *
+       * Note that Chrome also clamps anything under ~30 seconds up to that
+       * floor for a released extension. That is not modelled because the
+       * shortest thing scheduled here is a one-minute Pomodoro phase, which is
+       * comfortably above it — but only comfortably, so a shorter phase length
+       * would need this modelled before it could be trusted.
        */
       create: (name: string | AlarmCreateInfo, info?: AlarmCreateInfo, cb?: () => void) => {
         const alarmName = typeof name === 'string' ? name : '';
@@ -226,12 +342,27 @@ export const installChromeStub = (): ChromeStub => {
       },
     },
     runtime: {
+      id: EXTENSION_ID,
       lastError: undefined as { message: string } | undefined,
       onInstalled: {
         addListener: (l: InstalledListener) => installedListeners.add(l),
       },
       onStartup: {
         addListener: (l: () => void) => startupListeners.add(l),
+      },
+      onMessage: {
+        addListener: (l: MessageListener) => messageListeners.add(l),
+        removeListener: (l: MessageListener) => messageListeners.delete(l),
+      },
+      /**
+       * Delivery is asynchronous, so a sender never observes the receiver's
+       * work before yielding — code that assumes otherwise (reading storage
+       * straight after `sendMessage` and expecting the new value) must fail
+       * here the way it fails in Chrome.
+       */
+      sendMessage: (message: unknown, cb?: SendResponse) => {
+        messageLog.push(message);
+        queueMicrotask(() => deliverMessage(message, cb));
       },
     },
   };
@@ -250,6 +381,7 @@ export const installChromeStub = (): ChromeStub => {
     changeListenerCount: () => listeners.size,
     createdAlarms: () => [...alarmLog],
     scheduledAlarms: () => [...alarmRegistry.values()],
+    seedAlarm: (name, scheduledTime) => alarmRegistry.set(name, { name, scheduledTime }),
     fireAlarm: (name) => {
       const alarm = alarmRegistry.get(name);
       // Chrome never delivers an alarm nobody scheduled, so neither do we: a
@@ -264,5 +396,6 @@ export const installChromeStub = (): ChromeStub => {
       chromeStub.runtime.lastError = token ? undefined : { message: 'not signed in' };
     },
     sentNotifications: () => [...notifications],
+    sentMessages: () => [...messageLog],
   };
 };

@@ -50,6 +50,18 @@ export default defineConfig(({ mode }) => {
       __CHANGELOG__: JSON.stringify(getChangelogSection(packageJson.version)),
       __AVAILABLE_LANGUAGES__: JSON.stringify(availableLanguages),
     },
+    build: {
+      // Vite emits `<link rel="modulepreload" crossorigin>` for every chunk.
+      // On a `chrome-extension://` page that `crossorigin` puts the preload in a
+      // different world from the import that follows, so Chrome discards every
+      // one of them — "cross-world extension resource mismatch" — and then warns
+      // again that the preloaded resource went unused. The requests are paid for
+      // and thrown away, four console warnings deep, on every new tab.
+      //
+      // Preloading buys almost nothing here anyway: these are local files read
+      // off disk, with no network round trip to hide.
+      modulePreload: false,
+    },
     esbuild: {
       drop: ['console', 'debugger'],
     },

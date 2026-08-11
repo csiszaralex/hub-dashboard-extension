@@ -28,20 +28,38 @@ export function TabNav({ active, onChange }: { active: TabId; onChange: (tab: Ta
     // their label, so the row overflowed and `overflow-hidden` silently clipped
     // the rightmost tabs — Widgets disappeared entirely when Focus was added.
     // Four columns wrap to 4+3 and give every label room to stay readable.
+    //
+    // `min-w-0` on each cell is what makes that permanent rather than lucky. A
+    // grid item's `min-width: auto` also resolves to its min-content width, so
+    // without the override the widest label still governs the column: at
+    // `text-[9px]` "BACKGROUND" is about 62px inside a ~69px cell, and a single
+    // longer translation puts the row back over the edge and straight back
+    // under this `overflow-hidden` — the exact failure that hid the Widgets tab,
+    // and with it the whole widget-visibility feature, until a user reported it.
+    // With the floor gone the 1fr tracks govern the width and a label that no
+    // longer fits truncates inside its own cell instead of pushing the strip off
+    // the end of the popup.
     <nav className='grid grid-cols-4 rounded-lg overflow-hidden border border-white/10'>
       {TABS.map(({ id, icon: Icon, labelKey }) => (
         <button
           key={id}
           type='button'
           onClick={() => onChange(id)}
-          className={`flex flex-col items-center gap-1 py-2 px-1 transition-colors text-[9px] font-semibold tracking-wide uppercase ${
+          className={`flex flex-col items-center gap-1 py-2 px-1 min-w-0 transition-colors text-[9px] font-semibold tracking-wide uppercase ${
             active === id
               ? 'bg-white/15 text-white'
               : 'text-white/35 hover:text-white/60 hover:bg-white/5'
           }`}
         >
           <Icon size={14} strokeWidth={active === id ? 2.5 : 1.75} />
-          {t(labelKey)}
+          {/*
+            Wrapped rather than left as a bare text node: `truncate` needs a
+            block box of its own to ellipsise in, and `w-full` is what gives it
+            one — `items-center` would otherwise shrink-wrap the span back to
+            the label's full width and there would be nothing to truncate
+            against.
+          */}
+          <span className='w-full truncate text-center'>{t(labelKey)}</span>
         </button>
       ))}
     </nav>

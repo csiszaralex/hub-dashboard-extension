@@ -1,6 +1,6 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** August 6, 2026
+**Effective Date:** August 11, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
@@ -24,7 +24,8 @@ To display local weather conditions, Hub needs an approximate location. It is re
 1. The city you entered in the settings, if any.
 2. Your device location via the browser's geolocation API.
 3. An approximate location derived from your IP address by GeoJS (`get.geojs.io`).
-4. A default location (Budapest).
+4. The last location successfully resolved, cached locally.
+5. A default location (Budapest).
 
 - **Usage:** The resulting coordinates are sent to Open-Meteo (weather) and, unless you set a city manually, to BigDataCloud (to turn the coordinates into a place name). If step 3 is reached, your IP address is exposed to GeoJS as part of that request.
 - **Storage:** The most recent coordinates and weather result are cached on your device for 30 minutes to avoid repeat requests. We do not track your location history and no location data leaves your device except in the API requests described above.
@@ -33,7 +34,7 @@ To display local weather conditions, Hub needs an approximate location. It is re
 
 Hub uses your browser's storage to save:
 
-- Your preferences — background search tags, weather location, selected calendars, countdown target and language — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
+- Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, and language — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
 - Your quick notes, in `localStorage` on the device only.
 - Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
 

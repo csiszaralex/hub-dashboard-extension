@@ -5,14 +5,15 @@ A Chrome extension that replaces the new tab page with a minimalist dashboard. S
 ## Features
 
 - **Clock** — current time and date with a time-of-day greeting
-- **Weather** — temperature, wind, rain probability, sunrise/sunset via [Open-Meteo](https://open-meteo.com/)
+- **Weather** — temperature, wind, rain probability, sunrise/sunset, and a four-day forecast via [Open-Meteo](https://open-meteo.com/)
 - **Calendar** — next upcoming Google Calendar events (read-only OAuth)
-- **Quote** — daily Stoic quote, cached per day
+- **Quote** — daily Stoic quote, proxied and cached by the Hub API, with a bundled offline fallback
 - **Countdown** — custom target date configurable from settings
+- **Focus timer** — Pomodoro-style work/break timer owned by the service worker, so it keeps running with no tab open and raises exactly one notification per phase change
 - **Quick note** — per-day scratchpad, stored locally
-- **Background** — random Unsplash photo fetched from the Hub API, cached daily
+- **Background** — a random Unsplash photo fetched from the Hub API and cached daily, or a custom image of your own; dimmable, with tomorrow's photo prefetched ahead of time
 
-Double-click anywhere to toggle the UI overlay on/off.
+Press `.` anywhere to toggle the UI overlay on/off, or double-click. Escape always brings it back.
 
 ## Preview
 
@@ -81,10 +82,16 @@ Cache API; `setup.ts` reinstalls them and calls `vi.resetModules()` before every
 test, so hooks that read module-level state (`useSettings`) must be imported
 inside the test with `await import(...)` rather than at the top of the file.
 
-Covered: settings store, background fetching and caching, image cache, daily
-cache expiry, calendar event categorisation, precipitation aggregation,
-changelog parsing, and the version banner. Rendering is verified manually in
-Chrome.
+Covered: the settings store; background fetching, caching and prefetch; the
+image cache, including the custom-image path; daily cache expiry; calendar
+event categorisation; four-day forecast summarisation and precipitation
+aggregation; changelog parsing; the "what's new" banner; widget visibility;
+background dimming; the quote fallback; the document-title hook; and the
+service worker itself — alarm scheduling, install-time cache cleanup, and the
+Pomodoro timer's start/reset/advance/rehydrate state machine under concurrent
+and cross-restart scenarios, including notification-locale parity across
+every shipped locale. A couple of popup-form rendering edge cases are covered
+directly; the rest of rendering is still verified by hand in Chrome.
 
 ## Deployment
 
@@ -119,22 +126,29 @@ Upload `extension-release.zip` manually at [chrome.google.com/webstore/devconsol
 
 Click the extension icon to open the settings popup:
 
-| Setting          | Description                              |
-| ---------------- | ---------------------------------------- |
-| Background tags  | Comma-separated Unsplash search tags     |
-| Location         | City name or auto-detect via GPS or IP   |
-| Calendars        | Select which Google Calendars to display |
-| Countdown target | Date to count down to                    |
+| Setting              | Description                                                 |
+| -------------------- | ------------------------------------------------------------ |
+| Language             | UI language, or auto-detect from the browser                |
+| Background source    | Unsplash photos, or a custom uploaded image                 |
+| Background tags      | Comma-separated Unsplash search tags (Unsplash source only) |
+| Background dimming   | Darkens the photo behind the UI, 0-70%                       |
+| Location             | City name or auto-detect via GPS or IP                      |
+| Countdown target     | Date to count down to                                        |
+| Focus / break length | Minutes for each Pomodoro work phase and each break          |
+| Calendars            | Select which Google Calendars to display                    |
+| Visible widgets      | Show or hide each widget independently                      |
 
 Settings sync across devices via Chrome Storage Sync.
 
 ## Permissions
 
-| Permission    | Reason                                   |
-| ------------- | ---------------------------------------- |
-| `storage`     | Persist settings via Chrome Storage Sync |
-| `geolocation` | Auto-detect location for weather         |
-| `identity`    | Google Calendar OAuth login              |
+| Permission      | Reason                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| `storage`       | Persist settings via Chrome Storage Sync, plus local caches and Pomodoro state via `chrome.storage.local` |
+| `geolocation`   | Auto-detect location for weather                                                                         |
+| `identity`      | Google Calendar OAuth login                                                                              |
+| `alarms`        | Schedule the daily background prefetch and the Pomodoro phase timer, both owned by the service worker    |
+| `notifications` | Show the one system notification when a focus or break phase ends                                       |
 
 OAuth scope: `https://www.googleapis.com/auth/calendar.readonly` — read-only, and
 covers both the calendar list (for the picker and calendar colours) and events.

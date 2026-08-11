@@ -130,6 +130,8 @@
     "reset": "Visszaállítás",
     "notificationTitle": "Hub",
     "workStarted": "Fókusz idő — vissza a munkához.",
-    "breakStarted": "Szünet — állj fel egy kicsit."
+    "breakStarted": "Szünet — állj fel egy kicsit.",
+    "titleWork": "Hub — Fókusz {{time}}",
+    "titleBreak": "Hub — Szünet {{time}}"
   }
 }

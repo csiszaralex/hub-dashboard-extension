@@ -130,6 +130,8 @@
     "reset": "Reset",
     "notificationTitle": "Hub",
     "workStarted": "Focus time — back to it.",
-    "breakStarted": "Break time — step away."
+    "breakStarted": "Break time — step away.",
+    "titleWork": "Hub — Focus {{time}}",
+    "titleBreak": "Hub — Break {{time}}"
   }
 }

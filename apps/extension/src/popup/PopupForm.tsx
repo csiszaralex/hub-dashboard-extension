@@ -11,6 +11,7 @@ import {
 import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
+import { PomodoroSession } from './PomodoroSession';
 import { TabNav, type TabId } from './TabNav';
 import { WidgetsSection } from './WidgetsSection';
 
@@ -344,6 +345,13 @@ export function PopupForm({
                 className={inputCls}
               />
             </Field>
+            {/*
+              Last, and only on this tab: the two fields above configure the
+              next session, this controls the one that may be running right now
+              — including while the Focus widget is hidden, which is the only
+              place the user could otherwise reach it from.
+            */}
+            <PomodoroSession />
           </div>
         )}
 

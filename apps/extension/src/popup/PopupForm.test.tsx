@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HubSettings } from '../hooks/useSettings';
+import { installChromeStub, type ChromeStub } from '../test/chromeStub';
+import { runningPomodoro } from '../test/pomodoroState';
 import { DEFAULT_WORK_MINUTES } from '../utils/pomodoro';
+import { POMODORO_STATE_KEY } from '../utils/pomodoroState';
 
 const baseSettings: HubSettings = {
   unsplashQuery: 'landscape',
@@ -180,5 +183,100 @@ describe('PopupForm', () => {
 
     fireEvent.change(input, { target: { value: '3' } });
     expect(input.value).toBe('3');
+  });
+});
+
+/**
+ * The Focus tab is the only place these controls exist once the widget is
+ * hidden, and hiding the widget no longer stops the timer — the service worker
+ * owns it now. Every test here drives the real form, because two of the three
+ * ways this can break (a button that submits the form, a command that waits for
+ * "Apply settings") are properties of the button's place in the form rather
+ * than of the controls themselves.
+ */
+describe('PopupForm — Focus session controls', () => {
+  let chromeStub: ChromeStub;
+
+  beforeEach(() => {
+    // Re-installed to get a handle on it: the shared setup installs a stub but
+    // keeps the seeding and inspection helpers to itself.
+    chromeStub = installChromeStub();
+    localStorage.setItem('popup_tab', 'pomodoro');
+  });
+
+  it('sends start to the worker on click, without submitting the form', async () => {
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+
+    // The command travels immediately, on its own, and nothing else does.
+    await waitFor(() => expect(chromeStub.sentMessages()).toEqual([{ type: 'pomodoro/start' }]));
+    // A <button> in a <form> submits unless it says otherwise; if this one did,
+    // pressing Start would silently save every field on the form with it.
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('sends reset to the worker on click, without submitting the form', async () => {
+    chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('work', 90_000) });
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
+
+    await waitFor(() =>
+      expect(chromeStub.sentMessages()).toContainEqual({ type: 'pomodoro/reset' }),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('shows the phase and remaining time of a session that is already running', async () => {
+    // Blind Start and Reset buttons would be a worse trap than none: the user
+    // cannot see the timer at all once the widget is hidden.
+    chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('break', 5 * 60_000) });
+    const { PopupForm } = await import('./PopupForm');
+
+    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+
+    expect(await screen.findByText('Break')).not.toBeNull();
+    expect(await screen.findByText(/^0[45]:\d\d$/)).not.toBeNull();
+    // Start means nothing while a phase is running; the widget disables it too.
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Start' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      ),
+    );
+  });
+
+  it('reaches the session even with the Focus widget hidden', async () => {
+    // The whole point. Hiding the widget used to remove the only Start and
+    // Reset in the extension while the worker kept the timer — and the phase
+    // notifications — running.
+    chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('work', 60_000) });
+    const { PopupForm } = await import('./PopupForm');
+    const hidden: HubSettings = { ...baseSettings, hiddenWidgets: ['pomodoro'] };
+
+    render(<PopupForm initialSettings={hidden} onSave={() => {}} />);
+
+    expect(await screen.findByRole('button', { name: 'Reset' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Start' })).not.toBeNull();
+  });
+
+  it('mounts nothing timer-related while another tab is open', async () => {
+    // `usePomodoro` subscribes to storage and pings the worker on mount. A
+    // popup opened on General has no business doing either.
+    localStorage.setItem('popup_tab', 'general');
+    chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('work', 60_000) });
+    const { PopupForm } = await import('./PopupForm');
+
+    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+    await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeNull());
+
+    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+    expect(chromeStub.sentMessages()).toEqual([]);
   });
 });

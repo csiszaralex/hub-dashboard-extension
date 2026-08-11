@@ -98,7 +98,46 @@ export const getCachedImageSrc = async (url: string): Promise<string | null> => 
 };
 
 /**
- * Drops background caches written by an older cache format.
+ * Copies a user-supplied background out of a superseded bucket into the current
+ * one, so that dropping the old bucket does not take it with it.
+ *
+ * Every other entry in these buckets is an Unsplash photo that can simply be
+ * downloaded again; this one exists nowhere but here. Deleting it is silent and
+ * final — the user's next new tab renders a blank background, with the source
+ * still set to "custom" and no file to re-select from anywhere in the UI.
+ *
+ * The bucket being dropped is by definition the older one, so an image already
+ * in the current bucket always wins and nothing is overwritten. Only the first
+ * rescued image is taken: there is one custom background, and a second obsolete
+ * bucket holding another is an ordering question with no right answer.
+ */
+const rescueCustomImage = async (obsolete: string[]): Promise<void> => {
+  const current = await openCache();
+  if (!current) return;
+  if (await current.match(CUSTOM_IMAGE_KEY)) return;
+
+  for (const name of obsolete) {
+    const previous = await caches.open(name);
+    const stored = await previous.match(CUSTOM_IMAGE_KEY);
+    if (!stored) continue;
+    await current.put(CUSTOM_IMAGE_KEY, stored);
+    return;
+  }
+};
+
+/**
+ * Drops background caches written by an older cache format, carrying the user's
+ * own image forward first.
+ *
+ * Nothing on this branch bumps `IMAGE_CACHE_NAME`, so this is protection for
+ * whoever does next. The rescue is unconditional and lives inside the only
+ * function that deletes a bucket, which is the point: a version bump needs no
+ * accompanying migration and nobody has to remember that user data is sitting
+ * in the bucket they are about to discard.
+ *
+ * The rescue runs before the deletes, and a throw inside it aborts them —
+ * failing towards keeping a bucket we cannot empty safely rather than towards
+ * losing the one file in it that cannot be replaced.
  *
  * Safe to call from the service worker: it touches only the CacheStorage API,
  * which exists in worker scope, and never creates object URLs.
@@ -106,11 +145,13 @@ export const getCachedImageSrc = async (url: string): Promise<string | null> => 
 export const deleteObsoleteImageCaches = async (): Promise<void> => {
   try {
     const names = await caches.keys();
-    await Promise.all(
-      names
-        .filter((name) => name.startsWith(CACHE_PREFIX) && name !== IMAGE_CACHE_NAME)
-        .map((name) => caches.delete(name)),
+    const obsolete = names.filter(
+      (name) => name.startsWith(CACHE_PREFIX) && name !== IMAGE_CACHE_NAME,
     );
+    if (obsolete.length === 0) return;
+
+    await rescueCustomImage(obsolete);
+    await Promise.all(obsolete.map((name) => caches.delete(name)));
   } catch (error) {
     console.error('Failed to clean up old background caches:', error);
   }

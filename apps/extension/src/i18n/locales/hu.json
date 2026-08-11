@@ -101,7 +101,9 @@
     "widgets": "Látható widgetek",
     "tabPomodoro": "Fókusz",
     "pomodoroWork": "Fókusz hossza (perc)",
-    "pomodoroBreak": "Szünet hossza (perc)"
+    "pomodoroBreak": "Szünet hossza (perc)",
+    "pomodoroSession": "Aktuális munkamenet",
+    "pomodoroSessionHint": "Az időzítő a háttérben fut, így akkor is jár, ha a Fókusz widget rejtve van."
   },
   "app": {
     "newBackground": "Új háttérkép kérése",

@@ -101,7 +101,9 @@
     "widgets": "Visible widgets",
     "tabPomodoro": "Focus",
     "pomodoroWork": "Focus length (minutes)",
-    "pomodoroBreak": "Break length (minutes)"
+    "pomodoroBreak": "Break length (minutes)",
+    "pomodoroSession": "Current session",
+    "pomodoroSessionHint": "The timer runs in the background, so it keeps going even when the Focus widget is hidden."
   },
   "app": {
     "newBackground": "Request new background",

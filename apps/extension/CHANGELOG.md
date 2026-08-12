@@ -1,3 +1,43 @@
+## 2.3.0 (2026-08-12)
+
+### 🚀 Features
+
+- **extension:** reach the focus session from the popup ([3906bd2](https://github.com/csiszaralex/hub-dashboard-extension/commit/3906bd2))
+- **extension:** announce the focus phase in the tab title ([4873eb8](https://github.com/csiszaralex/hub-dashboard-extension/commit/4873eb8))
+- **extension:** move the focus timer into the service worker ([d35f962](https://github.com/csiszaralex/hub-dashboard-extension/commit/d35f962))
+- **extension:** put the focus timer beside the countdown ([b696cdb](https://github.com/csiszaralex/hub-dashboard-extension/commit/b696cdb))
+- **extension:** add a Pomodoro focus timer ([3b7b8e3](https://github.com/csiszaralex/hub-dashboard-extension/commit/3b7b8e3))
+- **extension:** add a keyboard shortcut for the UI toggle ([f60c560](https://github.com/csiszaralex/hub-dashboard-extension/commit/f60c560))
+- **extension:** read quotes through the Hub API with a bundled fallback ([20e6d25](https://github.com/csiszaralex/hub-dashboard-extension/commit/20e6d25))
+- **extension:** prefetch tomorrow's background in the service worker ([441074f](https://github.com/csiszaralex/hub-dashboard-extension/commit/441074f))
+- **extension:** allow a custom background image ([5706c98](https://github.com/csiszaralex/hub-dashboard-extension/commit/5706c98))
+- **extension:** show a four-day forecast ([fa98b6e](https://github.com/csiszaralex/hub-dashboard-extension/commit/fa98b6e))
+- **extension:** let each widget be hidden from the popup ([2ef0ce0](https://github.com/csiszaralex/hub-dashboard-extension/commit/2ef0ce0))
+- **extension:** add a background dimming slider ([c0af588](https://github.com/csiszaralex/hub-dashboard-extension/commit/c0af588))
+- **extension:** clean up obsolete image caches on update ([609b368](https://github.com/csiszaralex/hub-dashboard-extension/commit/609b368))
+
+### 🩹 Fixes
+
+- **extension:** keep error diagnostics in production builds ([5edb780](https://github.com/csiszaralex/hub-dashboard-extension/commit/5edb780))
+- **extension:** keep the custom background across a cache version bump ([b20c6d4](https://github.com/csiszaralex/hub-dashboard-extension/commit/b20c6d4))
+- **extension:** stop a long tab label from clipping the strip again ([8df725a](https://github.com/csiszaralex/hub-dashboard-extension/commit/8df725a))
+- **extension:** show every settings tab ([4c5bf87](https://github.com/csiszaralex/hub-dashboard-extension/commit/4c5bf87))
+- **extension:** stop emitting unusable module preloads ([9cabe85](https://github.com/csiszaralex/hub-dashboard-extension/commit/9cabe85))
+- **extension:** let the focus length fields be typed into ([88a7b86](https://github.com/csiszaralex/hub-dashboard-extension/commit/88a7b86))
+- **extension:** declare the geocoding and IP-location hosts ([1d01531](https://github.com/csiszaralex/hub-dashboard-extension/commit/1d01531))
+- **api:** follow the Unsplash attribution guidelines ([07a9e89](https://github.com/csiszaralex/hub-dashboard-extension/commit/07a9e89))
+- **extension:** store background images in the Cache API ([8f8238d](https://github.com/csiszaralex/hub-dashboard-extension/commit/8f8238d))
+- **extension:** stop refetching the background on every new tab ([9a72fde](https://github.com/csiszaralex/hub-dashboard-extension/commit/9a72fde))
+- **extension:** update background handling and improve photographer credit display ([58734a5](https://github.com/csiszaralex/hub-dashboard-extension/commit/58734a5))
+
+### 🔥 Performance
+
+- **extension:** self-host the Inter font ([60774a6](https://github.com/csiszaralex/hub-dashboard-extension/commit/60774a6))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.4
+
 ## 2.2.0 (2026-04-06)
 
 ### 🚀 Features

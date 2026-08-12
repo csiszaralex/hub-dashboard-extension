@@ -1,3 +1,18 @@
+## 1.1.0 (2026-08-12)
+
+### 🚀 Features
+
+- **api:** proxy the daily quote with a KV day-cache ([e0dfabe](https://github.com/csiszaralex/hub-dashboard-extension/commit/e0dfabe))
+
+### 🩹 Fixes
+
+- **api:** follow the Unsplash attribution guidelines ([07a9e89](https://github.com/csiszaralex/hub-dashboard-extension/commit/07a9e89))
+- **api:** bound the cache key space and cap Unsplash calls ([4ab8081](https://github.com/csiszaralex/hub-dashboard-extension/commit/4ab8081))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.4
+
 ## 1.0.7 (2026-04-06)
 
 ### 🧱 Updated Dependencies

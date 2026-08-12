@@ -1,3 +1,13 @@
+## 0.1.4 (2026-08-12)
+
+### 🚀 Features
+
+- **api:** proxy the daily quote with a KV day-cache ([e0dfabe](https://github.com/csiszaralex/hub-dashboard-extension/commit/e0dfabe))
+
+### 🩹 Fixes
+
+- **extension:** store background images in the Cache API ([8f8238d](https://github.com/csiszaralex/hub-dashboard-extension/commit/8f8238d))
+
 ## 0.1.3 (2026-04-06)
 
 ### 🚀 Features

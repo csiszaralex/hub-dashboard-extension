@@ -13,6 +13,7 @@ import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
 import { useUiVisibility } from './hooks/useUiVisibility';
 import { useWhatsNew } from './hooks/useWhatsNew';
+import { countEntries, LONG_RELEASE_ENTRIES } from './utils/changelog';
 import { dimToOpacity } from './utils/dim';
 import { isWidgetVisible, type WidgetId } from './widgets';
 
@@ -23,6 +24,11 @@ function App() {
   const { uiVisible, toggle } = useUiVisibility();
   const { shouldShow, currentVersion, dismiss } = useWhatsNew();
   const { t } = useTranslation();
+
+  // Read straight from the injected changelog rather than from the modal: the
+  // clock and the quote are siblings of that slot, not children of it, so the
+  // decision has to be made out here where both are rendered.
+  const hidesBackdrop = shouldShow && countEntries(__CHANGELOG__) >= LONG_RELEASE_ENTRIES;
 
   if (!isLoaded) {
     return <div className='w-screen h-screen bg-black' />;
@@ -48,7 +54,16 @@ function App() {
         `}
       >
         {/* FELSŐ KÖZÉPSŐ SÁV - Visszaszámláló / Pomodoro / Frissítés */}
-        <div className='absolute top-10 left-1/2 -translate-x-1/2 flex flex-wrap items-start justify-center gap-4 max-w-[calc(100vw-40rem)]'>
+        {/*
+          `z-20` because `QuoteWidget` is absolutely positioned too and sits
+          later in this list: two positioned siblings both at `z-index: auto`
+          are painted in DOM order, so the quote was drawn over the release
+          notes modal that shares this slot. Hiding the quote below settles
+          that particular collision on its own; this stays as the general rule,
+          since the top slot should win against anything that reaches it and
+          the countdown and focus timer live here too.
+        */}
+        <div className='absolute top-10 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-start justify-center gap-4 max-w-[calc(100vw-40rem)]'>
           {shouldShow ? (
             <WhatsNewModal version={currentVersion} onClose={dismiss} />
           ) : (
@@ -59,10 +74,25 @@ function App() {
           )}
         </div>
 
-        <div className='flex flex-col items-center gap-6 mb-10'>
-          {showWidget('clock') && <Clock />}
-          {showWidget('quote') && <QuoteWidget />}
-        </div>
+        {/*
+          Both step aside for a long release. The modal is glass like everything
+          else here, and glass over a nine-rem white clock is unreadable — the
+          alternative was an opaque panel, which would be the one solid surface
+          in an interface built entirely out of translucent ones. Hiding the two
+          things it actually covers keeps the style intact.
+
+          Only for a long one: a patch release with two entries makes a modal
+          barely taller than the countdown that normally sits in this slot, and
+          blanking the dashboard for it would be theatre. The threshold counts
+          entries rather than measuring height, so it reads the same at every
+          viewport size and zoom level.
+        */}
+        {!hidesBackdrop && (
+          <div className='flex flex-col items-center gap-6 mb-10'>
+            {showWidget('clock') && <Clock />}
+            {showWidget('quote') && <QuoteWidget />}
+          </div>
+        )}
 
         {showWidget('calendar') && <CalendarWidget />}
         {showWidget('weather') && <WeatherWidget />}

@@ -1,6 +1,6 @@
 import { Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { parseSections, stripMarkdown } from '../utils/changelog';
+import { parseHeading, parseSections, stripMarkdown } from '../utils/changelog';
 
 const GithubIcon = () => (
   <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4'>
@@ -11,17 +11,40 @@ const GithubIcon = () => (
 interface Props {
   version: string;
   onClose: () => void;
+  /**
+   * The release notes to show. Defaults to the slice of `CHANGELOG.md` that
+   * `vite.config.ts` injects at build time, which is what the app always wants;
+   * the parameter exists so a test can supply its own. `__CHANGELOG__` is a
+   * compile-time substitution rather than a global, so it cannot be stubbed —
+   * under Vitest it is replaced with the empty string, and without this the
+   * modal has no reachable state in which it renders a single entry.
+   */
+  changelog?: string;
 }
 
-export const WhatsNewModal = ({ version, onClose }: Props) => {
+export const WhatsNewModal = ({ version, onClose, changelog = __CHANGELOG__ }: Props) => {
   const { t } = useTranslation();
-  const sections = parseSections(__CHANGELOG__);
+  const sections = parseSections(changelog);
   const hasSections = sections.length > 0;
 
   return (
-    <div className='flex flex-col bg-black/20 backdrop-blur-md px-8 py-5 rounded-3xl border border-white/10 shadow-2xl max-w-sm w-full'>
+    // The same glass as every other widget. An opaque panel was tried first,
+    // because the clock's white digits read straight through a translucent one
+    // — but that put a solid slab in the middle of an interface where nothing
+    // else is solid, which is a worse trade than it sounds. `App.tsx` hides the
+    // clock and the quote while this is open instead, so there is nothing left
+    // behind the glass to show through and the house style survives.
+    //
+    // Capped to the viewport: the slot starts at `top-10`, so anything taller
+    // ran off the bottom of the screen with no way to reach the rest.
+    // No horizontal padding on the panel itself. It used to carry `px-8`, which
+    // pushed the scroll container — and with it the scrollbar — that far in
+    // from the edge, on top of the container's own padding. Each child pads
+    // itself instead, so the scrollbar can sit against the panel edge while the
+    // text still lines up with the header.
+    <div className='flex flex-col bg-black/20 backdrop-blur-md py-4 rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full max-h-[calc(100vh-5rem)]'>
       {/* Header */}
-      <div className='flex items-center justify-between gap-6'>
+      <div className='flex items-center justify-between gap-6 px-5'>
         <div className='flex items-center gap-2.5'>
           <Sparkles className='w-4 h-4 text-white/60 shrink-0' />
           <span className='text-xs text-white/50 uppercase tracking-widest'>{t('whatsNew.updated')}</span>
@@ -45,12 +68,48 @@ export const WhatsNewModal = ({ version, onClose }: Props) => {
 
       {/* Changelog */}
       {hasSections && (
-        <div className='mt-3 pt-3 border-t border-white/10 space-y-3'>
-          {sections.map((section, i) => (
+        // `min-h-0` is what makes the scrolling work, not decoration: a flex
+        // child's default `min-height: auto` refuses to shrink below its
+        // content, so `overflow-y-auto` would never engage and the list would
+        // push the modal past its own `max-h` instead of scrolling inside it.
+        // The same rule that clipped the settings tab strip, one axis over.
+        //
+        // The scrollbar is styled through the standard `scrollbar-width` and
+        // `scrollbar-color` properties rather than `::-webkit-scrollbar`:
+        // Chrome has supported them since 121 and they need no vendor-prefixed
+        // pseudo-element rules in the stylesheet. Left at the platform default
+        // it renders as an opaque light-grey bar with a solid track — the one
+        // piece of unstyled OS chrome in a translucent, dark interface.
+        //
+        // `pl-5` matches the header; `pr-1.5` is all that separates the
+        // scrollbar from the panel edge, which is the point of moving the
+        // padding off the panel.
+        <>
+          {/*
+            The divider is its own element rather than a `border-t` on the
+            scroller: the scroller now runs the full width of the panel, so its
+            border would run into the rounded corners instead of lining up
+            with the header. `mx-5` keeps it on the header's grid.
+          */}
+          <div className='mt-3 mx-5 border-t border-white/10' />
+          <div className='pt-3 space-y-3 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
+          {sections.map((section, i) => {
+            const { emoji, key, text } = parseHeading(section.heading);
+
+            return (
             <div key={i}>
               {section.heading && (
                 <p className='text-xs font-bold text-white/40 uppercase tracking-widest mb-1.5'>
-                  {section.heading}
+                  {/*
+                    Only the words are translated. The entries below them are
+                    commit subjects — written in English at commit time and
+                    baked into the file long before a language is picked — so a
+                    translated heading over English bullets is as far as this
+                    goes. An unrecognised heading keeps whatever the changelog
+                    tool wrote.
+                  */}
+                  {emoji && <span className='mr-1.5'>{emoji}</span>}
+                  {key ? t(`whatsNew.sections.${key}`) : text}
                 </p>
               )}
               <ul className='space-y-1'>
@@ -64,8 +123,10 @@ export const WhatsNewModal = ({ version, onClose }: Props) => {
                 ))}
               </ul>
             </div>
-          ))}
-        </div>
+            );
+          })}
+          </div>
+        </>
       )}
     </div>
   );

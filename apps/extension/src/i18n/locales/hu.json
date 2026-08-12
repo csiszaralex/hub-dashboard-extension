@@ -110,7 +110,14 @@
     "toggleHint": "A . elrejti — az Esc visszahozza"
   },
   "whatsNew": {
-    "updated": "Frissítve"
+    "updated": "Frissítve",
+    "sections": {
+      "features": "Újdonságok",
+      "fixes": "Javítások",
+      "performance": "Teljesítmény",
+      "breakingChanges": "Törést okozó változások",
+      "updatedDependencies": "Frissített függőségek"
+    }
   },
   "background": {
     "photographerLabel": "{{name}} fotója az Unsplash-en"

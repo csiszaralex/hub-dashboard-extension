@@ -2,7 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icon.png" />
+    <!-- One of the manifest's own icons rather than a dedicated favicon file.
+         The one this replaced was a 500x500 PNG weighing 297 KB, downloaded by
+         every user on every update to be drawn at 16px in the tab strip.
+
+         The 48px and not the 128px: Vite rewrites this href and emits its own
+         hashed copy of whatever it points at, so the file is paid for twice —
+         once here, once under `icons/` where the manifest needs it. At 48px
+         that second copy is 4.5 KB instead of 25 KB, and still comfortably
+         larger than any size a favicon is drawn at. -->
+    <link rel="icon" type="image/png" href="/icons/icon48.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hub</title>
   </head>

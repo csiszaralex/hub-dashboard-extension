@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseSections, stripMarkdown } from './changelog';
+import {
+  countEntries,
+  LONG_RELEASE_ENTRIES,
+  parseHeading,
+  parseSections,
+  stripMarkdown,
+} from './changelog';
 
 describe('parseSections', () => {
   it('groups bullet items under the heading above them', () => {
@@ -42,6 +48,65 @@ describe('parseSections', () => {
   });
 });
 
+describe('countEntries', () => {
+  it('adds up the bullets across every section', () => {
+    const changelog = ['### Features', '- one', '- two', '### Fixes', '- three'].join('\n');
+
+    expect(countEntries(changelog)).toBe(3);
+  });
+
+  it('counts nothing for a release with no entries', () => {
+    expect(countEntries('')).toBe(0);
+  });
+
+  it('does not count the headings themselves', () => {
+    // The threshold is about how tall the list gets, and a heading with no
+    // bullets under it contributes nothing to read.
+    expect(countEntries(['### Features', '### Fixes'].join('\n'))).toBe(0);
+  });
+
+  it('puts 2.3.0 over the threshold and a small patch release under it', () => {
+    // The two cases the threshold exists to separate: this release blanks the
+    // clock behind it, a two-line patch leaves the dashboard alone.
+    const long = ['### Features', ...Array.from({ length: 9 }, (_, i) => `- item ${i}`)].join('\n');
+    const short = ['### Fixes', '- one thing', '- another'].join('\n');
+
+    expect(countEntries(long)).toBeGreaterThanOrEqual(LONG_RELEASE_ENTRIES);
+    expect(countEntries(short)).toBeLessThan(LONG_RELEASE_ENTRIES);
+  });
+});
+
+describe('parseHeading', () => {
+  it('separates the emoji from the words so only the words need translating', () => {
+    expect(parseHeading('🚀 Features')).toEqual({
+      emoji: '🚀',
+      key: 'features',
+      text: 'Features',
+    });
+  });
+
+  it('maps the two spellings the changelog tool has used for fixes onto one key', () => {
+    // `nx release` writes "🩹 Fixes"; the older entries in this changelog say
+    // "Bug Fixes". Both are the same section to a reader.
+    expect(parseHeading('🩹 Fixes').key).toBe('fixes');
+    expect(parseHeading('Bug Fixes').key).toBe('fixes');
+  });
+
+  it('handles an emoji carrying a variation selector', () => {
+    expect(parseHeading('⚠️ Breaking Changes').key).toBe('breakingChanges');
+  });
+
+  it('copes with a heading that has no emoji at all', () => {
+    expect(parseHeading('Features')).toEqual({ emoji: '', key: 'features', text: 'Features' });
+  });
+
+  it('returns no key for a heading it does not know, keeping the original words', () => {
+    // The fallback matters: the changelog tool can emit sections this map has
+    // never seen, and an untranslated English heading beats a missing one.
+    expect(parseHeading('🎨 Styles')).toEqual({ emoji: '🎨', key: null, text: 'Styles' });
+  });
+});
+
 describe('stripMarkdown', () => {
   it('keeps the text of a markdown link and drops the target', () => {
     expect(stripMarkdown('adds [the widget](https://example.com)')).toBe('adds the widget');
@@ -53,8 +118,29 @@ describe('stripMarkdown', () => {
     );
   });
 
-  it('drops bold markers so the scope prefix reads as text', () => {
-    expect(stripMarkdown('**extension:** add tabs in popup')).toBe('extension: add tabs in popup');
+  it('drops the commit scope, which is the same word on every line', () => {
+    // The extension's changelog is generated from its own commits, so every
+    // entry carries `**extension:**`. Rendered, that is one identical word
+    // repeated down the whole modal, pushing the text that differs to the right.
+    expect(stripMarkdown('**extension:** add tabs in popup')).toBe('add tabs in popup');
+  });
+
+  it('drops a scope that arrives without bold markers', () => {
+    expect(stripMarkdown('shared: widen the background type')).toBe(
+      'widen the background type',
+    );
+  });
+
+  it('keeps a colon that is part of the sentence rather than a scope', () => {
+    // The guard against eating real text: a scope is one lowercase token at the
+    // very start, so anything with a space before the colon is left alone.
+    expect(stripMarkdown('handle two cases: empty and missing')).toBe(
+      'handle two cases: empty and missing',
+    );
+  });
+
+  it('keeps a capitalised word before a colon, which is prose and not a scope', () => {
+    expect(stripMarkdown('Note: this needs a migration')).toBe('Note: this needs a migration');
   });
 
   it('leaves plain text untouched', () => {

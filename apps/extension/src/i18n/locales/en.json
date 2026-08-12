@@ -110,7 +110,14 @@
     "toggleHint": "Press . to hide — Esc to bring it back"
   },
   "whatsNew": {
-    "updated": "Updated"
+    "updated": "Updated",
+    "sections": {
+      "features": "Features",
+      "fixes": "Fixes",
+      "performance": "Performance",
+      "breakingChanges": "Breaking changes",
+      "updatedDependencies": "Updated dependencies"
+    }
   },
   "background": {
     "photographerLabel": "Photo by {{name}} on Unsplash"

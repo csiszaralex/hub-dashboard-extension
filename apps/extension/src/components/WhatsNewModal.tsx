@@ -1,6 +1,6 @@
 import { Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { parseHeading, parseSections, stripMarkdown } from '../utils/changelog';
+import { parseHeading, releasesSince, stripMarkdown } from '../utils/changelog';
 
 const GithubIcon = () => (
   <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4'>
@@ -10,22 +10,37 @@ const GithubIcon = () => (
 
 interface Props {
   version: string;
+  /**
+   * The version this user last saw the modal for, or null on a first install.
+   * Everything released between it and `version` is shown, because a user does
+   * not necessarily arrive one release at a time.
+   */
+  lastSeenVersion: string | null;
   onClose: () => void;
   /**
-   * The release notes to show. Defaults to the slice of `CHANGELOG.md` that
-   * `vite.config.ts` injects at build time, which is what the app always wants;
-   * the parameter exists so a test can supply its own. `__CHANGELOG__` is a
-   * compile-time substitution rather than a global, so it cannot be stubbed —
-   * under Vitest it is replaced with the empty string, and without this the
-   * modal has no reachable state in which it renders a single entry.
+   * The release notes to draw from. Defaults to the recent slice of
+   * `CHANGELOG.md` that `vite.config.ts` injects at build time, which is what
+   * the app always wants; the parameter exists so a test can supply its own.
+   * `__CHANGELOG__` is a compile-time substitution rather than a global, so it
+   * cannot be stubbed — under Vitest it is replaced with the empty string, and
+   * without this the modal has no reachable state in which it renders an entry.
    */
   changelog?: string;
 }
 
-export const WhatsNewModal = ({ version, onClose, changelog = __CHANGELOG__ }: Props) => {
+export const WhatsNewModal = ({
+  version,
+  lastSeenVersion,
+  onClose,
+  changelog = __CHANGELOG__,
+}: Props) => {
   const { t } = useTranslation();
-  const sections = parseSections(changelog);
-  const hasSections = sections.length > 0;
+  const releases = releasesSince(changelog, lastSeenVersion, version);
+  const hasSections = releases.some((release) => release.sections.length > 0);
+  // One release needs no version headings — the panel header already names it.
+  // Several do, or the reader gets two "Features" lists with nothing to say
+  // which release each belongs to.
+  const showVersions = releases.length > 1;
 
   return (
     // The same glass as every other widget. An opaque panel was tried first,
@@ -92,39 +107,48 @@ export const WhatsNewModal = ({ version, onClose, changelog = __CHANGELOG__ }: P
             with the header. `mx-5` keeps it on the header's grid.
           */}
           <div className='mt-3 mx-5 border-t border-white/10' />
-          <div className='pt-3 space-y-3 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
-          {sections.map((section, i) => {
-            const { emoji, key, text } = parseHeading(section.heading);
+          <div className='pt-3 space-y-4 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
+            {releases.map((release) => (
+              <div key={release.version} className='space-y-3'>
+                {showVersions && (
+                  <p className='text-[11px] font-bold text-white/70 tracking-wide'>
+                    {`v${release.version}`}
+                  </p>
+                )}
+                {release.sections.map((section, i) => {
+                  const { emoji, key, text } = parseHeading(section.heading);
 
-            return (
-            <div key={i}>
-              {section.heading && (
-                <p className='text-xs font-bold text-white/40 uppercase tracking-widest mb-1.5'>
-                  {/*
-                    Only the words are translated. The entries below them are
-                    commit subjects — written in English at commit time and
-                    baked into the file long before a language is picked — so a
-                    translated heading over English bullets is as far as this
-                    goes. An unrecognised heading keeps whatever the changelog
-                    tool wrote.
-                  */}
-                  {emoji && <span className='mr-1.5'>{emoji}</span>}
-                  {key ? t(`whatsNew.sections.${key}`) : text}
-                </p>
-              )}
-              <ul className='space-y-1'>
-                {section.items.map((item, j) => (
-                  <li key={j} className='flex items-start gap-2 text-sm text-white/70'>
-                    {section.heading && (
-                      <span className='mt-1.5 w-1 h-1 rounded-full bg-white/30 shrink-0' />
-                    )}
-                    <span>{stripMarkdown(item)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            );
-          })}
+                  return (
+                    <div key={i}>
+                      {section.heading && (
+                        <p className='text-xs font-bold text-white/40 uppercase tracking-widest mb-1.5'>
+                          {/*
+                            Only the words are translated. The entries below
+                            them are commit subjects — written in English at
+                            commit time and baked into the file long before a
+                            language is picked — so a translated heading over
+                            English bullets is as far as this goes. An
+                            unrecognised heading keeps what the tool wrote.
+                          */}
+                          {emoji && <span className='mr-1.5'>{emoji}</span>}
+                          {key ? t(`whatsNew.sections.${key}`) : text}
+                        </p>
+                      )}
+                      <ul className='space-y-1'>
+                        {section.items.map((item, j) => (
+                          <li key={j} className='flex items-start gap-2 text-sm text-white/70'>
+                            {section.heading && (
+                              <span className='mt-1.5 w-1 h-1 rounded-full bg-white/30 shrink-0' />
+                            )}
+                            <span>{stripMarkdown(item)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </>
       )}

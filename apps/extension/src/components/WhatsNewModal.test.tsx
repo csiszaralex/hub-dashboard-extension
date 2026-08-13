@@ -1,10 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 // Hoisted out of the JSX: `i18next/no-literal-string` flags string literals in
-// attribute expressions too. This is the shape `nx release` writes for a release
-// with more than one change type, commit links and all.
+// attribute expressions too. This is the shape `nx release` writes, version
+// headings, commit links and all.
 const CHANGELOG = [
+  '## 2.3.0 (2026-08-12)',
+  '',
   '### 🚀 Features',
   '',
   "- **extension:** prefetch tomorrow's background in the service worker ([441074f](https://github.com/x/y/commit/441074f))",
@@ -13,16 +15,24 @@ const CHANGELOG = [
   '### 🩹 Fixes',
   '',
   '- **extension:** stop emitting unusable module preloads ([b0ef568](https://github.com/x/y/commit/b0ef568))',
+  '',
+  '## 2.2.0 (2026-04-06)',
+  '',
+  '### 🚀 Features',
+  '',
+  '- **extension:** add tabs in popup ([e7271f0](https://github.com/x/y/commit/e7271f0))',
 ].join('\n');
 
 const VERSION = '2.3.0';
+/** Older than every release in the fixture, so both of them are unseen. */
+const OLDER = '2.1.0';
 const noop = () => {};
 
 describe('WhatsNewModal', () => {
   it('renders an entry without the scope that prefixes every line', async () => {
     const { WhatsNewModal } = await import('./WhatsNewModal');
 
-    render(<WhatsNewModal version={VERSION} onClose={noop} changelog={CHANGELOG} />);
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />);
 
     // The text a user reads, with no `extension:` in front of it and no commit
     // hash behind it.
@@ -31,10 +41,53 @@ describe('WhatsNewModal', () => {
     expect(screen.queryByText(/441074f/)).toBeNull();
   });
 
+  it('catches a user up on every release they skipped, labelled by version', async () => {
+    // The case this exists for. 2.2.0 is the last build the public has, and the
+    // next one will be 2.3.1 — so an upgrade lands two releases at once, and
+    // showing only the newest would bury everything in between forever.
+    const { WhatsNewModal } = await import('./WhatsNewModal');
+
+    render(
+      <WhatsNewModal
+        version={VERSION}
+        lastSeenVersion={OLDER}
+        onClose={noop}
+        changelog={CHANGELOG}
+      />,
+    );
+
+    expect(screen.getByText('add tabs in popup')).not.toBeNull();
+    expect(screen.getByText('show a four-day forecast')).not.toBeNull();
+
+    // Labelled, or two "Features" lists run together with nothing to separate
+    // what arrived when. Scoped to the scrolling list because the panel header
+    // names the current version too, and an unscoped query matches both.
+    const list = screen.getAllByRole('listitem')[0].closest('div[class*="overflow-y-auto"]');
+    expect(within(list as HTMLElement).getByText('v2.3.0')).not.toBeNull();
+    expect(within(list as HTMLElement).getByText('v2.2.0')).not.toBeNull();
+  });
+
+  it('shows no version labels when there is only one release to report', async () => {
+    // The header already names it; repeating it inside would be noise.
+    const { WhatsNewModal } = await import('./WhatsNewModal');
+
+    render(
+      <WhatsNewModal
+        version={VERSION}
+        lastSeenVersion={null}
+        onClose={noop}
+        changelog={CHANGELOG}
+      />,
+    );
+
+    expect(screen.queryByText('v2.2.0')).toBeNull();
+    expect(screen.queryByText('add tabs in popup')).toBeNull();
+  });
+
   it('keeps both change-type sections', async () => {
     const { WhatsNewModal } = await import('./WhatsNewModal');
 
-    render(<WhatsNewModal version={VERSION} onClose={noop} changelog={CHANGELOG} />);
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />);
 
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
   });
@@ -46,7 +99,7 @@ describe('WhatsNewModal', () => {
     await i18n.changeLanguage('hu');
     const { WhatsNewModal } = await import('./WhatsNewModal');
 
-    render(<WhatsNewModal version={VERSION} onClose={noop} changelog={CHANGELOG} />);
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />);
 
     expect(screen.getByText('Újdonságok')).not.toBeNull();
     expect(screen.getByText('Javítások')).not.toBeNull();
@@ -67,7 +120,7 @@ describe('WhatsNewModal', () => {
     const { WhatsNewModal } = await import('./WhatsNewModal');
 
     const { container } = render(
-      <WhatsNewModal version={VERSION} onClose={noop} changelog={CHANGELOG} />,
+      <WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />,
     );
 
     const modal = container.firstElementChild;

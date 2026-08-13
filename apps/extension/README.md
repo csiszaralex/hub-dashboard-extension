@@ -1,4 +1,4 @@
-<h1><img src="public/icon.png" height="30" /> Hub Extension</h1>
+<h1><img src="icons/icon128.png" height="30" /> Hub Extension</h1>
 
 A Chrome extension that replaces the new tab page with a minimalist dashboard. Shows time, weather, upcoming Google Calendar events, a daily Stoic quote, a countdown timer, and a quick note — all over a full-screen Unsplash background.
 
@@ -17,7 +17,7 @@ Press `.` anywhere to toggle the UI overlay on/off, or double-click. Escape alwa
 
 ## Preview
 
-![Hub dashboard preview](public/preview.png)
+![Hub dashboard preview](../../assets/preview.png)
 
 ## Local development
 

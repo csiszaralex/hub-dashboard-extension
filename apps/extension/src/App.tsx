@@ -13,7 +13,7 @@ import { useBackground } from './hooks/useBackground';
 import { useSettings } from './hooks/useSettings';
 import { useUiVisibility } from './hooks/useUiVisibility';
 import { useWhatsNew } from './hooks/useWhatsNew';
-import { countEntries, LONG_RELEASE_ENTRIES } from './utils/changelog';
+import { countEntries, LONG_RELEASE_ENTRIES, releasesSince } from './utils/changelog';
 import { dimToOpacity } from './utils/dim';
 import { isWidgetVisible, type WidgetId } from './widgets';
 
@@ -22,13 +22,17 @@ function App() {
   const showWidget = (id: WidgetId) => isWidgetVisible(settings.hiddenWidgets, id);
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const { uiVisible, toggle } = useUiVisibility();
-  const { shouldShow, currentVersion, dismiss } = useWhatsNew();
+  const { shouldShow, currentVersion, lastSeenVersion, dismiss } = useWhatsNew();
   const { t } = useTranslation();
 
-  // Read straight from the injected changelog rather than from the modal: the
-  // clock and the quote are siblings of that slot, not children of it, so the
-  // decision has to be made out here where both are rendered.
-  const hidesBackdrop = shouldShow && countEntries(__CHANGELOG__) >= LONG_RELEASE_ENTRIES;
+  // Counted out here rather than inside the modal: the clock and the quote are
+  // siblings of that slot, not children of it. Over the same range the modal
+  // will render, not the whole injected changelog — a user one small release
+  // behind should not have the dashboard blanked for two lines of fixes.
+  const hidesBackdrop =
+    shouldShow &&
+    countEntries(releasesSince(__CHANGELOG__, lastSeenVersion, currentVersion)) >=
+      LONG_RELEASE_ENTRIES;
 
   if (!isLoaded) {
     return <div className='w-screen h-screen bg-black' />;
@@ -65,7 +69,11 @@ function App() {
         */}
         <div className='absolute top-10 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-start justify-center gap-4 max-w-[calc(100vw-40rem)]'>
           {shouldShow ? (
-            <WhatsNewModal version={currentVersion} onClose={dismiss} />
+            <WhatsNewModal
+              version={currentVersion}
+              lastSeenVersion={lastSeenVersion}
+              onClose={dismiss}
+            />
           ) : (
             <>
               {showWidget('countdown') && <CountdownWidget />}

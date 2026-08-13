@@ -7,19 +7,34 @@ import { defineConfig, loadEnv } from 'vite';
 import packageJson from './package.json' with { type: 'json' };
 import baseManifest from './manifest.json' with { type: 'json' };
 
-const getChangelogSection = (version: string): string => {
+/**
+ * The most recent releases, headings included, for the What's New modal.
+ *
+ * This used to extract one version's section — the version being built — which
+ * assumed users arrive one release at a time. They do not: the Chrome Web Store
+ * ships whatever is current, so a user on 2.2.0 updating to 2.3.1 would have
+ * been shown 2.3.1's few fixes and never told about the twenty-six changes in
+ * 2.3.0 in between. The page picks the range it needs at runtime instead, from
+ * the version it recorded on the last visit, so it needs the history here.
+ *
+ * Capped rather than shipped whole, because the file only ever grows and every
+ * byte of it lands in the bundle. Ten releases is far more than the gap Chrome's
+ * own auto-updating leaves; anyone further behind than that sees the ten most
+ * recent, which is a better failure than an unbounded asset.
+ */
+const RELEASES_TO_BUNDLE = 10;
+
+const getRecentChangelog = (): string => {
   const raw = readFileSync('./CHANGELOG.md', 'utf-8');
-  const verRegex = new RegExp(`^#{1,3}\\s+\\[?${version.replace(/\./g, '\\.')}\\]?`);
-  const anyVerRegex = /^#{1,3}\s+[[\d]/;
-  let capturing = false;
+  // Level one or two and starting with a digit — `## 2.3.0`, or `# 2.0.0` for
+  // the major. Level three is a section within a release, not a release.
+  const versionHeading = /^#{1,2}\s+\[?\d+\.\d+\.\d+/;
+
   const lines: string[] = [];
+  let seen = 0;
   for (const line of raw.split('\n')) {
-    if (!capturing) {
-      if (verRegex.test(line)) capturing = true;
-    } else {
-      if (anyVerRegex.test(line) && !verRegex.test(line)) break;
-      lines.push(line);
-    }
+    if (versionHeading.test(line) && ++seen > RELEASES_TO_BUNDLE) break;
+    lines.push(line);
   }
   return lines.join('\n').trim();
 };
@@ -47,7 +62,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), crx({ manifest })],
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
-      __CHANGELOG__: JSON.stringify(getChangelogSection(packageJson.version)),
+      __CHANGELOG__: JSON.stringify(getRecentChangelog()),
       __AVAILABLE_LANGUAGES__: JSON.stringify(availableLanguages),
     },
     build: {

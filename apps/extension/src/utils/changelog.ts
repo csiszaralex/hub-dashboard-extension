@@ -41,6 +41,93 @@ export const parseSections = (text: string): ChangelogSection[] => {
   return sections;
 };
 
+export interface ChangelogRelease {
+  version: string;
+  sections: ChangelogSection[];
+}
+
+/** A version heading — `## 2.3.0 (2026-08-12)`, or `# 2.0.0` for the major. */
+const VERSION_HEADING = /^#{1,2}\s+\[?(\d+\.\d+\.\d+)/;
+
+/**
+ * Splits the whole changelog into one entry per released version.
+ *
+ * Version headings are level one or two and start with a number; section
+ * headings are level three. `nx release` writes `# 2.0.0` for a major and
+ * `## x.y.z` for everything else, so both levels have to count as a version or
+ * the major's sections would be attributed to the release above it.
+ */
+export const parseReleases = (text: string): ChangelogRelease[] => {
+  const releases: ChangelogRelease[] = [];
+  let current: { version: string; lines: string[] } | null = null;
+
+  const flush = () => {
+    if (current)
+      releases.push({
+        version: current.version,
+        sections: parseSections(current.lines.join('\n')),
+      });
+  };
+
+  for (const line of text.split('\n')) {
+    const match = VERSION_HEADING.exec(line.trim());
+    if (match) {
+      flush();
+      current = { version: match[1], lines: [] };
+      continue;
+    }
+    current?.lines.push(line);
+  }
+  flush();
+
+  return releases;
+};
+
+/** Numeric, so 2.10.0 sorts above 2.9.0 the way a string compare would not. */
+const compareVersions = (a: string, b: string): number => {
+  const left = a.split('.').map(Number);
+  const right = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (left[i] ?? 0) - (right[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+};
+
+/**
+ * Every release between the one the user last saw and the one now running.
+ *
+ * The modal used to be handed a single version's notes, baked in at build time,
+ * which quietly assumed users upgrade one release at a time. They do not: the
+ * Chrome Web Store ships whatever is current, so someone on 2.2.0 who updates
+ * to 2.3.1 would have been shown 2.3.1's handful of fixes and never told about
+ * the twenty-six changes in 2.3.0.
+ *
+ * A first install has nothing to catch up on, so it gets the current release
+ * only rather than the entire history of the extension.
+ */
+export const releasesSince = (
+  text: string,
+  lastSeen: string | null,
+  current: string,
+): ChangelogRelease[] => {
+  const releases = parseReleases(text);
+  const running = releases.filter(
+    (release) => compareVersions(release.version, current) <= 0,
+  );
+
+  const unseen = lastSeen
+    ? running.filter(
+        (release) => compareVersions(release.version, lastSeen) > 0,
+      )
+    : running.filter((release) => release.version === current);
+
+  // A downgrade leaves nothing strictly newer than what was last seen. Showing
+  // the running version again beats opening an empty panel.
+  if (unseen.length > 0) return unseen;
+  return running.filter((release) => release.version === current);
+};
+
 /**
  * Entry count past which a release is long enough to hide the clock and quote
  * behind it.
@@ -53,12 +140,36 @@ export const parseSections = (text: string): ChangelogSection[] => {
  */
 export const LONG_RELEASE_ENTRIES = 7;
 
-/** Total bullets across every section, which is what the threshold counts. */
-export const countEntries = (text: string): number =>
-  parseSections(text).reduce((total, section) => total + section.items.length, 0);
+/**
+ * Total bullets across the releases being shown, which is what the threshold
+ * counts.
+ *
+ * Takes the releases rather than the raw changelog on purpose: the build now
+ * injects the last ten of them, so counting the whole string would clear the
+ * threshold every time and blank the dashboard for even a one-line patch.
+ */
+export const countEntries = (releases: ChangelogRelease[]): number =>
+  releases.reduce(
+    (total, release) =>
+      total + release.sections.reduce((sum, section) => sum + section.items.length, 0),
+    0,
+  );
 
 /**
- * The changelog tool's section headings, mapped onto translation keys.
+ * A literal union rather than `string`, and load-bearing: `react-i18next` types
+ * `t()` against the keys generated from `en.json`, so `whatsNew.sections.${key}`
+ * only compiles while every member here has a translation. Adding a section
+ * without one is a build error, not a key rendered raw on screen.
+ */
+export type SectionKey =
+  | 'features'
+  | 'fixes'
+  | 'performance'
+  | 'breakingChanges'
+  | 'updatedDependencies';
+
+/**
+ * The changelog tool's section headings, mapped onto those keys.
  *
  * Only the headings are translatable. The entries under them are commit
  * subjects, written in English at commit time and generated into the file long
@@ -70,20 +181,6 @@ export const countEntries = (text: string): number =>
  * section has arrived under more than one spelling: `nx release` writes
  * `🩹 Fixes` today and the older entries in this changelog say `Bug Fixes`.
  */
-/**
- * A literal union rather than `string`, and load-bearing: `react-i18next` types
- * `t()` against the keys generated from `en.json`, so `whatsNew.sections.${key}`
- * only compiles while every member here has a translation. Adding a section to
- * the map without adding it to the locale files is a build error, not a key
- * rendered raw on screen.
- */
-export type SectionKey =
-  | 'features'
-  | 'fixes'
-  | 'performance'
-  | 'breakingChanges'
-  | 'updatedDependencies';
-
 const SECTION_KEYS: Record<string, SectionKey> = {
   features: 'features',
   fixes: 'fixes',
@@ -113,10 +210,15 @@ export const parseHeading = (heading: string): ParsedHeading => {
   // Everything before the first letter or digit is the emoji, which keeps
   // variation selectors and zero-width joiners attached to it rather than
   // stranding them at the front of the text.
-  const [, symbols = '', words = ''] = /^([^\p{L}\p{N}]*)(.*)$/u.exec(heading.trim()) ?? [];
+  const [, symbols = '', words = ''] =
+    /^([^\p{L}\p{N}]*)(.*)$/u.exec(heading.trim()) ?? [];
   const text = words.trim();
 
-  return { emoji: symbols.trim(), key: SECTION_KEYS[text.toLowerCase()] ?? null, text };
+  return {
+    emoji: symbols.trim(),
+    key: SECTION_KEYS[text.toLowerCase()] ?? null,
+    text,
+  };
 };
 
 /**

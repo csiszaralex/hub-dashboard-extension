@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   countEntries,
+  parseReleases,
+  releasesSince,
   LONG_RELEASE_ENTRIES,
   parseHeading,
   parseSections,
@@ -48,31 +50,137 @@ describe('parseSections', () => {
   });
 });
 
+const HISTORY = [
+  '## 2.3.1 (2026-08-13)',
+  '',
+  '### 🩹 Fixes',
+  '',
+  '- **extension:** make the release notes readable',
+  '',
+  '## 2.3.0 (2026-08-12)',
+  '',
+  '### 🚀 Features',
+  '',
+  '- **extension:** add a Pomodoro focus timer',
+  '- **extension:** show a four-day forecast',
+  '',
+  '## 2.2.0 (2026-04-06)',
+  '',
+  '### 🚀 Features',
+  '',
+  '- **extension:** add tabs in popup',
+  '',
+  '# 2.0.0 (2026-03-23)',
+  '',
+  '### Features',
+  '',
+  '- something old',
+].join('\n');
+
+describe('parseReleases', () => {
+  it('splits the file into one entry per version, newest first', () => {
+    expect(parseReleases(HISTORY).map((r) => r.version)).toEqual([
+      '2.3.1',
+      '2.3.0',
+      '2.2.0',
+      '2.0.0',
+    ]);
+  });
+
+  it('treats a level-one version heading as a version, not a section', () => {
+    // `nx release` wrote `# 2.0.0` for the major and `## x.y.z` for everything
+    // else. Both are versions; only `###` starts a section.
+    const major = parseReleases(HISTORY).find((r) => r.version === '2.0.0');
+
+    expect(major?.sections.map((s) => s.heading)).toEqual(['Features']);
+  });
+
+  it('reads the linked heading format the older releases use', () => {
+    // Real data: entries below 1.2 in this changelog were written by an earlier
+    // tool as `## [1.1.2](…/compare/v1.1.1...v1.1.2) (date)`. They are inside
+    // the bundled window, so failing to recognise them would attach their
+    // contents to whichever release came before.
+    const linked = ['## [1.1.2](https://example.com/compare/v1.1.1...v1.1.2) (2026-03-18)', '- a fix'];
+
+    expect(parseReleases(linked.join('\n'))).toEqual([
+      { version: '1.1.2', sections: [{ heading: '', items: ['a fix'] }] },
+    ]);
+  });
+
+  it('keeps each version’s sections with that version', () => {
+    const [newest] = parseReleases(HISTORY);
+
+    expect(newest.sections).toEqual([
+      { heading: '🩹 Fixes', items: ['**extension:** make the release notes readable'] },
+    ]);
+  });
+});
+
+describe('releasesSince', () => {
+  it('returns every release the user has not seen yet', () => {
+    // The case this exists for: 2.2.0 is the last public build, so an upgrade
+    // straight to 2.3.1 has to show 2.3.0's work too or it is never announced.
+    expect(releasesSince(HISTORY, '2.2.0', '2.3.1').map((r) => r.version)).toEqual([
+      '2.3.1',
+      '2.3.0',
+    ]);
+  });
+
+  it('stops at the running version rather than announcing the future', () => {
+    expect(releasesSince(HISTORY, '2.2.0', '2.3.0').map((r) => r.version)).toEqual(['2.3.0']);
+  });
+
+  it('shows only the current release on a first install', () => {
+    // Nothing was seen before, but a new user does not want the whole history.
+    expect(releasesSince(HISTORY, null, '2.3.0').map((r) => r.version)).toEqual(['2.3.0']);
+  });
+
+  it('compares version numbers numerically, not as text', () => {
+    const wide = ['## 2.10.0 (d)', '- new', '## 2.9.0 (d)', '- old'].join('\n');
+
+    expect(releasesSince(wide, '2.9.0', '2.10.0').map((r) => r.version)).toEqual(['2.10.0']);
+  });
+
+  it('falls back to the current release when the range comes out empty', () => {
+    // A downgrade leaves nothing strictly newer than what was last seen; an
+    // empty modal would be worse than repeating what is running.
+    expect(releasesSince(HISTORY, '2.3.1', '2.3.0').map((r) => r.version)).toEqual(['2.3.0']);
+  });
+});
+
 describe('countEntries', () => {
   it('adds up the bullets across every section', () => {
-    const changelog = ['### Features', '- one', '- two', '### Fixes', '- three'].join('\n');
+    const changelog = ['## 1.0.0 (d)', '### Features', '- one', '- two', '### Fixes', '- three'].join(
+      '\n',
+    );
 
-    expect(countEntries(changelog)).toBe(3);
+    expect(countEntries(parseReleases(changelog))).toBe(3);
   });
 
   it('counts nothing for a release with no entries', () => {
-    expect(countEntries('')).toBe(0);
+    expect(countEntries(parseReleases(''))).toBe(0);
   });
 
   it('does not count the headings themselves', () => {
     // The threshold is about how tall the list gets, and a heading with no
     // bullets under it contributes nothing to read.
-    expect(countEntries(['### Features', '### Fixes'].join('\n'))).toBe(0);
+    expect(countEntries(parseReleases(['## 1.0.0 (d)', '### Features', '### Fixes'].join('\n')))).toBe(
+      0,
+    );
   });
 
   it('puts 2.3.0 over the threshold and a small patch release under it', () => {
     // The two cases the threshold exists to separate: this release blanks the
     // clock behind it, a two-line patch leaves the dashboard alone.
-    const long = ['### Features', ...Array.from({ length: 9 }, (_, i) => `- item ${i}`)].join('\n');
-    const short = ['### Fixes', '- one thing', '- another'].join('\n');
+    const long = [
+      '## 1.1.0 (d)',
+      '### Features',
+      ...Array.from({ length: 9 }, (_, i) => `- item ${i}`),
+    ].join('\n');
+    const short = ['## 1.0.1 (d)', '### Fixes', '- one thing', '- another'].join('\n');
 
-    expect(countEntries(long)).toBeGreaterThanOrEqual(LONG_RELEASE_ENTRIES);
-    expect(countEntries(short)).toBeLessThan(LONG_RELEASE_ENTRIES);
+    expect(countEntries(parseReleases(long))).toBeGreaterThanOrEqual(LONG_RELEASE_ENTRIES);
+    expect(countEntries(parseReleases(short))).toBeLessThan(LONG_RELEASE_ENTRIES);
   });
 });
 

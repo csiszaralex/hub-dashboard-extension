@@ -1,3 +1,14 @@
+## 2.3.1 (2026-08-14)
+
+### 🩹 Fixes
+
+- **extension:** show every release a user skipped, not just the newest ([ce1090e](https://github.com/csiszaralex/hub-dashboard-extension/commit/ce1090e))
+- **extension:** make the release notes readable at any length ([6c87339](https://github.com/csiszaralex/hub-dashboard-extension/commit/6c87339))
+
+### 🔥 Performance
+
+- **extension:** stop shipping store artwork in the package ([7883e03](https://github.com/csiszaralex/hub-dashboard-extension/commit/7883e03))
+
 ## 2.3.0 (2026-08-12)
 
 ### 🚀 Features

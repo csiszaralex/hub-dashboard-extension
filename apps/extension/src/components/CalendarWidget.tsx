@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useCalendar } from '../hooks/useCalendar';
 import { useSettings } from '../hooks/useSettings';
 import type { CalendarEvent } from '../types/calendar';
-import { categorizeEvents } from '../utils/calendarEvents';
+import { categorizeEvents, meetingLink } from '../utils/calendarEvents';
 
 interface EventRowProps {
   event: CalendarEvent;
@@ -48,6 +48,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
   const bgClass = isCurrent ? 'bg-white/5' : 'bg-transparent hover:bg-white/[0.02]';
 
   const cleanDescription = event.description?.replace(/(<([^>]+)>)/gi, '');
+  const joinUrl = meetingLink(event);
 
   return (
     <div
@@ -99,10 +100,15 @@ const EventRow = ({ event, state }: EventRowProps) => {
         </div>
       </div>
 
-      {/* Right: Call to Action (Meet button) */}
-      {event.hangoutLink && (
+      {/*
+        Right: join the call. Resolved through `meetingLink` rather than read
+        off `hangoutLink`, which Google sets for Meet and nothing else — a Zoom
+        or Teams meeting puts its URL under `conferenceData` and used to render
+        no button at all on a widget that shows every calendar.
+      */}
+      {joinUrl && (
         <a
-          href={event.hangoutLink}
+          href={joinUrl}
           className='flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400/80 hover:text-emerald-400 transition-colors shrink-0'
           title={t('calendar.joinCall')}
         >

@@ -2,6 +2,22 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
 
+/**
+ * Raised because the first test in this file pays a one-off transform cost, not
+ * because anything here races.
+ *
+ * Rendering the widget pulls in `i18n` with every locale, `date-fns/locale` and
+ * `lucide-react`. Vitest transforms that graph on the first import: locally the
+ * first test takes ~1.5s and the two after it 15ms and 5ms, since the transform
+ * cache survives the `vi.resetModules()` that `setup.ts` runs between tests. On
+ * CI the same first test took 5.4s and blew the 5s default.
+ *
+ * A timeout is the right lever here — the alternative is a suite that passes on
+ * a developer machine and fails on a slower runner, which teaches everyone to
+ * re-run CI instead of reading it.
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
 const CALENDAR_LIST = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
 
 /** Half an hour out, so `categorizeEvents` files it as the next event and renders a row. */

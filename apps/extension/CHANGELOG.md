@@ -1,3 +1,9 @@
+## 2.5.0 (2026-08-18)
+
+### 🚀 Features
+
+- **extension:** warn that a custom background cannot be recovered ([#8](https://github.com/csiszaralex/hub-dashboard-extension/issues/8))
+
 ## 2.4.0 (2026-08-18)
 
 ### 🚀 Features

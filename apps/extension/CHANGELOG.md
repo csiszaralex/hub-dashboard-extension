@@ -1,3 +1,13 @@
+## 2.4.0 (2026-08-18)
+
+### 🚀 Features
+
+- **extension:** offer a join button for Zoom and Teams meetings ([#7](https://github.com/csiszaralex/hub-dashboard-extension/issues/7))
+
+### 🩹 Fixes
+
+- **extension:** reject a meeting link that is not http(s) ([7a9e161](https://github.com/csiszaralex/hub-dashboard-extension/commit/7a9e161))
+
 ## 2.3.1 (2026-08-14)
 
 ### 🩹 Fixes

@@ -101,8 +101,12 @@ describe('PopupForm', () => {
     await waitFor(async () => expect(await hasCustomImage()).toBe(true));
 
     // No error text anywhere under the upload field for a legitimate image.
+    // That slot shows the hint or an upload error, never both, so "no error"
+    // means checking it is not one of the failures — not pinning the hint's
+    // exact wording, which made a copy change look like a broken upload.
     const hint = fileInput.parentElement?.querySelector('p');
-    expect(hint?.textContent).toBe('Stored on this device only.');
+    expect(hint?.textContent).not.toMatch(/not an image|could not store|before saving/i);
+    expect(hint?.textContent).toMatch(/stored on this device only/i);
 
     // The source is saveable as custom — submitting must not be blocked by the
     // "no image stored" guard, and the saved payload reports the custom source.
@@ -278,5 +282,41 @@ describe('PopupForm — Focus session controls', () => {
 
     expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
     expect(chromeStub.sentMessages()).toEqual([]);
+  });
+});
+
+describe('PopupForm — custom background durability', () => {
+  beforeEach(() => {
+    installChromeStub();
+    localStorage.setItem('popup_tab', 'appearance');
+  });
+
+  it('warns that an uploaded background cannot be recovered', async () => {
+    // "Stored on this device only" was already there and is the problem: in an
+    // extension whose whole pitch is that nothing leaves the machine, that
+    // sentence reads as reassurance. The uploaded image is the one piece of
+    // user data here that no amount of care in `imageCache` can bring back once
+    // the browser clears its storage, and the popup has to say so.
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const custom: HubSettings = { ...baseSettings, backgroundSource: 'custom' };
+
+    render(<PopupForm initialSettings={custom} onSave={() => {}} />);
+
+    expect(await screen.findByText(/cannot be recovered/i)).not.toBeNull();
+  });
+
+  it('says nothing about it when the background comes from Unsplash', async () => {
+    // An Unsplash photo is re-downloadable by definition, so the warning would
+    // be noise on the only path where it does not apply.
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+
+    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+
+    // Wait for the Unsplash branch of the tab to actually render, so a missing
+    // warning below cannot simply mean nothing was rendered yet.
+    await screen.findByLabelText('Appearance & Background');
+    expect(screen.queryByText(/cannot be recovered/i)).toBeNull();
   });
 });

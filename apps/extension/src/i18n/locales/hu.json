@@ -67,7 +67,7 @@
     "source_unsplash": "Unsplash fotók",
     "source_custom": "Saját kép",
     "upload": "Kép kiválasztása",
-    "uploadHint": "Csak ezen az eszközön tárolódik.",
+    "uploadHint": "Csak ezen az eszközön tárolódik. Sehova nem töltjük fel, és emiatt nem is állítható vissza, ha a böngésző tárhelye törlődik — tartsd meg a saját másolatodat.",
     "uploadNotImage": "Ez a fájl nem kép.",
     "uploadFailed": "A kép mentése nem sikerült.",
     "uploadMissing": "Válassz ki egy képet, mielőtt elmented ezt a beállítást.",

@@ -67,7 +67,7 @@
     "source_unsplash": "Unsplash photos",
     "source_custom": "My own image",
     "upload": "Choose an image",
-    "uploadHint": "Stored on this device only.",
+    "uploadHint": "Stored on this device only. It is never uploaded anywhere, and for the same reason cannot be recovered if the browser's storage is cleared — keep your own copy.",
     "uploadNotImage": "That file is not an image.",
     "uploadFailed": "Could not store the image.",
     "uploadMissing": "Choose an image before saving this option.",

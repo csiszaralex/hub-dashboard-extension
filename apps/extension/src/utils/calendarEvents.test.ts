@@ -154,3 +154,57 @@ describe('meetingLink', () => {
     expect(meetingLink(withConference([]))).toBeNull();
   });
 });
+
+describe('meetingLink scheme safety', () => {
+  it('refuses a javascript: URI smuggled in through conference data', () => {
+    // This lands in an `href` on a chrome-extension:// page, so a click would
+    // run the script with the extension's own origin — access to
+    // chrome.storage, the Cache API and everything else the page can reach.
+    // Conference entry points come from whoever created the event, which for
+    // an invitation is not the user.
+    const event = withConference([
+      { entryPointType: 'video', uri: 'javascript:fetch("https://evil.test")' },
+    ]);
+
+    expect(meetingLink(event)).toBeNull();
+  });
+
+  it('is not fooled by casing or embedded whitespace in the scheme', () => {
+    // The URL parser strips tab and newline characters before parsing, so
+    // string matching on "javascript:" is not enough on its own.
+    expect(meetingLink(withConference([{ entryPointType: 'video', uri: 'JavaScript:alert(1)' }]))).toBeNull();
+    expect(
+      meetingLink(withConference([{ entryPointType: 'video', uri: 'java\tscript:alert(1)' }])),
+    ).toBeNull();
+  });
+
+  it('refuses a data: URI as well', () => {
+    expect(
+      meetingLink(withConference([{ entryPointType: 'video', uri: 'data:text/html,<script>' }])),
+    ).toBeNull();
+  });
+
+  it('refuses a hangout link that is not http(s) either', () => {
+    // Lower risk than conference data, since Google generates it — but it
+    // reaches the same `href`, and the guard belongs on the value not the field.
+    const event = timed('standup', '2026-07-29T11:00:00', '2026-07-29T11:30:00');
+    event.hangoutLink = 'javascript:alert(1)';
+
+    expect(meetingLink(event)).toBeNull();
+  });
+
+  it('falls through to a usable entry point when an earlier one is rejected', () => {
+    const event = withConference([
+      { entryPointType: 'video', uri: 'javascript:alert(1)' },
+      { entryPointType: 'video', uri: 'https://example.zoom.us/j/123' },
+    ]);
+
+    expect(meetingLink(event)).toBe('https://example.zoom.us/j/123');
+  });
+
+  it('still accepts an ordinary https meeting URL', () => {
+    expect(
+      meetingLink(withConference([{ entryPointType: 'video', uri: 'https://example.zoom.us/j/1' }])),
+    ).toBe('https://example.zoom.us/j/1');
+  });
+});

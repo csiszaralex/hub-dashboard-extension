@@ -5,6 +5,33 @@ import type { CalendarEvent } from '../types/calendar';
 const FUTURE_EVENT_LIMIT = 3;
 
 /**
+ * Whether a string is safe to put in an `href` the user can click.
+ *
+ * This is a security boundary, not tidiness. The result is rendered on a
+ * `chrome-extension://` page, so a `javascript:` URI would execute with the
+ * extension's own origin on click — reaching `chrome.storage`, the Cache API
+ * and everything else the page can touch. Conference entry points are written
+ * by whoever created the event, which for an invitation is not the user, so
+ * they are untrusted input however trustworthy the transport.
+ *
+ * Parsed with `URL` rather than matched as a string: the parser strips tab and
+ * newline characters before reading the scheme, so `java\tscript:` and
+ * `JavaScript:` both normalise to the same thing a naive `startsWith` check
+ * would wave through. An unparseable string is rejected too — a relative URL
+ * is not a meeting anyone can join.
+ */
+const isJoinableUrl = (uri: string | undefined): boolean => {
+  if (!uri) return false;
+
+  try {
+    const { protocol } = new URL(uri);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+/**
  * The URL that joins an event's call, or null when there is nothing to join.
  *
  * Two sources, because Google populates them differently. `hangoutLink` is set
@@ -23,10 +50,10 @@ const FUTURE_EVENT_LIMIT = 3;
  * the tab has taken over their screen.
  */
 export const meetingLink = (event: CalendarEvent): string | null => {
-  if (event.hangoutLink) return event.hangoutLink;
+  if (isJoinableUrl(event.hangoutLink)) return event.hangoutLink!;
 
   const video = event.conferenceData?.entryPoints?.find(
-    (entry) => entry.entryPointType === 'video' && entry.uri,
+    (entry) => entry.entryPointType === 'video' && isJoinableUrl(entry.uri),
   );
 
   return video?.uri ?? null;

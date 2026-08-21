@@ -12,6 +12,7 @@ import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
 import { PomodoroSession } from './PomodoroSession';
+import { SettingsBackup } from './SettingsBackup';
 import { TabNav, type TabId } from './TabNav';
 import { WidgetsSection } from './WidgetsSection';
 
@@ -215,21 +216,30 @@ export function PopupForm({
 
       <div>
         {activeTab === 'general' && (
-          <Field id='language' label={t('popup.language')}>
-            <select
-              id='language'
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className={inputCls}
-            >
-              <option value=''>{t('popup.languageAuto')}</option>
-              {AVAILABLE_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {getLanguageLabel(lang)}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className='flex flex-col gap-3'>
+            <Field id='language' label={t('popup.language')}>
+              <select
+                id='language'
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className={inputCls}
+              >
+                <option value=''>{t('popup.languageAuto')}</option>
+                {AVAILABLE_LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {getLanguageLabel(lang)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {/*
+              Exports what is stored rather than what is typed into the form
+              above, which is the same thing everywhere except in the seconds
+              between an edit and "Apply settings". A backup of unsaved edits
+              would be a backup of a state the dashboard has never been in.
+            */}
+            <SettingsBackup settings={initialSettings} onImport={onSave} />
+          </div>
         )}
 
         {activeTab === 'appearance' && (

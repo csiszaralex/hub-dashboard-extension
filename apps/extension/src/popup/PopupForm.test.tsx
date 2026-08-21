@@ -320,3 +320,69 @@ describe('PopupForm — custom background durability', () => {
     expect(screen.queryByText(/cannot be recovered/i)).toBeNull();
   });
 });
+
+describe('PopupForm — settings backup', () => {
+  beforeEach(() => {
+    installChromeStub();
+    localStorage.setItem('popup_tab', 'general');
+    // The component remounts the popup after a successful import so the form
+    // fields stop showing the values they were mounted with. happy-dom has no
+    // navigation, so this stands in for it and lets the assertion run.
+    vi.stubGlobal('location', { ...window.location, reload: vi.fn() });
+  });
+
+  const backupFile = (settings: unknown) =>
+    new File([JSON.stringify({ version: 1, settings })], 'hub-settings.json', {
+      type: 'application/json',
+    });
+
+  it('applies the settings from a backup file', async () => {
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    const input = await screen.findByLabelText('Import');
+    fireEvent.change(input, {
+      target: { files: [backupFile({ locationCity: 'Szeged', backgroundDim: 45 })] },
+    });
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith({ locationCity: 'Szeged', backgroundDim: 45 }),
+    );
+  });
+
+  it('reports a file that is not a backup and changes nothing', async () => {
+    // The important half: a wrong file must not reach storage. Settings sync
+    // across machines, so a bad import is not confined to the device that made it.
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    const input = await screen.findByLabelText('Import');
+    fireEvent.change(input, {
+      target: { files: [new File(['nonsense'], 'x.json', { type: 'application/json' })] },
+    });
+
+    expect(await screen.findByText(/not a Hub settings backup/i)).not.toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('strips keys that are not settings before they reach storage', async () => {
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    const input = await screen.findByLabelText('Import');
+    fireEvent.change(input, {
+      target: { files: [backupFile({ language: 'hu', junk: 'x'.repeat(4000) })] },
+    });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ language: 'hu' }));
+  });
+});

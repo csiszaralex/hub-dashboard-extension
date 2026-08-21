@@ -90,6 +90,8 @@ The extension entry is `apps/extension/src/main.tsx` → `App.tsx`. The main `Ap
 
 **Settings** (`src/hooks/useSettings.ts`): One module-level store shared by every consumer via `useSyncExternalStore` — a single `chrome.storage.sync.get` and a single `onChanged` listener per page. Do not add per-component storage reads.
 
+**Settings backup** (`utils/settingsBackup.ts`): export writes the preferences as JSON; import validates every field before it reaches storage. The validation is not belt-and-braces — `useSettings` sanitises what it *reads*, so a bad value could never break the running page, but it would still be written to `chrome.storage.sync`, count against its byte quota and propagate to the user's other machines. `RULES` is a table keyed by `HubSettings` field so a new setting that nobody adds a rule for is visible in one place; a rejected field drops out rather than resetting to its default, since the file is the untrustworthy party and not the configuration the user already has.
+
 **Settings UI** (`src/popup/`): Separate popup page (`popup.html`), tabbed (`TabNav`) across general, appearance, weather, countdown, focus, calendars and widgets. Writes to Chrome Storage Sync; widgets react to storage changes.
 
 **Background image caching**: metadata (url, photographer, location) goes to `localStorage` via `dailyStorage`; the image itself — an Unsplash photo or a user-uploaded custom image — goes to the Cache API via `imageCache`. Never put image bytes in `localStorage` — a 4K JPEG base64-encodes past the origin quota. A cache version bump must not lose the user's own upload: `deleteObsoleteImageCaches` carries it forward, since it is the one entry in those buckets that cannot be re-downloaded.

@@ -40,6 +40,8 @@ Hub uses your browser's storage to save:
 
 Hub does not store any API keys on your device. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
 
+The settings page can also export your preferences to a JSON file and read one back. The file is written to your own device by your browser's normal download mechanism and is never transmitted anywhere; importing one reads it locally. Only the preferences listed above are included — not your notes, and not a custom background image.
+
 ### 4. Scheduled Background Prefetch (`alarms` permission)
 
 Hub schedules a daily task that downloads the next day's background image in advance, so opening a new tab never waits on the network.

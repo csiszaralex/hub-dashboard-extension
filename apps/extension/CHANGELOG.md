@@ -1,3 +1,9 @@
+## 2.6.0 (2026-08-23)
+
+### 🚀 Features
+
+- **extension:** export and import the dashboard's settings ([#10](https://github.com/csiszaralex/hub-dashboard-extension/issues/10))
+
 ## 2.5.0 (2026-08-18)
 
 ### 🚀 Features

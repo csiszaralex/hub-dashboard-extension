@@ -1,3 +1,4 @@
+import { SUPPORTED_LANGUAGES, type Language } from '@hub/shared';
 import en from './i18n/locales/en.json';
 import hu from './i18n/locales/hu.json';
 import { DEFAULT_UNSPLASH_QUERY } from './utils/api';
@@ -112,26 +113,31 @@ const readPomodoroSettings = (): Promise<PomodoroSettings> =>
  * before that landed. The strings themselves still live only in `en.json` and
  * `hu.json`; only the lookup is local.
  *
- * ADDING A LOCALE: a new `src/i18n/locales/*.json` is picked up automatically by
- * the page — `AVAILABLE_LANGUAGES` is read from that directory at build time —
- * but NOT here. The worker cannot go through `i18n/i18n.ts`, so a new locale
- * must be imported and added to this map by hand. Nothing warns if you forget:
- * `pomodoroStrings` falls back to English below, so a user with the whole UI in
- * the new language would silently get English notifications only.
+ * ADDING A LOCALE: the map is still maintained by hand, because the worker
+ * cannot go through `i18n/i18n.ts`. What changed is that forgetting it no
+ * longer ships: `Record<Language, …>` ties it to `SUPPORTED_LANGUAGES`, so a
+ * language added there without an entry here fails the build naming the missing
+ * code. It used to fall through to English silently, leaving a user with the
+ * whole interface translated and notifications in the wrong language — caught
+ * only by a test someone had thought to write.
  */
-const LOCALES: Record<string, typeof en.pomodoro> = { en: en.pomodoro, hu: hu.pomodoro };
+const LOCALES: Record<Language, typeof en.pomodoro> = { en: en.pomodoro, hu: hu.pomodoro };
 
-const detectLanguage = (): string => {
+const isSupported = (code: string): code is Language =>
+  (SUPPORTED_LANGUAGES as readonly string[]).includes(code);
+
+const detectLanguage = (): Language => {
   const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
   for (const lang of preferred) {
     const code = lang.split('-')[0];
-    if (code in LOCALES) return code;
+    if (isSupported(code)) return code;
   }
-  return Object.keys(LOCALES)[0];
+  return SUPPORTED_LANGUAGES[0];
 };
 
 /** `language` is `''` until the popup saves one, which means "follow the browser". */
-const pomodoroStrings = (language: string) => LOCALES[language] ?? LOCALES[detectLanguage()];
+const pomodoroStrings = (language: string) =>
+  isSupported(language) ? LOCALES[language] : LOCALES[detectLanguage()];
 
 const notify = (phase: PomodoroPhase, language: string) => {
   // `notifications` is declared in manifest.json, so this API is present in

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { HOURLY_UNSPLASH_BUDGET } from './background';
 import { DEFAULT_POOL_KEY } from './tags';
 import { createKvStub } from './test/kvStub';
 
@@ -93,6 +94,32 @@ describe('GET /api/background', () => {
     expect(unsplashCalls()).toHaveLength(0);
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ photographer: 'Cached' });
+  });
+
+  it('allows the last call inside the budget and refuses the one after it', async () => {
+    // Pins the boundary rather than the number, so raising the budget stays a
+    // one-line change. The `>=` is the whole guard: as `>` the counter would
+    // permit one call past the cap every hour, which is invisible until an
+    // account near its limit starts getting rejected by Unsplash instead.
+    const lastAllowed = createKvStub();
+    lastAllowed.seed(budgetKey(), String(HOURLY_UNSPLASH_BUDGET - 1));
+
+    await app.request('/api/background?tags=one', {}, env(lastAllowed.kv), executionCtx());
+    expect(unsplashCalls()).toHaveLength(1);
+
+    const spent = createKvStub();
+    spent.seed(budgetKey(), String(HOURLY_UNSPLASH_BUDGET));
+    spent.seed(DEFAULT_POOL_KEY, [
+      {
+        url: 'https://images.unsplash.com/cached',
+        location: null,
+        photographer: 'Cached',
+        photographerUrl: 'https://unsplash.com/@cached',
+      },
+    ]);
+
+    await app.request('/api/background?tags=two', {}, env(spent.kv), executionCtx());
+    expect(unsplashCalls()).toHaveLength(1);
   });
 
   it('links the photographer profile with Unsplash referral parameters', async () => {

@@ -19,8 +19,19 @@ const POOL_SIZE = 30;
  * Ceiling on Unsplash API calls per hour, kept below the account's own rate
  * limit. The endpoint is public and the tag list is caller-supplied, so without
  * this a stream of unique tags would drain the quota for every user.
+ *
+ * The app was approved for Unsplash's production tier, which allows 1000
+ * requests per hour; this was 40 while it sat on the demo tier's 50.
+ *
+ * Deliberately not raised in proportion. Ordinary traffic barely reaches
+ * Unsplash at all — a pool is cached in KV for three days per normalised tag
+ * set, so a call happens once per distinct tag set per three days, not once per
+ * user. The number exists to bound abuse, not to serve demand, and 200 leaves
+ * five times the previous headroom while still capping a burst at a fifth of
+ * the account's hour. Past it the worker keeps serving the default pool, so the
+ * failure mode stays "less variety" rather than "no backgrounds for anyone".
  */
-const HOURLY_UNSPLASH_BUDGET = 40;
+export const HOURLY_UNSPLASH_BUDGET = 200;
 
 /** Attribution parameters required by the Unsplash API guidelines. */
 const UTM = 'utm_source=hub&utm_medium=referral';

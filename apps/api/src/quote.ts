@@ -1,6 +1,7 @@
 import { QuoteData } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
+import { normalizeCategory } from './citatum';
 import { describeSources, resolveLanguage, resolveSource } from './quoteSources';
 
 const QUOTE_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -32,14 +33,17 @@ const todayIso = () => new Date().toISOString().split('T')[0];
 export const quoteRoutes = new Hono<{ Bindings: Bindings }>();
 
 /** Lets the popup offer only the sources that can serve a given language. */
-quoteRoutes.get('/api/quote/sources', (c) => c.json(describeSources()));
+quoteRoutes.get('/api/quote/sources', (c) => c.json(describeSources(c.env)));
 
 quoteRoutes.get('/api/quote', async (c) => {
-  const source = resolveSource(c.req.query('source'));
+  const source = resolveSource(c.req.query('source'), c.env);
   const language = resolveLanguage(source, c.req.query('lang'));
   const date = todayIso();
+  // Only for sources that take one, and normalised before it goes anywhere
+  // near a cache key — the same discipline `tags.ts` applies to Unsplash tags.
+  const query = source.acceptsQuery ? normalizeCategory(c.req.query('q')) : '';
 
-  const key = quoteCacheKey(source.id, language, date);
+  const key = quoteCacheKey(source.id, language, date, query);
   const latestKey = quoteLatestKey(source.id, language);
 
   // Check-then-act, not coalesced: a request that misses can race another
@@ -61,7 +65,7 @@ quoteRoutes.get('/api/quote', async (c) => {
 
   let quote: QuoteData;
   try {
-    quote = await source.resolve({ language, query: '', env: c.env, date });
+    quote = await source.resolve({ language, query, env: c.env, date });
   } catch (error) {
     console.error(error);
 

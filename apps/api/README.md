@@ -40,31 +40,73 @@ the worker pings each photo's `download_location` when it hands the photo out,
 and attribution links carry `utm_source=hub&utm_medium=referral`.
 `photographerUrl` points at the photographer's profile, not the photo page.
 
+## GET /api/quote/sources
+
+Lists the sources this deployment can actually serve, so a client can build a
+picker without hard-coding one. A source needing credentials the environment
+does not have is absent rather than listed and broken.
+
+```json
+[
+  { "id": "stoic", "languages": ["en"], "acceptsQuery": false },
+  { "id": "citatum", "languages": ["hu"], "acceptsQuery": true },
+  { "id": "programming", "languages": ["en", "hu"], "acceptsQuery": false }
+]
+```
+
+`languages` is what the source has content for, never what it would like to
+have. `acceptsQuery` says whether `?q=` narrows the result.
+
 ## GET /api/quote
 
-Proxies [`stoic.tekloon.net`](https://stoic.tekloon.net/) behind a daily KV
-cache, keyed by the current UTC date (`quote:YYYY-MM-DD`). The first request
-of the day fetches from upstream and caches the result; every other caller
-that day — across all users — reads the cached quote, so the upstream is hit
-once per day in total rather than once per user.
+Returns the day's quote for one source, behind a KV cache.
+
+| Parameter | Meaning |
+| --- | --- |
+| `source` | A source id from `/api/quote/sources`. Unknown values fall back to `stoic` rather than being passed through — the id reaches a cache key, and the endpoint is public. |
+| `lang` | One of the supported languages. A source that cannot serve it answers in its own language instead: picking a Hungarian-only source with an English interface should give Hungarian, not an error. |
+| `q` | Category, for sources where `acceptsQuery` is true. Normalised (lowercased, accents folded, punctuation stripped, capped) before it reaches upstream or the key. |
+
+The cache key is `quote:<source>:<lang>[:<category>]:<YYYY-MM-DD>`. Source and
+language are part of it because they are part of the answer — sharing one key
+would mean the day's first request decided what everyone got.
+
+**Sources**
+
+- **`stoic`** — proxies [`stoic.tekloon.net`](https://stoic.tekloon.net/), English only.
+- **`citatum`** — [Citatum](https://www.citatum.hu/), Hungarian, narrowed by `q`.
+  Needs the `CITATUM_USER` and `CITATUM_KEY` secrets; without them the source is
+  not advertised. Their allowance is 500 requests a day, so a KV counter caps
+  calls below it and a spent budget degrades to the stale quote. Anything
+  displaying these quotes must link back to Citatum — the response carries the
+  quote's own `sourceUrl` for that.
+- **Built-in lists** (`programming`, …) — shipped with the worker under
+  `src/static_quotes/`, one file per source. No upstream, so no failure mode;
+  the day's entry is derived from the date rather than picked at random.
 
 **Response:**
 
 ```json
 {
   "text": "Waste no more time arguing about what a good man should be. Be one.",
-  "author": "Marcus Aurelius"
+  "author": "Marcus Aurelius",
+  "sourceUrl": "https://www.citatum.hu/idezet/5073"
 }
 ```
+
+`sourceUrl` is present only for sources whose terms require attribution.
 
 ### Fallback when upstream is down
 
 `stoic.tekloon.net` is a single-person service with no SLA. Every successful
-fetch also updates a `quote:latest` pointer to the newest good quote. If the
-upstream request fails, times out, or returns a body with no quote text, the
-worker serves `quote:latest` instead of failing the widget. Only when nothing
-has ever been cached (or the pointer has expired) does the endpoint return
-`503`. A KV read failure (day cache or `quote:latest`) is treated the same
+fetch also updates a `quote:<source>:<lang>:latest` pointer to that source's
+newest good quote. If the upstream request fails, times out, or returns a body
+with no quote text, the worker serves that pointer instead of failing the
+widget. It is per source and language on purpose: one shared pointer would hand
+a user who picked one source another source's quote the moment theirs went
+down, silently, for as long as the outage lasted. Only when nothing has ever
+been cached (or the pointer has expired) does the endpoint return
+`503`. A KV read failure (day cache or the stale pointer) is treated the same
 way as an upstream failure rather than surfacing as a raw `500` — it degrades
 along the same fallback chain. A KV write failure never discards a quote
 that was already fetched successfully; caching is best-effort on top of the
@@ -94,9 +136,19 @@ Create `apps/api/.dev.vars`:
 
 ```
 UNSPLASH_ACCESS_KEY=your_unsplash_access_key
+CITATUM_USER=your_citatum_username
+CITATUM_KEY=your_citatum_api_code
 ```
 
 Get a free key at [unsplash.com/developers](https://unsplash.com/developers) → create an app → copy the Access Key.
+
+The Citatum pair is optional. Without it the worker runs normally and simply
+does not offer that source — `GET /api/quote/sources` leaves it out, so nothing
+downstream advertises an option that cannot work. The code is requested by mail
+through [their API page](https://www.citatum.hu/api.php) and is tied to a
+registered username, which is why both halves are needed.
+
+In production both are set with `wrangler secret put`, not in `wrangler.toml`.
 
 ### 3. Start the dev server
 

@@ -31,4 +31,10 @@ export interface BackgroundData {
 export interface QuoteData {
   text: string;
   author: string;
+  /**
+   * Link back to the quote on the site it came from, when that site's terms
+   * require attribution. Absent for sources that need none — a built-in list
+   * credits its author in `author` and has nowhere to point.
+   */
+  sourceUrl?: string;
 }

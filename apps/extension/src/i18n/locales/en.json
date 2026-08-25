@@ -97,6 +97,11 @@
     "backupExport": "Export",
     "backupImport": "Import",
     "backupInvalid": "That file is not a Hub settings backup.",
+    "quoteSource": "Quote source",
+    "quoteSourceHint": "Only sources that have quotes in your language are listed.",
+    "quoteQuery": "Quote category",
+    "quoteQueryHint": "Optional. Leave empty for any category.",
+    "quoteQueryPlaceholder": "e.g. Pénz, Szerelem",
     "tabGeneral": "General",
     "tabAppearance": "Background",
     "tabWeather": "Weather",
@@ -147,5 +152,8 @@
     "breakStarted": "Break time — step away.",
     "titleWork": "Hub — Focus {{time}}",
     "titleBreak": "Hub — Break {{time}}"
+  },
+  "quote": {
+    "source": "Source"
   }
 }

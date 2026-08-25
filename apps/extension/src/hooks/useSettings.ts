@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_UNSPLASH_QUERY } from '../utils/api';
+import { DEFAULT_QUOTE_SOURCE, DEFAULT_UNSPLASH_QUERY } from '../utils/api';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
 import {
   clampPomodoroMinutes,
@@ -21,6 +21,10 @@ export interface HubSettings {
   hiddenWidgets: WidgetId[];
   pomodoroWorkMinutes: number;
   pomodoroBreakMinutes: number;
+  /** Which source the daily quote comes from — an id the API advertises. */
+  quoteSource: string;
+  /** Category narrowing the quote, for sources that take one. Empty means any. */
+  quoteQuery: string;
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -38,6 +42,8 @@ const DEFAULT_SETTINGS: HubSettings = {
   hiddenWidgets: [],
   pomodoroWorkMinutes: DEFAULT_WORK_MINUTES,
   pomodoroBreakMinutes: DEFAULT_BREAK_MINUTES,
+  quoteSource: DEFAULT_QUOTE_SOURCE,
+  quoteQuery: '',
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof HubSettings)[];

@@ -45,6 +45,8 @@ const RULES: { [K in keyof HubSettings]: (value: unknown) => HubSettings[K] | un
   unsplashQuery: asString,
   locationCity: asString,
   language: asString,
+  quoteSource: asString,
+  quoteQuery: asString,
 
   // A closed set the renderer switches on. An unknown source would leave the
   // background in a state no radio button matches.

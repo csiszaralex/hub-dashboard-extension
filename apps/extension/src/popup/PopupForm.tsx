@@ -12,6 +12,7 @@ import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
 import { PomodoroSession } from './PomodoroSession';
+import { QuoteSourceSection } from './QuoteSourceSection';
 import { SettingsBackup } from './SettingsBackup';
 import { TabNav, type TabId } from './TabNav';
 import { WidgetsSection } from './WidgetsSection';
@@ -34,6 +35,9 @@ const getLanguageLabel = (lang: string): string => {
 // JSX, and this array is only ever mapped over from within JSX.
 const BACKGROUND_SOURCES = ['unsplash', 'custom'] as const;
 
+/** Same reason as above: `i18next/no-literal-string` flags literals inside JSX. */
+const FALLBACK_LANGUAGE = 'en';
+
 export function PopupForm({
   initialSettings,
   onSave,
@@ -53,6 +57,8 @@ export function PopupForm({
   const [selectedCals, setSelectedCals] = useState<string[]>(initialSettings.selectedCalendars);
   const [countdownTarget, setCountdownTarget] = useState(initialSettings.countdownTarget || '');
   const [language, setLanguage] = useState(initialSettings.language);
+  const [quoteSource, setQuoteSource] = useState(initialSettings.quoteSource);
+  const [quoteQuery, setQuoteQuery] = useState(initialSettings.quoteQuery);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
   // Held as the raw typed string, not a number: `Number('')` is `0`, so a
   // number-typed state would redisplay `0` the instant the field is cleared
@@ -194,6 +200,8 @@ export function PopupForm({
       selectedCalendars: selectedCals,
       countdownTarget: countdownTarget || null,
       language,
+      quoteSource,
+      quoteQuery,
       hiddenWidgets,
       // Clamped here too, not just where settings are read back
       // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
@@ -232,6 +240,18 @@ export function PopupForm({
                 ))}
               </select>
             </Field>
+            {/*
+              The interface language drives which sources are offered, so this
+              reads the live selection above rather than the saved setting —
+              switching language re-filters the list before anything is saved.
+            */}
+            <QuoteSourceSection
+              source={quoteSource}
+              query={quoteQuery}
+              language={language || i18n.language?.split('-')[0] || FALLBACK_LANGUAGE}
+              onSourceChange={setQuoteSource}
+              onQueryChange={setQuoteQuery}
+            />
             {/*
               Exports what is stored rather than what is typed into the form
               above, which is the same thing everywhere except in the seconds

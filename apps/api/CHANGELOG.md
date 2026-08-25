@@ -1,3 +1,9 @@
+## 1.2.0 (2026-08-25)
+
+### 🚀 Features
+
+- **api:** raise the Unsplash hourly cap now the app is on production ([#13](https://github.com/csiszaralex/hub-dashboard-extension/issues/13))
+
 ## 1.1.0 (2026-08-12)
 
 ### 🚀 Features

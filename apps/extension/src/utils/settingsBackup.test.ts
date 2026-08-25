@@ -17,6 +17,8 @@ const configured: HubSettings = {
   hiddenWidgets: ['note'],
   pomodoroWorkMinutes: 30,
   pomodoroBreakMinutes: 7,
+  quoteSource: 'citatum',
+  quoteQuery: 'penz',
 };
 
 /** A backup file with `settings` replaced wholesale — the shape a hand edit produces. */
@@ -110,5 +112,25 @@ describe('parseBackup', () => {
 
   it('keeps a countdown target of null, which means no countdown', () => {
     expect(parseBackup(fileWith({ countdownTarget: null }))).toEqual({ countdownTarget: null });
+  });
+});
+
+describe('parseBackup — quote source', () => {
+  it('restores the quote source and category', () => {
+    const parsed = parseBackup(
+      JSON.stringify({ version: 1, settings: { quoteSource: 'citatum', quoteQuery: 'penz' } }),
+    );
+
+    expect(parsed).toEqual({ quoteSource: 'citatum', quoteQuery: 'penz' });
+  });
+
+  it('has a rule for every settings field', () => {
+    // The table in `settingsBackup.ts` is keyed by `HubSettings` field precisely
+    // so a setting added later cannot silently never restore. This is that
+    // promise, checked: a field with no rule drops out of an import, and nobody
+    // notices until someone restores a backup and one preference is missing.
+    const everyField = JSON.stringify({ version: 1, settings: configured });
+
+    expect(Object.keys(parseBackup(everyField) ?? {}).sort()).toEqual(Object.keys(configured).sort());
   });
 });

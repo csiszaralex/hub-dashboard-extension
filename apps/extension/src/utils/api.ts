@@ -17,8 +17,29 @@ export const QUOTE_ENDPOINT = `${BASE}/api/quote`;
  */
 export const DEFAULT_UNSPLASH_QUERY = 'landscape,forest,mountain,fog,nature view';
 
+export const QUOTE_SOURCES_ENDPOINT = `${BASE}/api/quote/sources`;
+
+/** The source a fresh install reads quotes from, until the popup says otherwise. */
+export const DEFAULT_QUOTE_SOURCE = 'stoic';
+
 export const backgroundRequestUrl = (query: string): string => {
   const url = new URL(BACKGROUND_ENDPOINT);
   if (query) url.searchParams.set('tags', query);
+  return url.toString();
+};
+
+/**
+ * The day's quote for one source, in the interface language.
+ *
+ * The language travels with the request because the answer depends on it: a
+ * source that has both serves the one asked for, and one that has only its own
+ * ignores it. An empty category is left off entirely rather than sent as `q=`,
+ * so there is one spelling of "no category" on the wire.
+ */
+export const quoteRequestUrl = (source: string, language: string, category: string): string => {
+  const url = new URL(QUOTE_ENDPOINT);
+  url.searchParams.set('source', source);
+  url.searchParams.set('lang', language);
+  if (category) url.searchParams.set('q', category);
   return url.toString();
 };

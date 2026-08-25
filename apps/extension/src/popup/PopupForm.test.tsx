@@ -19,6 +19,8 @@ const baseSettings: HubSettings = {
   hiddenWidgets: [],
   pomodoroWorkMinutes: 25,
   pomodoroBreakMinutes: 5,
+  quoteSource: 'stoic',
+  quoteQuery: '',
 };
 
 describe('PopupForm', () => {
@@ -278,7 +280,9 @@ describe('PopupForm — Focus session controls', () => {
     const { PopupForm } = await import('./PopupForm');
 
     render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
-    await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeNull());
+    // The language select, named rather than "the only combobox" — the General
+    // tab grew a second one when the quote source picker landed there.
+    await screen.findByLabelText('Language');
 
     expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
     expect(chromeStub.sentMessages()).toEqual([]);

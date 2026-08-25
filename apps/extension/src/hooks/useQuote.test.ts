@@ -49,6 +49,10 @@ describe('useQuote', () => {
       'daily_quote',
       JSON.stringify({
         date: new Date().toISOString().split('T')[0],
+        // The selection the packet was fetched for. A cached quote is only a
+        // hit for the same source, language and category — switching any of
+        // them has to refetch rather than show the previous source's quote.
+        query: 'stoic|en|',
         data: { text: 'Cached.', author: 'Epictetus' },
       }),
     );

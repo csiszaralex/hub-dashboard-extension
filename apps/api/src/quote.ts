@@ -1,21 +1,46 @@
 import { QuoteData } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
+import { describeSources, resolveLanguage, resolveSource } from './quoteSources';
 
-const UPSTREAM = 'https://stoic.tekloon.net/stoic-quote';
-
-/** Pointer to the newest successfully cached quote, for use when upstream is down. */
-const LATEST_KEY = 'quote:latest';
 const QUOTE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-export const quoteCacheKey = (isoDate: string) => `quote:${isoDate}`;
+/**
+ * Cache key for one source's quote of the day.
+ *
+ * The source and language are part of the key because they are part of the
+ * answer: without them the first request of the day would decide what everyone
+ * else got, whichever source it happened to ask for. Both come from closed sets
+ * — the source registry and `SUPPORTED_LANGUAGES` — so the key space is bounded
+ * by what we ship, not by what a caller sends.
+ */
+export const quoteCacheKey = (source: string, language: string, isoDate: string, query = '') =>
+  `quote:${source}:${language}${query ? `:${query}` : ''}:${isoDate}`;
+
+/**
+ * Pointer to this source's newest good quote, for when its upstream is down.
+ *
+ * Per source and language, not global. A single shared pointer would hand a
+ * user who picked one source another source's quote the moment theirs failed —
+ * silently, and for as long as the outage lasted.
+ */
+export const quoteLatestKey = (source: string, language: string) =>
+  `quote:${source}:${language}:latest`;
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 
 export const quoteRoutes = new Hono<{ Bindings: Bindings }>();
 
+/** Lets the popup offer only the sources that can serve a given language. */
+quoteRoutes.get('/api/quote/sources', (c) => c.json(describeSources()));
+
 quoteRoutes.get('/api/quote', async (c) => {
-  const key = quoteCacheKey(todayIso());
+  const source = resolveSource(c.req.query('source'));
+  const language = resolveLanguage(source, c.req.query('lang'));
+  const date = todayIso();
+
+  const key = quoteCacheKey(source.id, language, date);
+  const latestKey = quoteLatestKey(source.id, language);
 
   // Check-then-act, not coalesced: a request that misses can race another
   // that is already mid-fetch. Everyone who arrives within that single
@@ -29,43 +54,37 @@ quoteRoutes.get('/api/quote', async (c) => {
     if (cached?.text) return c.json(cached);
   } catch (error) {
     // A KV outage on the read is treated as a cache miss, not a failure —
-    // fall through to upstream rather than letting it bubble past Hono's
+    // fall through to the source rather than letting it bubble past Hono's
     // handler into a plain-text 500.
     console.error('Day-cache read failed:', error);
   }
 
   let quote: QuoteData;
   try {
-    const res = await fetch(UPSTREAM);
-    if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
-
-    const raw = (await res.json()) as { data?: { quote?: string; author?: string } };
-    quote = {
-      text: raw.data?.quote ?? '',
-      author: raw.data?.author ?? 'Unknown',
-    };
-    if (!quote.text) throw new Error('Upstream response had no quote');
+    quote = await source.resolve({ language, query: '', env: c.env, date });
   } catch (error) {
     console.error(error);
 
-    // Upstream is a one-person service; a stale quote beats an empty widget.
+    // Upstreams here are small third-party services; a stale quote beats an
+    // empty widget. A built-in source cannot reach this path, which is part of
+    // why it is worth having one.
     try {
-      const latest = await c.env.UNSPLASH_CACHE.get<QuoteData>(LATEST_KEY, 'json');
+      const latest = await c.env.UNSPLASH_CACHE.get<QuoteData>(latestKey, 'json');
       if (latest?.text) return c.json(latest);
     } catch (kvError) {
-      console.error('quote:latest read failed:', kvError);
+      console.error('Stale-quote read failed:', kvError);
     }
 
     return c.json({ error: 'No quote available' }, 503);
   }
 
-  // Caching is best-effort: a good quote we just fetched is still the right
+  // Caching is best-effort: a good quote we just resolved is still the right
   // response even if KV is unavailable to write it, so a put failure must
-  // not fall through to the stale/503 path below.
+  // not fall through to the stale/503 path above.
   try {
     const body = JSON.stringify(quote);
     await c.env.UNSPLASH_CACHE.put(key, body, { expirationTtl: QUOTE_TTL_SECONDS });
-    await c.env.UNSPLASH_CACHE.put(LATEST_KEY, body, { expirationTtl: QUOTE_TTL_SECONDS });
+    await c.env.UNSPLASH_CACHE.put(latestKey, body, { expirationTtl: QUOTE_TTL_SECONDS });
   } catch (error) {
     console.error('Failed to cache fresh quote:', error);
   }

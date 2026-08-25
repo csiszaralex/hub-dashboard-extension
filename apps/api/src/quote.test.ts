@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
-import { quoteCacheKey } from './quote';
+import { quoteCacheKey, quoteLatestKey } from './quote';
 import { createKvStub } from './test/kvStub';
 
 const upstream = (text: string, author: string) =>
@@ -85,12 +85,12 @@ describe('GET /api/quote', () => {
   });
 
   it('keys the day cache by date', () => {
-    expect(quoteCacheKey('2026-07-30')).toBe('quote:2026-07-30');
+    expect(quoteCacheKey('stoic', 'en', '2026-07-30')).toBe('quote:stoic:en:2026-07-30');
   });
 
   it('serves the last good quote when the upstream is down', async () => {
     const { kv, seed } = createKvStub();
-    seed('quote:latest', { text: 'Old but present.', author: 'Seneca' });
+    seed(quoteLatestKey('stoic', 'en'), { text: 'Old but present.', author: 'Seneca' });
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -128,7 +128,7 @@ describe('GET /api/quote', () => {
 
   it('falls back to the last good quote when the upstream returns a non-200 status', async () => {
     const { kv, seed } = createKvStub();
-    seed('quote:latest', { text: 'Old but present.', author: 'Seneca' });
+    seed(quoteLatestKey('stoic', 'en'), { text: 'Old but present.', author: 'Seneca' });
     // The body is well-formed and would parse fine — only the status is bad —
     // so this fails only if the route stops checking `res.ok`.
     vi.stubGlobal(
@@ -150,7 +150,7 @@ describe('GET /api/quote', () => {
 
   it('falls back to the last good quote when the upstream body is not valid JSON', async () => {
     const { kv, seed } = createKvStub();
-    seed('quote:latest', { text: 'Old but present.', author: 'Seneca' });
+    seed(quoteLatestKey('stoic', 'en'), { text: 'Old but present.', author: 'Seneca' });
     // A real Response whose .json() rejects, rather than a mocked resolution,
     // so the route's own try/catch — not a stubbed method — is what's under test.
     vi.stubGlobal(
@@ -164,9 +164,9 @@ describe('GET /api/quote', () => {
     await expect(res.json()).resolves.toEqual({ text: 'Old but present.', author: 'Seneca' });
   });
 
-  it('still fetches from upstream on the first request of a new day even when a stale quote:latest exists', async () => {
+  it('still fetches from upstream on the first request of a new day even when a stale per-source stale quote exists', async () => {
     const { kv, seed } = createKvStub();
-    seed('quote:latest', { text: 'Yesterday.', author: 'Someone' });
+    seed(quoteLatestKey('stoic', 'en'), { text: 'Yesterday.', author: 'Someone' });
 
     const res = await app.request('/api/quote', {}, env(kv));
 
@@ -189,7 +189,7 @@ describe('GET /api/quote', () => {
     });
   });
 
-  it('reports unavailable — not a 500 — when the upstream is down and the quote:latest read also fails', async () => {
+  it('reports unavailable — not a 500 — when the upstream is down and the stale-quote read also fails', async () => {
     const { kv } = createKvStub();
     vi.stubGlobal(
       'fetch',
@@ -208,7 +208,7 @@ describe('GET /api/quote', () => {
     // Seeded so that a bug which routes a put failure into the stale-fallback
     // path would return this instead of the fresh quote — a silent downgrade
     // this test is specifically shaped to catch.
-    seed('quote:latest', { text: 'Old but present.', author: 'Seneca' });
+    seed(quoteLatestKey('stoic', 'en'), { text: 'Old but present.', author: 'Seneca' });
 
     const res = await app.request('/api/quote', {}, env(withFailingPut(kv)));
 
@@ -217,5 +217,70 @@ describe('GET /api/quote', () => {
       text: 'Waste no more time arguing.',
       author: 'Marcus Aurelius',
     });
+  });
+});
+
+describe('quote sources', () => {
+  it('serves the stoic source when none is asked for', async () => {
+    // Backwards compatibility: extensions in the wild send no `source` at all.
+    const { kv } = createKvStub();
+
+    const res = await app.request('/api/quote', {}, env(kv));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(res.json()).resolves.toMatchObject({ author: 'Marcus Aurelius' });
+  });
+
+  it('falls back to the default source rather than inventing a cache key', async () => {
+    // The endpoint is public and unauthenticated. If the source reached the KV
+    // key unchecked, `?source=<anything>` would be a way to grow the key space
+    // without bound — the same hole `tags.ts` closes for backgrounds.
+    const { kv, keys } = createKvStub();
+
+    await app.request('/api/quote?source=not-a-source', {}, env(kv));
+
+    expect(keys().some((k) => k.includes('not-a-source'))).toBe(false);
+  });
+
+  it('keeps each source and language in its own cache entry', async () => {
+    // Without this two sources would hand each other's quote to users for the
+    // rest of the day, whichever one happened to be asked for first.
+    const { kv, keys } = createKvStub();
+
+    await app.request('/api/quote', {}, env(kv));
+    await app.request('/api/quote?source=programming&lang=en', {}, env(kv));
+
+    const dayKeys = keys().filter((k) => k.startsWith('quote:') && !k.endsWith(':latest'));
+    expect(new Set(dayKeys).size).toBe(2);
+  });
+
+  it('serves a built-in source without going upstream at all', async () => {
+    const { kv } = createKvStub();
+
+    const res = await app.request('/api/quote?source=programming&lang=en', {}, env(kv));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({ text: expect.any(String) });
+  });
+
+  it('lists the sources and the languages each one can actually serve', async () => {
+    const res = await app.request('/api/quote/sources', {}, env(createKvStub().kv));
+
+    const body = (await res.json()) as { id: string; languages: string[] }[];
+    expect(body.map((s) => s.id)).toContain('stoic');
+    expect(body.find((s) => s.id === 'stoic')?.languages).toEqual(['en']);
+    // A source must not advertise a language it has no quotes for — the popup
+    // builds its dropdown from this and would offer an empty option.
+    for (const source of body) expect(source.languages.length).toBeGreaterThan(0);
+  });
+
+  it('gives a built-in source in the language asked for', async () => {
+    const { kv } = createKvStub();
+
+    const en = await app.request('/api/quote?source=programming&lang=en', {}, env(kv));
+    const hu = await app.request('/api/quote?source=programming&lang=hu', {}, env(kv));
+
+    const [a, b] = [await en.json(), await hu.json()];
+    expect((a as { text: string }).text).not.toBe((b as { text: string }).text);
   });
 });

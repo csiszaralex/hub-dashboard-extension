@@ -1,6 +1,7 @@
 import type { Language, QuoteData } from '@hub/shared';
 import { SUPPORTED_LANGUAGES } from '@hub/shared';
 import type { Bindings } from './bindings';
+import { claimCitatumCall, citatumUrl, parseCitatumQuote } from './citatum';
 import { STATIC_QUOTES, staticLanguages, type StaticSourceId } from './static_quotes';
 
 export interface ResolveContext {
@@ -18,6 +19,12 @@ export interface QuoteSource {
   languages: readonly Language[];
   /** Whether a caller-supplied category narrows the result. */
   acceptsQuery: boolean;
+  /**
+   * Whether this deployment can serve the source at all. A source needing
+   * credentials the environment does not have is hidden rather than offered and
+   * then failing — the popup builds its picker from what this reports.
+   */
+  isAvailable?: (env: Bindings) => boolean;
   resolve: (ctx: ResolveContext) => Promise<QuoteData>;
 }
 
@@ -68,14 +75,47 @@ const staticSource = (id: StaticSourceId): QuoteSource => ({
   },
 });
 
+/**
+ * Hungarian quotes, narrowed by category.
+ *
+ * The only source that takes a query, and the reason the mechanism has one: a
+ * single upstream to keep working, made personal by a parameter, the same shape
+ * the background endpoint already uses for Unsplash tags.
+ */
+const citatum: QuoteSource = {
+  id: 'citatum',
+  languages: ['hu'],
+  acceptsQuery: true,
+  isAvailable: (env) => Boolean(env.CITATUM_USER && env.CITATUM_KEY),
+  resolve: async ({ env, query, date }) => {
+    // Their allowance is 500 a day and they reserve the right to switch a key
+    // off. Refusing here sends the route to the stale-quote path, which shows
+    // yesterday's quote rather than spending an allowance we were asked to
+    // treat carefully.
+    if (!(await claimCitatumCall(env.UNSPLASH_CACHE, date))) {
+      throw new Error('Citatum daily budget spent');
+    }
+
+    const res = await fetch(citatumUrl(env, query));
+    if (!res.ok) throw new Error(`Citatum error: ${res.status}`);
+
+    const quote = parseCitatumQuote(await res.text());
+    if (!quote) throw new Error('Citatum returned no quote');
+    return quote;
+  },
+};
+
 const SOURCES: QuoteSource[] = [
   stoic,
+  citatum,
   ...(Object.keys(STATIC_QUOTES) as StaticSourceId[]).map(staticSource),
 ];
 
 export const DEFAULT_SOURCE_ID = 'stoic';
 
 const BY_ID = new Map(SOURCES.map((source) => [source.id, source]));
+
+const isUsable = (source: QuoteSource, env: Bindings) => source.isAvailable?.(env) ?? true;
 
 /**
  * Resolves a caller-supplied source id to a known source, never to a new one.
@@ -85,8 +125,11 @@ const BY_ID = new Map(SOURCES.map((source) => [source.id, source]));
  * passed through — otherwise `?source=<anything>` grows the key space without
  * bound, which is the hole `tags.ts` exists to close on the background route.
  */
-export const resolveSource = (id: string | undefined): QuoteSource =>
-  BY_ID.get(id ?? '') ?? BY_ID.get(DEFAULT_SOURCE_ID)!;
+export const resolveSource = (id: string | undefined, env: Bindings): QuoteSource => {
+  const asked = BY_ID.get(id ?? '');
+  if (asked && isUsable(asked, env)) return asked;
+  return BY_ID.get(DEFAULT_SOURCE_ID)!;
+};
 
 /**
  * The language to serve, given what was asked for and what the source has.
@@ -106,5 +149,9 @@ export const resolveLanguage = (source: QuoteSource, requested: string | undefin
 };
 
 /** What `GET /api/quote/sources` reports, so the popup can build its picker. */
-export const describeSources = () =>
-  SOURCES.map(({ id, languages, acceptsQuery }) => ({ id, languages, acceptsQuery }));
+export const describeSources = (env: Bindings) =>
+  SOURCES.filter((source) => isUsable(source, env)).map(({ id, languages, acceptsQuery }) => ({
+    id,
+    languages,
+    acceptsQuery,
+  }));

@@ -284,3 +284,79 @@ describe('quote sources', () => {
     expect((a as { text: string }).text).not.toBe((b as { text: string }).text);
   });
 });
+
+const withCitatum = (kv: KVNamespace) => ({
+  ...env(kv),
+  CITATUM_USER: 'tesztfelhasznalo',
+  CITATUM_KEY: 'tesztkod',
+});
+
+const citatumXml = (text: string, author: string, url = 'https://www.citatum.hu/idezet/1') =>
+  new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><idezetek><idezet><idezetszoveg>${text}</idezetszoveg><szerzo>${author}</szerzo><url>${url}</url></idezet></idezetek>`,
+  );
+
+describe('citatum source', () => {
+  it('is not offered when the deployment has no credentials for it', async () => {
+    // Better than advertising it and failing every request: the popup builds
+    // its picker from this list, so an unconfigured worker offers one fewer
+    // option rather than one that never works.
+    const res = await app.request('/api/quote/sources', {}, env(createKvStub().kv));
+
+    const body = (await res.json()) as { id: string }[];
+    expect(body.map((s) => s.id)).not.toContain('citatum');
+  });
+
+  it('is offered once the credentials are present', async () => {
+    const res = await app.request('/api/quote/sources', {}, withCitatum(createKvStub().kv));
+
+    const body = (await res.json()) as { id: string; languages: string[] }[];
+    expect(body.find((s) => s.id === 'citatum')?.languages).toEqual(['hu']);
+  });
+
+  it('falls back to the default source when asked for without credentials', async () => {
+    const { kv, keys } = createKvStub();
+
+    await app.request('/api/quote?source=citatum&lang=hu', {}, env(kv));
+
+    expect(keys().some((k) => k.includes('citatum'))).toBe(false);
+  });
+
+  it('sends the normalised category upstream and returns the quote with its link', async () => {
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('Üres fejjel nem megy.', 'Móra Ferenc'));
+
+    const res = await app.request('/api/quote?source=citatum&q=P%C3%A9nz', {}, withCitatum(kv));
+
+    // `Pénz` reaches Citatum as `penz` — accepted by them, and one cache entry
+    // rather than one per spelling.
+    expect(String(fetchMock.mock.calls[0][0])).toContain('kat=penz');
+    await expect(res.json()).resolves.toMatchObject({
+      author: 'Móra Ferenc',
+      sourceUrl: 'https://www.citatum.hu/idezet/1',
+    });
+  });
+
+  it('keeps two categories in separate cache entries', async () => {
+    const { kv, keys } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('Egy.', 'Valaki'));
+
+    await app.request('/api/quote?source=citatum&q=penz', {}, withCitatum(kv));
+    await app.request('/api/quote?source=citatum&q=humor', {}, withCitatum(kv));
+
+    const dayKeys = keys().filter((k) => k.startsWith('quote:citatum') && !k.endsWith(':latest'));
+    expect(new Set(dayKeys).size).toBe(2);
+  });
+
+  it('serves the stale quote instead of spending a used-up daily allowance', async () => {
+    const { kv, seed } = createKvStub();
+    seed(`citatum:budget:${new Date().toISOString().split('T')[0]}`, '99999');
+    seed(quoteLatestKey('citatum', 'hu'), { text: 'Tegnapi.', author: 'Valaki' });
+    fetchMock.mockImplementation(async () => citatumXml('Friss.', 'Más'));
+
+    const res = await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({ text: 'Tegnapi.' });
+  });
+});

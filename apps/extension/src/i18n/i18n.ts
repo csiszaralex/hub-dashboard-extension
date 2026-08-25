@@ -2,8 +2,14 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
 import hu from './locales/hu.json';
+import { SUPPORTED_LANGUAGES } from '@hub/shared';
 
-export const AVAILABLE_LANGUAGES: string[] = __AVAILABLE_LANGUAGES__;
+/**
+ * Re-exported under the name the popup already uses, but sourced from the
+ * shared list rather than from a build-time read of `locales/`. One place now
+ * decides what languages exist; `validate.ts` proves a file backs each one.
+ */
+export const AVAILABLE_LANGUAGES: readonly string[] = SUPPORTED_LANGUAGES;
 
 const autoDetectLanguage = (): string => {
   const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];

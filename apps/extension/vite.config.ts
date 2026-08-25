@@ -1,8 +1,7 @@
 import { crx } from '@crxjs/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 import packageJson from './package.json' with { type: 'json' };
 import baseManifest from './manifest.json' with { type: 'json' };
@@ -39,10 +38,6 @@ const getRecentChangelog = (): string => {
   return lines.join('\n').trim();
 };
 
-const availableLanguages = readdirSync(join(__dirname, 'src/i18n/locales'))
-  .filter((f) => f.endsWith('.json'))
-  .map((f) => f.replace('.json', ''));
-
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
@@ -63,7 +58,6 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
       __CHANGELOG__: JSON.stringify(getRecentChangelog()),
-      __AVAILABLE_LANGUAGES__: JSON.stringify(availableLanguages),
     },
     build: {
       // Vite emits `<link rel="modulepreload" crossorigin>` for every chunk.

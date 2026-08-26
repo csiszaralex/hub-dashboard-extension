@@ -1,8 +1,20 @@
+import type { QuoteData } from '@hub/shared';
+import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useQuote } from '../hooks/useQuote';
 
-export const QuoteWidget = () => {
-  const quote = useQuote();
+interface Props {
+  quote: QuoteData;
+  loading: boolean;
+  onRefresh: () => void;
+}
+
+/**
+ * Takes the quote rather than fetching it, because `App` also needs the
+ * source link for the credits cluster in the corner — and two calls to
+ * `useQuote` would be two independent fetches showing two different quotes.
+ * The background widget already works this way.
+ */
+export const QuoteWidget = ({ quote, loading, onRefresh }: Props) => {
   const { t } = useTranslation();
 
   if (!quote) return null;
@@ -18,22 +30,19 @@ export const QuoteWidget = () => {
         </span>
       </div>
       {/*
-        Rendered only when the source sent one, which is how it doubles as the
-        attribution some sources require: Citatum's terms ask for a visible link
-        back wherever their quotes appear, and it points at this quote rather
-        than the site in general. A source that needs no credit sends no URL and
-        gets no line.
+        The refresh sits with the quote rather than in the corner with the
+        background's, because it acts on what is directly above it. It costs no
+        upstream call: the worker caches a pool for the day and this walks it.
       */}
-      {quote.sourceUrl && (
-        <a
-          href={quote.sourceUrl}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='mt-2 inline-block text-[10px] uppercase tracking-widest text-white/40 hover:text-white/80 transition-colors cursor-pointer'
-        >
-          {t('quote.source')}
-        </a>
-      )}
+      <button
+        type='button'
+        onClick={onRefresh}
+        disabled={loading}
+        title={t('quote.refresh')}
+        className='mt-2 p-1.5 rounded-full text-white/30 hover:text-white/80 hover:bg-white/10 transition-all disabled:opacity-40 cursor-pointer'
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+      </button>
     </div>
   );
 };

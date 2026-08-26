@@ -158,6 +158,7 @@
     "titleBreak": "Hub — Break {{time}}"
   },
   "quote": {
-    "source": "Source"
+    "source": "Source",
+    "refresh": "New quote"
   }
 }

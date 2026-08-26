@@ -158,6 +158,7 @@
     "titleBreak": "Hub — Szünet {{time}}"
   },
   "quote": {
-    "source": "Forrás"
+    "source": "Forrás",
+    "refresh": "Új idézet"
   }
 }

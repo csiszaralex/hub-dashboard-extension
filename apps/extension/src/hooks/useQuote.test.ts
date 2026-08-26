@@ -19,7 +19,7 @@ describe('useQuote', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    await waitFor(() => expect(result.current.text).toBe('From the worker.'));
+    await waitFor(() => expect(result.current.quote.text).toBe('From the worker.'));
   });
 
   it('falls back to a bundled quote when the worker is unreachable', async () => {
@@ -33,7 +33,7 @@ describe('useQuote', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current));
+    await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current.quote));
   });
 
   it('falls back when the worker replies with an error status', async () => {
@@ -42,7 +42,7 @@ describe('useQuote', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current));
+    await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current.quote));
   });
 
   it('makes no request when today\'s quote is already cached', async () => {
@@ -63,7 +63,7 @@ describe('useQuote', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    expect(result.current.text).toBe('Cached.');
+    expect(result.current.quote.text).toBe('Cached.');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -84,7 +84,7 @@ describe('useQuote — the user\'s own list', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    await waitFor(() => expect(result.current.text).toBe('Only mine.'));
+    await waitFor(() => expect(result.current.quote.text).toBe('Only mine.'));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -97,6 +97,6 @@ describe('useQuote — the user\'s own list', () => {
 
     const { result } = renderHook(() => useQuote());
 
-    await waitFor(() => expect(result.current.text.length).toBeGreaterThan(0));
+    await waitFor(() => expect(result.current.quote.text.length).toBeGreaterThan(0));
   });
 });

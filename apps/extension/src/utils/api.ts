@@ -36,10 +36,18 @@ export const backgroundRequestUrl = (query: string): string => {
  * ignores it. An empty category is left off entirely rather than sent as `q=`,
  * so there is one spelling of "no category" on the wire.
  */
-export const quoteRequestUrl = (source: string, language: string, category: string): string => {
+export const quoteRequestUrl = (
+  source: string,
+  language: string,
+  category: string,
+  index = 0,
+): string => {
   const url = new URL(QUOTE_ENDPOINT);
   url.searchParams.set('source', source);
   url.searchParams.set('lang', language);
   if (category) url.searchParams.set('q', category);
+  // Which entry of the day's pool. Sent only when it is not the first, so the
+  // ordinary daily request keeps exactly the URL it had.
+  if (index > 0) url.searchParams.set('n', String(index));
   return url.toString();
 };

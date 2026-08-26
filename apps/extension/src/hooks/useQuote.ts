@@ -11,7 +11,25 @@ const CACHE_KEY = 'daily_quote';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 
-export const useQuote = (): QuoteData => {
+/**
+ * The day's quote, and a way to ask for the next one.
+ *
+ * **Call this once per page.** It is not a shared store: each caller keeps its
+ * own state and its own pool index, and the daily cache it checks is written
+ * only after a response arrives — so two instances mounted in the same render
+ * both see a miss and both fetch. Measured, not assumed: two consumers produce
+ * two requests.
+ *
+ * Worse than the duplicate request is the divergence once `refresh` is used.
+ * Each instance walks its own index, so a second consumer would keep showing —
+ * or linking to — the entry the first one has already moved past. That is why
+ * `App` owns this and passes the result down, the way it already does for
+ * `useBackground`, rather than every consumer calling it.
+ *
+ * `useSettings` solved the same problem with a module-level store; that is the
+ * pattern to reach for if this ever needs more than one consumer.
+ */
+export const useQuote = () => {
   const { settings, isLoaded } = useSettings();
   const { i18n } = useTranslation();
   const language = i18n.language?.split('-')[0] || 'en';
@@ -28,6 +46,15 @@ export const useQuote = (): QuoteData => {
   const [quote, setQuote] = useState<QuoteData>(
     () => getDailyData<QuoteData>(CACHE_KEY, selection) ?? pickFallbackQuote(todayIso()),
   );
+  /**
+   * Which entry of the day's pool to show. Reset whenever the selection
+   * changes, so switching source starts at that source's first quote rather
+   * than wherever the previous one had been walked to.
+   */
+  const [index, setIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => setIndex(0), [selection]);
 
   useEffect(() => {
     // Settings arrive a microtask after first render; fetching before they land
@@ -38,11 +65,16 @@ export const useQuote = (): QuoteData => {
     // and it re-reads on every edit so a change in the popup shows up at once
     // rather than after the daily cache expires.
     if (custom) {
-      setQuote(pickCustomQuote(settings.customQuotes, todayIso()) ?? pickFallbackQuote(todayIso()));
+      setQuote(
+        pickCustomQuote(settings.customQuotes, todayIso(), index) ?? pickFallbackQuote(todayIso()),
+      );
       return;
     }
 
-    const cached = getDailyData<QuoteData>(CACHE_KEY, selection);
+    // Only the first entry is worth caching for the day: the rest are what the
+    // user asked to see instead of it, and storing them would mean tomorrow
+    // opening on whatever they last skipped to.
+    const cached = index === 0 ? getDailyData<QuoteData>(CACHE_KEY, selection) : null;
     if (cached) {
       setQuote(cached);
       return;
@@ -50,24 +82,32 @@ export const useQuote = (): QuoteData => {
 
     const fetchQuote = async () => {
       try {
+        setLoading(true);
         const res = await fetch(
-          quoteRequestUrl(settings.quoteSource, language, settings.quoteQuery),
+          quoteRequestUrl(settings.quoteSource, language, settings.quoteQuery, index),
         );
         if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
 
         const data = (await res.json()) as QuoteData;
         if (!data.text) throw new Error('Quote API returned no text');
 
-        setDailyData(CACHE_KEY, data, selection);
+        if (index === 0) setDailyData(CACHE_KEY, data, selection);
         setQuote(data);
       } catch (error) {
         // The bundled set is already showing; nothing else to do.
         console.error('Quote fetch failed:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     void fetchQuote();
-  }, [isLoaded, custom, selection, settings.customQuotes, settings.quoteSource, settings.quoteQuery, language]);
+  }, [isLoaded, custom, index, selection, settings.customQuotes, settings.quoteSource, settings.quoteQuery, language]);
 
-  return quote;
+  return {
+    quote,
+    loading,
+    /** Walks the day's pool. Costs no upstream call — the worker cached it. */
+    refresh: () => setIndex((n) => n + 1),
+  };
 };

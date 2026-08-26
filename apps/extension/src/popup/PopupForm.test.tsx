@@ -21,6 +21,7 @@ const baseSettings: HubSettings = {
   pomodoroBreakMinutes: 5,
   quoteSource: 'stoic',
   quoteQuery: '',
+  customQuotes: [],
 };
 
 describe('PopupForm', () => {

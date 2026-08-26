@@ -1,5 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { installChromeStub } from '../test/chromeStub';
 import { FALLBACK_QUOTES } from '../utils/quoteFallback';
 
 const loadUseQuote = async () => (await import('./useQuote')).useQuote;
@@ -64,5 +65,38 @@ describe('useQuote', () => {
 
     expect(result.current.text).toBe('Cached.');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('useQuote — the user\'s own list', () => {
+  it('answers from the saved list without a request', async () => {
+    // The whole point of this source: no worker, no upstream, nothing to be
+    // down. A request here would also mean the quote could differ from what
+    // the popup shows.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({
+      quoteSource: 'custom',
+      customQuotes: [{ text: 'Only mine.', author: 'Me' }],
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const useQuote = await loadUseQuote();
+
+    const { result } = renderHook(() => useQuote());
+
+    await waitFor(() => expect(result.current.text).toBe('Only mine.'));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the bundled set when the list is empty', async () => {
+    // Selecting the source before typing anything is a reachable state, and an
+    // empty widget would look broken rather than unconfigured.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ quoteSource: 'custom', customQuotes: [] });
+    const useQuote = await loadUseQuote();
+
+    const { result } = renderHook(() => useQuote());
+
+    await waitFor(() => expect(result.current.text.length).toBeGreaterThan(0));
   });
 });

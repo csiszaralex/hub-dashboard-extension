@@ -1,5 +1,6 @@
 import type { HubSettings } from '../hooks/useSettings';
 import { sanitizeHiddenWidgets } from '../widgets';
+import { sanitizeCustomQuotes } from './customQuotes';
 import { clampDim } from './dim';
 import { clampPomodoroMinutes, DEFAULT_BREAK_MINUTES, DEFAULT_WORK_MINUTES } from './pomodoro';
 
@@ -47,6 +48,10 @@ const RULES: { [K in keyof HubSettings]: (value: unknown) => HubSettings[K] | un
   language: asString,
   quoteSource: asString,
   quoteQuery: asString,
+
+  // Bounded by the same function the settings store uses, so an imported list
+  // cannot be longer or larger than one typed into the popup.
+  customQuotes: (value) => (value === undefined ? undefined : sanitizeCustomQuotes(value)),
 
   // A closed set the renderer switches on. An unknown source would leave the
   // background in a state no radio button matches.

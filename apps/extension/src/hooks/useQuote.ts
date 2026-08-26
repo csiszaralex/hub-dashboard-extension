@@ -1,6 +1,7 @@
 import type { QuoteData } from '@hub/shared';
 import { useEffect, useState } from 'react';
 import { quoteRequestUrl } from '../utils/api';
+import { CUSTOM_QUOTE_SOURCE, pickCustomQuote } from '../utils/customQuotes';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
 import { pickFallbackQuote } from '../utils/quoteFallback';
 import { useSettings } from './useSettings';
@@ -22,6 +23,8 @@ export const useQuote = (): QuoteData => {
    */
   const selection = `${settings.quoteSource}|${language}|${settings.quoteQuery}`;
 
+  const custom = settings.quoteSource === CUSTOM_QUOTE_SOURCE;
+
   const [quote, setQuote] = useState<QuoteData>(
     () => getDailyData<QuoteData>(CACHE_KEY, selection) ?? pickFallbackQuote(todayIso()),
   );
@@ -30,6 +33,14 @@ export const useQuote = (): QuoteData => {
     // Settings arrive a microtask after first render; fetching before they land
     // would ask for the default source and cache the answer under it.
     if (!isLoaded) return;
+
+    // The user's own list never leaves the browser: no request, no cache entry,
+    // and it re-reads on every edit so a change in the popup shows up at once
+    // rather than after the daily cache expires.
+    if (custom) {
+      setQuote(pickCustomQuote(settings.customQuotes, todayIso()) ?? pickFallbackQuote(todayIso()));
+      return;
+    }
 
     const cached = getDailyData<QuoteData>(CACHE_KEY, selection);
     if (cached) {
@@ -56,7 +67,7 @@ export const useQuote = (): QuoteData => {
     };
 
     void fetchQuote();
-  }, [isLoaded, selection, settings.quoteSource, settings.quoteQuery, language]);
+  }, [isLoaded, custom, selection, settings.customQuotes, settings.quoteSource, settings.quoteQuery, language]);
 
   return quote;
 };

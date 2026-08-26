@@ -19,6 +19,7 @@ const configured: HubSettings = {
   pomodoroBreakMinutes: 7,
   quoteSource: 'citatum',
   quoteQuery: 'penz',
+  customQuotes: [{ text: 'Be one.', author: 'Marcus Aurelius' }],
 };
 
 /** A backup file with `settings` replaced wholesale — the shape a hand edit produces. */

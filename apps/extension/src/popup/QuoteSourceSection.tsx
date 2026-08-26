@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, QUOTE_SOURCES_ENDPOINT } from '../utils/api';
+import {
+  CUSTOM_QUOTE_SOURCE,
+  MAX_CUSTOM_QUOTES,
+  parseCustomQuotes,
+  sanitizeCustomQuotes,
+  serializeCustomQuotes,
+} from '../utils/customQuotes';
 import { Field, inputCls } from './Field';
 
 interface ApiSource {
@@ -13,8 +21,10 @@ interface Props {
   source: string;
   query: string;
   language: string;
+  customQuotes: QuoteData[];
   onSourceChange: (source: string) => void;
   onQueryChange: (query: string) => void;
+  onCustomQuotesChange: (quotes: QuoteData[]) => void;
 }
 
 /**
@@ -29,8 +39,10 @@ export function QuoteSourceSection({
   source,
   query,
   language,
+  customQuotes,
   onSourceChange,
   onQueryChange,
+  onCustomQuotesChange,
 }: Props) {
   const { t } = useTranslation();
   const [sources, setSources] = useState<ApiSource[] | null>(null);
@@ -54,6 +66,15 @@ export function QuoteSourceSection({
   // and reading English.
   const usable = (sources ?? []).filter((entry) => entry.languages.includes(language));
   const selected = usable.find((entry) => entry.id === source);
+  const isCustom = source === CUSTOM_QUOTE_SOURCE;
+
+  /**
+   * The textarea holds raw text while it is being edited, so a half-typed line
+   * is not reformatted under the cursor. It is parsed on every change — the
+   * parent stores quotes, not text — but only serialised back when the editor
+   * mounts.
+   */
+  const [draft, setDraft] = useState(() => serializeCustomQuotes(customQuotes));
 
   return (
     <>
@@ -77,8 +98,37 @@ export function QuoteSourceSection({
               {entry.id}
             </option>
           ))}
+          {/*
+            Always offered, and never fetched: this source is answered inside
+            the extension, so it does not depend on the worker being reachable
+            or on any language having content.
+          */}
+          <option value={CUSTOM_QUOTE_SOURCE}>{CUSTOM_QUOTE_SOURCE}</option>
         </select>
       </Field>
+
+      {isCustom && (
+        <Field
+          id='customQuotes'
+          label={t('popup.customQuotes')}
+          hint={t('popup.customQuotesHint', { max: MAX_CUSTOM_QUOTES })}
+        >
+          <textarea
+            id='customQuotes'
+            value={draft}
+            rows={5}
+            placeholder={t('popup.customQuotesPlaceholder')}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              onCustomQuotesChange(sanitizeCustomQuotes(parseCustomQuotes(e.target.value)));
+            }}
+            className={inputCls}
+          />
+          <p className='text-[10px] text-white/40'>
+            {t('popup.customQuotesCount', { count: customQuotes.length })}
+          </p>
+        </Field>
+      )}
 
       {selected?.acceptsQuery && (
         <Field id='quoteQuery' label={t('popup.quoteQuery')} hint={t('popup.quoteQueryHint')}>

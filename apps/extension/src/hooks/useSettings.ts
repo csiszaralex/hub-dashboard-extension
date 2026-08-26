@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
+import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, DEFAULT_UNSPLASH_QUERY } from '../utils/api';
+import { sanitizeCustomQuotes } from '../utils/customQuotes';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
 import {
   clampPomodoroMinutes,
@@ -25,6 +27,8 @@ export interface HubSettings {
   quoteSource: string;
   /** Category narrowing the quote, for sources that take one. Empty means any. */
   quoteQuery: string;
+  /** The user's own quotes, used when `quoteSource` is the custom one. */
+  customQuotes: QuoteData[];
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -44,6 +48,7 @@ const DEFAULT_SETTINGS: HubSettings = {
   pomodoroBreakMinutes: DEFAULT_BREAK_MINUTES,
   quoteSource: DEFAULT_QUOTE_SOURCE,
   quoteQuery: '',
+  customQuotes: [],
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof HubSettings)[];
@@ -82,6 +87,7 @@ const merge = (stored: Partial<HubSettings>): HubSettings => {
     next.pomodoroBreakMinutes,
     DEFAULT_BREAK_MINUTES,
   );
+  next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
   return next;
 };
 
@@ -104,6 +110,7 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
     next.pomodoroBreakMinutes,
     DEFAULT_BREAK_MINUTES,
   );
+  next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
   state = { settings: next, isLoaded: state.isLoaded };
   emit();
 };

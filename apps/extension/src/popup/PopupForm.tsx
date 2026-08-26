@@ -59,6 +59,7 @@ export function PopupForm({
   const [language, setLanguage] = useState(initialSettings.language);
   const [quoteSource, setQuoteSource] = useState(initialSettings.quoteSource);
   const [quoteQuery, setQuoteQuery] = useState(initialSettings.quoteQuery);
+  const [customQuotes, setCustomQuotes] = useState(initialSettings.customQuotes);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
   // Held as the raw typed string, not a number: `Number('')` is `0`, so a
   // number-typed state would redisplay `0` the instant the field is cleared
@@ -202,6 +203,7 @@ export function PopupForm({
       language,
       quoteSource,
       quoteQuery,
+      customQuotes,
       hiddenWidgets,
       // Clamped here too, not just where settings are read back
       // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
@@ -251,6 +253,8 @@ export function PopupForm({
               language={language || i18n.language?.split('-')[0] || FALLBACK_LANGUAGE}
               onSourceChange={setQuoteSource}
               onQueryChange={setQuoteQuery}
+              customQuotes={customQuotes}
+              onCustomQuotesChange={setCustomQuotes}
             />
             {/*
               Exports what is stored rather than what is typed into the form

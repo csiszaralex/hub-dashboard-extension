@@ -1,3 +1,9 @@
+## 0.1.5 (2026-08-26)
+
+### 🚀 Features
+
+- **api:** add Citatum as a Hungarian, category-narrowed quote source ([ffafa89](https://github.com/csiszaralex/hub-dashboard-extension/commit/ffafa89))
+
 ## 0.1.4 (2026-08-12)
 
 ### 🚀 Features

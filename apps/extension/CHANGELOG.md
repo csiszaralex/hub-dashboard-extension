@@ -1,3 +1,14 @@
+## 2.7.0 (2026-08-26)
+
+### 🚀 Features
+
+- **extension:** let the daily quote come from your own list ([54d5e58](https://github.com/csiszaralex/hub-dashboard-extension/commit/54d5e58))
+- **extension:** let the daily quote's source be chosen ([68dae3b](https://github.com/csiszaralex/hub-dashboard-extension/commit/68dae3b))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.5
+
 ## 2.6.0 (2026-08-23)
 
 ### 🚀 Features

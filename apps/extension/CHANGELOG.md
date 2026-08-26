@@ -1,3 +1,9 @@
+## 2.7.1 (2026-08-26)
+
+### 🩹 Fixes
+
+- **extension:** tidy the quote widget and let it be refreshed ([#20](https://github.com/csiszaralex/hub-dashboard-extension/issues/20))
+
 ## 2.7.0 (2026-08-26)
 
 ### 🚀 Features

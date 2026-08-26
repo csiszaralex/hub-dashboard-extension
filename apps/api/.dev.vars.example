@@ -1,0 +1,16 @@
+# Copy to `.dev.vars` and fill in. That file is gitignored; this one is not,
+# so never put a real value here — it exists to name what the worker expects.
+#
+# In production these are set with `wrangler secret put`, never in wrangler.toml.
+
+# Required. https://unsplash.com/developers → your app → Access Key.
+UNSPLASH_ACCESS_KEY=
+
+# Optional, both or neither. Without them the worker runs normally and simply
+# does not offer the Citatum quote source — `GET /api/quote/sources` leaves it
+# out, so nothing advertises an option that cannot work.
+#
+# The code is requested by mail through https://www.citatum.hu/api.php and is
+# tied to a registered Citatum username, which is why both halves are needed.
+CITATUM_USER=
+CITATUM_KEY=

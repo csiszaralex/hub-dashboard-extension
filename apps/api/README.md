@@ -132,13 +132,9 @@ pnpm install
 
 ### 2. Configure environment variables
 
-Create `apps/api/.dev.vars`:
-
-```
-UNSPLASH_ACCESS_KEY=your_unsplash_access_key
-CITATUM_USER=your_citatum_username
-CITATUM_KEY=your_citatum_api_code
-```
+Copy [`.dev.vars.example`](.dev.vars.example) to `apps/api/.dev.vars` and fill
+it in. The example names every variable the worker reads and is the file to
+update when that list changes; `.dev.vars` itself is gitignored.
 
 Get a free key at [unsplash.com/developers](https://unsplash.com/developers) → create an app → copy the Access Key.
 

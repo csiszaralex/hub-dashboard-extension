@@ -360,3 +360,98 @@ describe('citatum source', () => {
     await expect(res.json()).resolves.toMatchObject({ text: 'Tegnapi.' });
   });
 });
+
+describe('quote pool', () => {
+  it('caches a pool once and serves later indexes from it', async () => {
+    // The point of the pool: refreshing costs nothing upstream. Without it a
+    // refresh button would spend a Citatum call per click.
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('Egy.', 'Valaki'));
+
+    await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+    const callsAfterFirst = fetchMock.mock.calls.length;
+
+    await app.request('/api/quote?source=citatum&n=1', {}, withCitatum(kv));
+    await app.request('/api/quote?source=citatum&n=2', {}, withCitatum(kv));
+
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  it('wraps an index past the end of the pool', async () => {
+    // Refresh just increments; it should never be able to ask for nothing.
+    const { kv } = createKvStub();
+
+    const first = await app.request('/api/quote?source=programming&lang=en', {}, env(kv));
+    const wrapped = await app.request('/api/quote?source=programming&lang=en&n=999', {}, env(kv));
+
+    expect((await wrapped.json()) as unknown).toBeTruthy();
+    expect(wrapped.status).toBe(first.status);
+  });
+
+  it('offers the whole built-in list as the pool, at no upstream cost', async () => {
+    const { kv } = createKvStub();
+
+    const texts = new Set<string>();
+    for (let n = 0; n < 5; n++) {
+      const res = await app.request(`/api/quote?source=programming&lang=en&n=${n}`, {}, env(kv));
+      texts.add(((await res.json()) as { text: string }).text);
+    }
+
+    expect(texts.size).toBeGreaterThan(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('claims every call of a pool fetch from the daily budget, not one', async () => {
+    // The counter is the only thing standing between us and Citatum's 500-a-day
+    // limit. Booking a seven-call fetch as one call would let us cross it
+    // without the counter noticing — losing exactly what it exists for.
+    const { kv, read } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('Egy.', 'Valaki'));
+
+    await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+
+    const spent = Number(read(`citatum:budget:${new Date().toISOString().split('T')[0]}`));
+    expect(spent).toBe(fetchMock.mock.calls.length);
+    expect(spent).toBeGreaterThan(1);
+  });
+
+  it('builds a pool from what came back when some requests fail', async () => {
+    // Random picks repeat and a request can fail. Four usable quotes out of
+    // seven is a pool of four, not an error.
+    const { kv } = createKvStub();
+    let call = 0;
+    fetchMock.mockImplementation(async () => {
+      call += 1;
+      if (call % 2 === 0) throw new TypeError('Failed to fetch');
+      return citatumXml(`Idezet ${call}.`, 'Valaki');
+    });
+
+    const res = await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ author: 'Valaki' });
+  });
+});
+
+describe('quote length cap', () => {
+  it('never caches a quote too long to read', async () => {
+    // A long quote written to the day cache is served to everyone until it
+    // expires; filtering in the extension would leave them with nothing.
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('szó '.repeat(200), 'Valaki'));
+
+    const res = await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+
+    // Nothing usable came back, so the route degrades rather than caching it.
+    expect(res.status).toBe(503);
+  });
+
+  it('asks Citatum not to send long ones in the first place', async () => {
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => citatumXml('Rovid.', 'Valaki'));
+
+    await app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('maxhossz=');
+  });
+});

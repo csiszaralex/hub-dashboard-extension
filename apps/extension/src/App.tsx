@@ -10,6 +10,7 @@ import { QuoteWidget } from './components/QuoteWidget';
 import { WeatherWidget } from './components/WeatherWidget';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { useBackground } from './hooks/useBackground';
+import { useQuote } from './hooks/useQuote';
 import { useSettings } from './hooks/useSettings';
 import { useUiVisibility } from './hooks/useUiVisibility';
 import { useWhatsNew } from './hooks/useWhatsNew';
@@ -23,6 +24,7 @@ function App() {
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const { uiVisible, toggle } = useUiVisibility();
   const { shouldShow, currentVersion, lastSeenVersion, dismiss } = useWhatsNew();
+  const { quote, refresh: refreshQuote, loading: quoteLoading } = useQuote();
   const { t } = useTranslation();
 
   // Counted out here rather than inside the modal: the clock and the quote are
@@ -98,7 +100,9 @@ function App() {
         {!hidesBackdrop && (
           <div className='flex flex-col items-center gap-6 mb-10'>
             {showWidget('clock') && <Clock />}
-            {showWidget('quote') && <QuoteWidget />}
+            {showWidget('quote') && (
+              <QuoteWidget quote={quote} loading={quoteLoading} onRefresh={refreshQuote} />
+            )}
           </div>
         )}
 
@@ -124,6 +128,23 @@ function App() {
             </button>
           )}
           {showWidget('backgroundInfo') && <BackgroundInfo data={bgData} />}
+          {/*
+            The quote's credit joins the photo's in this corner, so both
+            attributions read as one thing rather than one of them floating
+            under the quote. Deliberately a sibling of `BackgroundInfo` and not
+            a child: that widget can be switched off, and taking Citatum's link
+            down with it would break the terms their quotes are served under.
+          */}
+          {quote.sourceUrl && (
+            <a
+              href={quote.sourceUrl}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-xs text-white/60 hover:text-white transition-colors cursor-pointer'
+            >
+              {t('quote.source')}
+            </a>
+          )}
         </div>
 
         <p className='absolute bottom-4 right-4 text-[10px] text-white/30 select-none'>

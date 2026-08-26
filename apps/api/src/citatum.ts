@@ -19,13 +19,24 @@ export const DAILY_CITATUM_BUDGET = 450;
 const budgetKey = (date: string) => `citatum:budget:${date}`;
 const DAY_SECONDS = 24 * 60 * 60;
 
-/** Claims one call from today's allowance. Returns false when it is spent. */
-export const claimCitatumCall = async (kv: KVNamespace, date: string): Promise<boolean> => {
+/**
+ * Claims `count` calls from today's allowance. Returns false when spent.
+ *
+ * Takes a count rather than assuming one, because a pool fetch makes several
+ * requests: booking those as a single call would let the total cross 500
+ * without the counter noticing, which is precisely the protection it exists to
+ * provide.
+ */
+export const claimCitatumCalls = async (
+  kv: KVNamespace,
+  date: string,
+  count: number,
+): Promise<boolean> => {
   const key = budgetKey(date);
   const used = Number((await kv.get(key)) ?? '0');
-  if (!Number.isFinite(used) || used >= DAILY_CITATUM_BUDGET) return false;
+  if (!Number.isFinite(used) || used + count > DAILY_CITATUM_BUDGET) return false;
 
-  await kv.put(key, String(used + 1), { expirationTtl: DAY_SECONDS });
+  await kv.put(key, String(used + count), { expirationTtl: DAY_SECONDS });
   return true;
 };
 
@@ -134,12 +145,35 @@ export const parseCitatumQuote = (xml: string): QuoteData | null => {
   };
 };
 
-/** Builds the upstream request for one random quote, narrowed by category. */
+/**
+ * Longest quote worth putting on the dashboard, in characters.
+ *
+ * The quote sits across the bottom of the screen at a size meant to be read at
+ * a glance; seven or eight lines of it stops being a glance and starts
+ * overflowing. Enforced before anything is cached, because a long quote written
+ * to the day cache is served to everyone until it expires — filtering in the
+ * extension instead would leave those users with an empty widget.
+ */
+export const MAX_QUOTE_LENGTH = 200;
+
+/**
+ * Builds the upstream request for one random quote, narrowed by category.
+ *
+ * `rendez=veletlen` with the default `db=1`, deliberately. Asking for several
+ * at once caps at five *and* forbids random ordering, and paging with `honnan`
+ * instead would need to know how many quotes a category holds — which we
+ * cannot know, and a fixed window would serve the same few for days. Several
+ * single random requests cost more calls and buy actual variety.
+ *
+ * `maxhossz` lets Citatum drop the long ones before they are sent, so the cap
+ * costs nothing here and never wastes a call on a quote we would discard.
+ */
 export const citatumUrl = (env: Bindings, category: string): string => {
   const url = new URL(ENDPOINT);
   url.searchParams.set('f', env.CITATUM_USER ?? '');
   url.searchParams.set('j', env.CITATUM_KEY ?? '');
   url.searchParams.set('rendez', 'veletlen');
+  url.searchParams.set('maxhossz', String(MAX_QUOTE_LENGTH));
   if (category) url.searchParams.set('kat', category);
   return url.toString();
 };

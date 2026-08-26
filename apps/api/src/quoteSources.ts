@@ -1,7 +1,7 @@
 import type { Language, QuoteData } from '@hub/shared';
 import { SUPPORTED_LANGUAGES } from '@hub/shared';
 import type { Bindings } from './bindings';
-import { claimCitatumCall, citatumUrl, parseCitatumQuote } from './citatum';
+import { claimCitatumCalls, citatumUrl, parseCitatumQuote } from './citatum';
 import { STATIC_QUOTES, staticLanguages, type StaticSourceId } from './static_quotes';
 
 export interface ResolveContext {
@@ -25,7 +25,11 @@ export interface QuoteSource {
    * then failing — the popup builds its picker from what this reports.
    */
   isAvailable?: (env: Bindings) => boolean;
-  resolve: (ctx: ResolveContext) => Promise<QuoteData>;
+  /**
+   * The day's pool for this source. One entry is a perfectly good pool — it
+   * simply means refresh has nowhere to go for that source.
+   */
+  resolve: (ctx: ResolveContext) => Promise<QuoteData[]>;
 }
 
 const STOIC_UPSTREAM = 'https://stoic.tekloon.net/stoic-quote';
@@ -36,6 +40,9 @@ const stoic: QuoteSource = {
   // would put an option in the popup that returns English whatever is picked.
   languages: ['en'],
   acceptsQuery: false,
+  // Stays at one. Its upstream returns a single random quote per call with no
+  // batch parameter, so a pool would be one request per entry against a
+  // one-person service with no SLA — refresh is worth less than that costs.
   resolve: async () => {
     const res = await fetch(STOIC_UPSTREAM);
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
@@ -43,22 +50,22 @@ const stoic: QuoteSource = {
     const raw = (await res.json()) as { data?: { quote?: string; author?: string } };
     const quote = { text: raw.data?.quote ?? '', author: raw.data?.author ?? 'Unknown' };
     if (!quote.text) throw new Error('Upstream response had no quote');
-    return quote;
+    return [quote];
   },
 };
 
 /**
- * Picks the day's quote from a fixed list.
+ * Rotates a list so a different entry leads each day.
  *
- * Indexed by the date rather than at random so the answer is stable: the KV
- * entry is written once per day, and a random pick would mean the first
- * request of the day decides for everyone anyway. Deriving it from the date
- * makes that explicit, and makes the same day give the same quote even if the
- * cache is cleared.
+ * The whole list is the pool, so refresh can walk all of it — but which one
+ * comes first still has to change daily, and deterministically: a random start
+ * would mean the day's first request decided for everyone, since only one
+ * ordering is cached.
  */
-const pickForDay = (quotes: QuoteData[], date: string): QuoteData => {
+const rotateForDay = (quotes: QuoteData[], date: string): QuoteData[] => {
   const seed = [...date].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return quotes[seed % quotes.length];
+  const start = seed % quotes.length;
+  return [...quotes.slice(start), ...quotes.slice(0, start)];
 };
 
 const staticSource = (id: StaticSourceId): QuoteSource => ({
@@ -71,7 +78,7 @@ const staticSource = (id: StaticSourceId): QuoteSource => ({
     // advertises — but a resolver that assumes its caller checked is one
     // refactor away from returning undefined to the client.
     if (!quotes?.length) throw new Error(`No ${id} quotes for ${language}`);
-    return pickForDay(quotes, date);
+    return rotateForDay(quotes, date);
   },
 });
 
@@ -82,6 +89,17 @@ const staticSource = (id: StaticSourceId): QuoteSource => ({
  * single upstream to keep working, made personal by a parameter, the same shape
  * the background endpoint already uses for Unsplash tags.
  */
+/**
+ * How many quotes to gather for Citatum's daily pool.
+ *
+ * Seven single random requests rather than one batched five: `db` caps at five
+ * and cannot be combined with `rendez=veletlen`, and the alternative — paging
+ * with `honnan` — would need a category's size, which we cannot know. Seven of
+ * a 500-a-day allowance per category is affordable; the same few quotes for
+ * days is not what a refresh button is for.
+ */
+const CITATUM_POOL_SIZE = 7;
+
 const citatum: QuoteSource = {
   id: 'citatum',
   languages: ['hu'],
@@ -89,19 +107,38 @@ const citatum: QuoteSource = {
   isAvailable: (env) => Boolean(env.CITATUM_USER && env.CITATUM_KEY),
   resolve: async ({ env, query, date }) => {
     // Their allowance is 500 a day and they reserve the right to switch a key
-    // off. Refusing here sends the route to the stale-quote path, which shows
-    // yesterday's quote rather than spending an allowance we were asked to
-    // treat carefully.
-    if (!(await claimCitatumCall(env.UNSPLASH_CACHE, date))) {
+    // off. Claiming the whole pool up front means the counter can never be
+    // fooled by a multi-call fetch, and refusing here sends the route to the
+    // stale-quote path — yesterday's quote rather than an allowance we were
+    // asked to treat carefully.
+    if (!(await claimCitatumCalls(env.UNSPLASH_CACHE, date, CITATUM_POOL_SIZE))) {
       throw new Error('Citatum daily budget spent');
     }
 
-    const res = await fetch(citatumUrl(env, query));
-    if (!res.ok) throw new Error(`Citatum error: ${res.status}`);
+    // In parallel: seven sequential round trips would make the first request
+    // of the day visibly slow, and they do not depend on each other.
+    const responses = await Promise.allSettled(
+      Array.from({ length: CITATUM_POOL_SIZE }, async () => {
+        const res = await fetch(citatumUrl(env, query));
+        if (!res.ok) throw new Error(`Citatum error: ${res.status}`);
+        return parseCitatumQuote(await res.text());
+      }),
+    );
 
-    const quote = parseCitatumQuote(await res.text());
-    if (!quote) throw new Error('Citatum returned no quote');
-    return quote;
+    // Random picks repeat and a request can fail; four usable quotes out of
+    // seven is a pool of four, not an error. Deduplicated by text because the
+    // same quote arriving twice would waste a refresh.
+    const seen = new Set<string>();
+    const pool: QuoteData[] = [];
+    for (const result of responses) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      if (seen.has(result.value.text)) continue;
+      seen.add(result.value.text);
+      pool.push(result.value);
+    }
+
+    if (pool.length === 0) throw new Error('Citatum returned no usable quote');
+    return pool;
   },
 };
 

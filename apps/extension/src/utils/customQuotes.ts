@@ -89,8 +89,12 @@ export const sanitizeCustomQuotes = (value: unknown): QuoteData[] => {
  * would reshuffle on every new tab, which reads as a glitch rather than a
  * feature.
  */
-export const pickCustomQuote = (quotes: QuoteData[], isoDate: string): QuoteData | null => {
+export const pickCustomQuote = (
+  quotes: QuoteData[],
+  isoDate: string,
+  offset = 0,
+): QuoteData | null => {
   if (quotes.length === 0) return null;
   const seed = [...isoDate].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return quotes[seed % quotes.length];
+  return quotes[(seed + offset) % quotes.length];
 };

@@ -66,10 +66,26 @@ Returns the day's quote for one source, behind a KV cache.
 | `source` | A source id from `/api/quote/sources`. Unknown values fall back to `stoic` rather than being passed through — the id reaches a cache key, and the endpoint is public. |
 | `lang` | One of the supported languages. A source that cannot serve it answers in its own language instead: picking a Hungarian-only source with an English interface should give Hungarian, not an error. |
 | `q` | Category, for sources where `acceptsQuery` is true. Normalised (lowercased, accents folded, punctuation stripped, capped) before it reaches upstream or the key. |
+| `n` | Which entry of the day's pool to serve, wrapping past the end. Deliberately **not** part of the cache key: the pool is what is cached, so asking for a different entry costs no upstream call. |
 
-The cache key is `quote:<source>:<lang>[:<category>]:<YYYY-MM-DD>`. Source and
-language are part of it because they are part of the answer — sharing one key
-would mean the day's first request decided what everyone got.
+The cache key is `quote:<source>:<lang>[:<category>]:<YYYY-MM-DD>` and holds a
+**pool** rather than a single quote, so a client can offer "another one" without
+spending an upstream call. Source and language are part of the key because they
+are part of the answer — sharing one would mean the day's first request decided
+what everyone got.
+
+Pool size is per source, because the upstreams differ. Citatum's `db` caps a
+request at five *and* forbids random ordering, and paging with `honnan` instead
+would need a category's size, which is unknowable — so its pool is built from
+seven parallel single random requests, deduplicated, and a partial result is a
+smaller pool rather than an error. `stoic` stays at one: it returns a single
+random quote per call with no batch parameter, and a pool there would be one
+request per entry against a one-person service.
+
+No quote longer than 200 characters is cached. The limit is enforced on the way
+in rather than at render time, because a long quote written to the day cache is
+served to everyone until it expires. Citatum is asked upstream (`maxhossz`) not
+to send them at all.
 
 **Sources**
 

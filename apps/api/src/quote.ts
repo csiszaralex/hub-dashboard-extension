@@ -1,7 +1,7 @@
 import { QuoteData } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
-import { normalizeCategory } from './citatum';
+import { MAX_QUOTE_LENGTH, normalizeCategory } from './citatum';
 import { describeSources, resolveLanguage, resolveSource } from './quoteSources';
 
 const QUOTE_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -46,6 +46,16 @@ quoteRoutes.get('/api/quote', async (c) => {
   const key = quoteCacheKey(source.id, language, date, query);
   const latestKey = quoteLatestKey(source.id, language);
 
+  /**
+   * Which entry of the day's pool to serve. Deliberately not part of the cache
+   * key: the pool is what gets cached, and the index only chooses within it, so
+   * refreshing costs nothing upstream. Wrapped rather than bounded, because the
+   * client only ever increments and must never be able to ask for nothing.
+   */
+  const requested = Number(c.req.query('n'));
+  const index = Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
+  const pick = (pool: QuoteData[]) => pool[index % pool.length];
+
   // Check-then-act, not coalesced: a request that misses can race another
   // that is already mid-fetch. Everyone who arrives within that single
   // upstream round-trip — a handful of requests around UTC day rollover, not
@@ -54,8 +64,8 @@ quoteRoutes.get('/api/quote', async (c) => {
   // blast radius is one round-trip's worth of duplicate calls, not the
   // once-per-user-per-day cost this cache exists to remove.
   try {
-    const cached = await c.env.UNSPLASH_CACHE.get<QuoteData>(key, 'json');
-    if (cached?.text) return c.json(cached);
+    const cached = await c.env.UNSPLASH_CACHE.get<QuoteData[]>(key, 'json');
+    if (cached?.length) return c.json(pick(cached));
   } catch (error) {
     // A KV outage on the read is treated as a cache miss, not a failure —
     // fall through to the source rather than letting it bubble past Hono's
@@ -63,9 +73,15 @@ quoteRoutes.get('/api/quote', async (c) => {
     console.error('Day-cache read failed:', error);
   }
 
-  let quote: QuoteData;
+  let pool: QuoteData[];
   try {
-    quote = await source.resolve({ language, query, env: c.env, date });
+    // Length is enforced here rather than in each source, so a source added
+    // later cannot forget it. Citatum also asks upstream not to send long ones,
+    // which saves the call; this is what catches everything else.
+    pool = (await source.resolve({ language, query, env: c.env, date })).filter(
+      (entry) => entry.text.length <= MAX_QUOTE_LENGTH,
+    );
+    if (pool.length === 0) throw new Error('No quote within the length limit');
   } catch (error) {
     console.error(error);
 
@@ -86,12 +102,17 @@ quoteRoutes.get('/api/quote', async (c) => {
   // response even if KV is unavailable to write it, so a put failure must
   // not fall through to the stale/503 path above.
   try {
-    const body = JSON.stringify(quote);
-    await c.env.UNSPLASH_CACHE.put(key, body, { expirationTtl: QUOTE_TTL_SECONDS });
-    await c.env.UNSPLASH_CACHE.put(latestKey, body, { expirationTtl: QUOTE_TTL_SECONDS });
+    await c.env.UNSPLASH_CACHE.put(key, JSON.stringify(pool), {
+      expirationTtl: QUOTE_TTL_SECONDS,
+    });
+    // The stale pointer holds one quote, not the pool: it exists to keep the
+    // widget filled during an outage, not to keep refresh working through one.
+    await c.env.UNSPLASH_CACHE.put(latestKey, JSON.stringify(pick(pool)), {
+      expirationTtl: QUOTE_TTL_SECONDS,
+    });
   } catch (error) {
     console.error('Failed to cache fresh quote:', error);
   }
 
-  return c.json(quote);
+  return c.json(pick(pool));
 });

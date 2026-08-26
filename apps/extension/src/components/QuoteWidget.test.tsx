@@ -8,35 +8,43 @@ const CITATUM: QuoteData = {
   sourceUrl: 'https://www.citatum.hu/idezet/5073',
 };
 
-const PLAIN: QuoteData = { text: 'Be one.', author: 'Marcus Aurelius' };
+const noop = () => {};
 
-const renderWith = async (quote: QuoteData) => {
-  vi.doMock('../hooks/useQuote', () => ({ useQuote: () => quote }));
+const load = async () => {
   await import('../i18n/i18n');
-  const { QuoteWidget } = await import('./QuoteWidget');
-  return render(<QuoteWidget />);
+  return (await import('./QuoteWidget')).QuoteWidget;
 };
 
-describe('QuoteWidget attribution', () => {
-  it('links back to the quote when the source requires credit', async () => {
-    // Citatum's terms make this a condition of using their API, not a nicety:
-    // their quotes may only be shown with a visible link back.
-    await renderWith(CITATUM);
+describe('QuoteWidget', () => {
+  it('offers a way to ask for a different quote', async () => {
+    const QuoteWidget = await load();
+    const onRefresh = vi.fn();
 
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('href')).toBe('https://www.citatum.hu/idezet/5073');
+    render(<QuoteWidget quote={CITATUM} loading={false} onRefresh={onRefresh} />);
+    screen.getByRole('button', { name: 'New quote' }).click();
+
+    expect(onRefresh).toHaveBeenCalled();
   });
 
-  it('shows no link for a source that sends none', async () => {
-    // A built-in list credits its author in the text and has nowhere to point;
-    // an empty link would be worse than none.
-    await renderWith(PLAIN);
+  it('disables the refresh while one is in flight', async () => {
+    // Clicking through a slow request would skip entries of the pool without
+    // showing them, which reads as the button doing nothing.
+    const QuoteWidget = await load();
 
-    // Queried by its visible label, not by role: an anchor React renders with
-    // no `href` has no `link` role at all, so `queryByRole('link')` reports
-    // nothing whether the element is absent or merely pointing nowhere. That
-    // distinction is the whole assertion.
+    render(<QuoteWidget quote={CITATUM} loading={true} onRefresh={noop} />);
+
+    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('no longer prints the source under the quote', async () => {
+    // It moved to the credits cluster in the corner, next to the photo credit.
+    // Two attributions in two unrelated places was the complaint; `App.test`
+    // covers the link itself now.
+    const QuoteWidget = await load();
+
+    render(<QuoteWidget quote={CITATUM} loading={false} onRefresh={noop} />);
+
     expect(screen.queryByText('Source')).toBeNull();
-    expect(screen.getByText(/Marcus Aurelius/)).not.toBeNull();
+    expect(screen.getByText(/Móra Ferenc/)).not.toBeNull();
   });
 });

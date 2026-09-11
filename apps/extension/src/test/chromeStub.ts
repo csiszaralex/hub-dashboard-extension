@@ -42,6 +42,20 @@ const LOCAL_QUOTA_BYTES = 10_485_760;
 const OPTIONAL_HOST_PATTERNS = [/^https:\/\/[^/]+\/\*$/];
 
 /**
+ * Chrome parses and validates a match pattern's shape — before `contains`,
+ * `request` or `remove` do anything else with it — the same way for all
+ * three, so this is shared rather than repeated per call site. Manifest
+ * membership is a separate check that only `request` applies (see below).
+ */
+const assertValidOriginPattern = (origin: string, caller: 'contains' | 'request') => {
+  if (!/^[a-z-]+:\/\/[^/]+\/./.test(origin)) {
+    throw new TypeError(
+      `Error in invocation of permissions.${caller}(object permissions, optional function callback): Invalid value for origin pattern: ${origin}`,
+    );
+  }
+};
+
+/**
  * `chrome.storage` stores values as JSON, so what comes back out is always a
  * copy and never the object that went in, and anything JSON cannot represent
  * (a Blob, a Response, a function, `undefined`) is dropped or rejected outright.
@@ -357,16 +371,25 @@ export const installChromeStub = (): ChromeStub => {
       },
     },
     permissions: {
+      /**
+       * Shape is validated on both `contains` and `request`, but manifest
+       * membership only on `request`: `contains` is a plain query against
+       * whatever the extension currently holds, and Chrome answers `false`
+       * for an origin it doesn't have — it does not throw. Mirroring the
+       * membership check here too would make the stub stricter than the
+       * real API, the same infidelity as not modelling it at all.
+       */
       contains: (options: { origins?: string[] }, cb: (result: boolean) => void) => {
         const wanted = options.origins ?? [];
+        for (const origin of wanted) assertValidOriginPattern(origin, 'contains');
         const held = wanted.every((origin) => grantedOrigins.has(origin));
         queueMicrotask(() => cb(held));
       },
       /**
-       * Chrome validates the pattern before it ever prompts, and rejects an
-       * origin that `optional_host_permissions` does not cover. Both throw
-       * synchronously — modelling only the prompt would let a bad pattern or a
-       * missing manifest entry pass a green test and fail on install.
+       * Chrome rejects an origin that `optional_host_permissions` does not
+       * cover, on top of the shape check above — modelling only the prompt
+       * would let a forgotten manifest entry pass a green test and fail on
+       * install.
        *
        * The real API also requires a user gesture. That has no meaning in
        * happy-dom, so it is not modelled; what is modelled is the part a test
@@ -374,11 +397,7 @@ export const installChromeStub = (): ChromeStub => {
        */
       request: (options: { origins?: string[] }, cb: (granted: boolean) => void) => {
         for (const origin of options.origins ?? []) {
-          if (!/^[a-z-]+:\/\/[^/]+\/./.test(origin)) {
-            throw new TypeError(
-              `Error in invocation of permissions.request(object permissions, optional function callback): Invalid value for origin pattern: ${origin}`,
-            );
-          }
+          assertValidOriginPattern(origin, 'request');
           if (!OPTIONAL_HOST_PATTERNS.some((pattern) => pattern.test(origin))) {
             throw new Error(
               'Error: Optional permissions must be listed in the extension manifest.',

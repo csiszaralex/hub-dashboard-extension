@@ -45,4 +45,21 @@ describe('memosPermissions', () => {
       /must be listed in the extension manifest/,
     );
   });
+
+  // contains shares the same shape validation as request — a malformed
+  // pattern throws no matter which of the two asks.
+  it('rejects a malformed pattern passed to hasOriginPermission', async () => {
+    installChromeStub();
+    await expect(hasOriginPermission('https://memo.example.com')).rejects.toThrow(
+      /Invalid value for origin/,
+    );
+  });
+
+  // Unlike request, contains does not check optional_host_permissions
+  // membership: it is a plain query, and Chrome answers false for an origin
+  // the extension doesn't hold rather than throwing.
+  it('resolves false, not a throw, for a well-formed origin outside optional_host_permissions', async () => {
+    installChromeStub();
+    await expect(hasOriginPermission('http://memo.example.com/*')).resolves.toBe(false);
+  });
 });

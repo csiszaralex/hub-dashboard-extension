@@ -3,6 +3,7 @@ import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, DEFAULT_UNSPLASH_QUERY } from '../utils/api';
 import { sanitizeCustomQuotes } from '../utils/customQuotes';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
+import { normalizeBaseUrl } from '../utils/memos';
 import {
   clampPomodoroMinutes,
   DEFAULT_BREAK_MINUTES,
@@ -29,6 +30,10 @@ export interface HubSettings {
   quoteQuery: string;
   /** The user's own quotes, used when `quoteSource` is the custom one. */
   customQuotes: QuoteData[];
+  /** The user's own Memos instance, normalised. Empty until they connect one. */
+  memosUrl: string;
+  /** Tag the widget opens on, without the `#`. Empty means unfiltered. */
+  memosTag: string;
 }
 
 const DEFAULT_SETTINGS: HubSettings = {
@@ -49,6 +54,8 @@ const DEFAULT_SETTINGS: HubSettings = {
   quoteSource: DEFAULT_QUOTE_SOURCE,
   quoteQuery: '',
   customQuotes: [],
+  memosUrl: '',
+  memosTag: '',
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof HubSettings)[];
@@ -88,6 +95,7 @@ const merge = (stored: Partial<HubSettings>): HubSettings => {
     DEFAULT_BREAK_MINUTES,
   );
   next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
+  next.memosUrl = normalizeBaseUrl(next.memosUrl) ?? '';
   return next;
 };
 
@@ -111,6 +119,7 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
     DEFAULT_BREAK_MINUTES,
   );
   next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
+  next.memosUrl = normalizeBaseUrl(next.memosUrl) ?? '';
   state = { settings: next, isLoaded: state.isLoaded };
   emit();
 };

@@ -20,6 +20,8 @@ const configured: HubSettings = {
   quoteSource: 'citatum',
   quoteQuery: 'penz',
   customQuotes: [{ text: 'Be one.', author: 'Marcus Aurelius' }],
+  memosUrl: 'https://memo.example.com',
+  memosTag: 'work',
 };
 
 /** A backup file with `settings` replaced wholesale — the shape a hand edit produces. */
@@ -133,5 +135,32 @@ describe('parseBackup — quote source', () => {
     const everyField = JSON.stringify({ version: 1, settings: configured });
 
     expect(Object.keys(parseBackup(everyField) ?? {}).sort()).toEqual(Object.keys(configured).sort());
+  });
+});
+
+describe('memos settings', () => {
+  it('restores a valid https base url', () => {
+    const file = JSON.stringify({
+      version: 1,
+      settings: { memosUrl: 'https://memo.example.com/', memosTag: 'todo' },
+    });
+    expect(parseBackup(file)).toEqual({ memosUrl: 'https://memo.example.com', memosTag: 'todo' });
+  });
+
+  // Dropped rather than reset: the file is the untrustworthy party, not the
+  // configuration the user already has.
+  it('drops a non-https base url', () => {
+    const file = JSON.stringify({ version: 1, settings: { memosUrl: 'http://memo.example.com' } });
+    expect(parseBackup(file)).toEqual({});
+  });
+
+  // The token lives outside HubSettings precisely so it cannot be written to a
+  // backup file. A file that carries one anyway must not put it back.
+  it('ignores a token smuggled into a backup file', () => {
+    const file = JSON.stringify({
+      version: 1,
+      settings: { memosUrl: 'https://memo.example.com', memosToken: 'memos_pat_leaked' },
+    });
+    expect(parseBackup(file)).toEqual({ memosUrl: 'https://memo.example.com' });
   });
 });

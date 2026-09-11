@@ -96,7 +96,7 @@ Pure logic in `utils/`, I/O separated, React last — the existing house pattern
 |---|---|
 | `utils/memos.ts` | URL normalisation, version comparison, response validation, compose-content tagging. No `fetch`, no `chrome` |
 | `utils/memosClient.ts` | `list` / `create` / `archive` / `probe`. Returns `{ok:true,…} \| {ok:false, reason:'auth'\|'permission'\|'version'\|'network'\|'server'}` rather than throwing |
-| `utils/memosStorage.ts` | All `chrome.storage.local` access: cached list, active tag, unsent draft, token |
+| `utils/memosStorage.ts` | All `chrome.storage.local` access: cached list, unsent draft, token. The active tag is **not** persisted — a new tab returns to the base tag, so it is render state seeded from settings |
 | `hooks/useMemos.ts` | Cache-first render, background refresh, actions. **One instance**, owned by `MemosWidget` — see the `useQuote` docstring for why multiple consumers hurt |
 | `components/MemosWidget.tsx` | Compact rows and the expand toggle. Each compact row carries its own archive control — ticking the top item off is the whole point of the widget and must not cost two clicks. Positioned by `App.tsx`, like the other widgets |
 | `components/MemosPanel.tsx` | Full list, tag chips, composer |

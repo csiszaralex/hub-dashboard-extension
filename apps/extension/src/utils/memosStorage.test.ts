@@ -38,7 +38,7 @@ describe('token', () => {
     const stub = installChromeStub();
     await setToken('memos_pat_x');
     expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
-    expect(stub.syncGetCount()).toBe(0);
+    expect(stub.readSync('memos_token')).toBeUndefined();
   });
 });
 
@@ -49,9 +49,10 @@ describe('cached memos', () => {
   });
 
   it('round-trips', async () => {
-    installChromeStub();
+    const stub = installChromeStub();
     await setCachedMemos([memo]);
     await expect(getCachedMemos()).resolves.toEqual([memo]);
+    expect(stub.readSync('memos_cache')).toBeUndefined();
   });
 
   // A cache written by an older build, or corrupted by hand, must not reach the

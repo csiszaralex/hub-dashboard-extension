@@ -28,5 +28,6 @@
     "https://images.unsplash.com/*",
     "https://hub-api.csiszaralex.workers.dev/*",
     "https://www.googleapis.com/*"
-  ]
+  ],
+  "optional_host_permissions": ["https://*/*"]
 }

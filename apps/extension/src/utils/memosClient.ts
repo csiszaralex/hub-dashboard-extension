@@ -29,6 +29,56 @@ const jsonHeaders = (token: string) => ({
 const reasonFor = (status: number): MemosFailureReason =>
   status === 401 || status === 403 ? 'auth' : 'server';
 
+type RequestResult = { ok: false; reason: MemosFailureReason } | { ok: true; response: Response };
+
+/**
+ * Fetch with unified error handling.
+ *
+ * Network errors are caught as `network`. Per-status overrides (e.g., 404 →
+ * `version`) are applied before the generic non-ok branch. On success, the
+ * Response is returned so the caller can decide whether to parse JSON.
+ */
+const request = async (
+  url: string,
+  init?: RequestInit,
+  overrides?: Record<number, MemosFailureReason>,
+): Promise<RequestResult> => {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+
+  if (overrides && response.status in overrides) {
+    return { ok: false, reason: overrides[response.status] };
+  }
+
+  if (!response.ok) {
+    return { ok: false, reason: reasonFor(response.status) };
+  }
+
+  return { ok: true, response };
+};
+
+/**
+ * Parse a response body as JSON.
+ *
+ * Kept separate from `request` because some callers (archiveMemo) do not
+ * read a body. A .json() rejection is mapped to `server` so failures are
+ * consistent with the rest of the client.
+ */
+export const readJson = async (
+  response: Response,
+): Promise<{ ok: false; reason: 'server' } | { ok: true; payload: unknown }> => {
+  try {
+    const payload = await response.json();
+    return { ok: true, payload };
+  } catch {
+    return { ok: false, reason: 'server' };
+  }
+};
+
 /**
  * The server's version.
  *
@@ -37,26 +87,16 @@ const reasonFor = (status: number): MemosFailureReason =>
  * is what turns an old instance into an upgrade message rather than a shrug.
  */
 export const probe = async ({ baseUrl, token }: MemosCredentials): Promise<MemosResult<string>> => {
-  let response: Response;
-  try {
-    response = (await fetch(`${baseUrl}/api/v1/instance/profile`, {
-      headers: authHeader(token),
-    })) as Response;
-  } catch {
-    return { ok: false, reason: 'network' };
-  }
+  const result = await request(`${baseUrl}/api/v1/instance/profile`, {
+    headers: authHeader(token),
+  }, { 404: 'version' });
 
-  if (response.status === 404) return { ok: false, reason: 'version' };
-  if (!response.ok) return { ok: false, reason: reasonFor(response.status) };
+  if (!result.ok) return result;
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return { ok: false, reason: 'server' };
-  }
+  const json = await readJson(result.response);
+  if (!json.ok) return json;
 
-  const version = (payload as { version?: unknown } | null)?.version;
+  const version = (json.payload as { version?: unknown } | null)?.version;
   if (!isSupportedVersion(version)) return { ok: false, reason: 'version' };
 
   return { ok: true, value: version as string };
@@ -73,25 +113,16 @@ export const listMemos = async ({
   baseUrl,
   token,
 }: MemosCredentials): Promise<MemosResult<MemoItem[]>> => {
-  let response: Response;
-  try {
-    response = (await fetch(`${baseUrl}/api/v1/memos?pageSize=${PAGE_SIZE}&state=NORMAL`, {
-      headers: authHeader(token),
-    })) as Response;
-  } catch {
-    return { ok: false, reason: 'network' };
-  }
+  const result = await request(`${baseUrl}/api/v1/memos?pageSize=${PAGE_SIZE}&state=NORMAL`, {
+    headers: authHeader(token),
+  });
 
-  if (!response.ok) return { ok: false, reason: reasonFor(response.status) };
+  if (!result.ok) return result;
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return { ok: false, reason: 'server' };
-  }
+  const json = await readJson(result.response);
+  if (!json.ok) return json;
 
-  const memos = parseMemoList(payload);
+  const memos = parseMemoList(json.payload);
   if (!memos) return { ok: false, reason: 'server' };
 
   return { ok: true, value: memos };
@@ -101,29 +132,20 @@ export const createMemo = async (
   { baseUrl, token }: MemosCredentials,
   content: string,
 ): Promise<MemosResult<MemoItem>> => {
-  let response: Response;
-  try {
-    response = (await fetch(`${baseUrl}/api/v1/memos`, {
-      method: 'POST',
-      headers: jsonHeaders(token),
-      body: JSON.stringify({ content, visibility: 'PRIVATE' }),
-    })) as Response;
-  } catch {
-    return { ok: false, reason: 'network' };
-  }
+  const result = await request(`${baseUrl}/api/v1/memos`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ content, visibility: 'PRIVATE' }),
+  });
 
-  if (!response.ok) return { ok: false, reason: reasonFor(response.status) };
+  if (!result.ok) return result;
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return { ok: false, reason: 'server' };
-  }
+  const json = await readJson(result.response);
+  if (!json.ok) return json;
 
   // One memo, validated through the same parser as the list so a created memo
   // and a listed one can never differ in shape.
-  const parsed = parseMemoList({ memos: [payload] });
+  const parsed = parseMemoList({ memos: [json.payload] });
   if (!parsed || parsed.length !== 1) return { ok: false, reason: 'server' };
 
   return { ok: true, value: parsed[0] };
@@ -140,18 +162,13 @@ export const archiveMemo = async (
   { baseUrl, token }: MemosCredentials,
   name: string,
 ): Promise<MemosResult<null>> => {
-  let response: Response;
-  try {
-    response = (await fetch(`${baseUrl}/api/v1/${name}?updateMask=state`, {
-      method: 'PATCH',
-      headers: jsonHeaders(token),
-      body: JSON.stringify({ state: 'ARCHIVED' }),
-    })) as Response;
-  } catch {
-    return { ok: false, reason: 'network' };
-  }
+  const result = await request(`${baseUrl}/api/v1/${name}?updateMask=state`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ state: 'ARCHIVED' }),
+  });
 
-  if (!response.ok) return { ok: false, reason: reasonFor(response.status) };
+  if (!result.ok) return result;
 
   return { ok: true, value: null };
 };

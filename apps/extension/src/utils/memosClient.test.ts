@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveMemo, createMemo, listMemos, probe } from './memosClient';
+import { archiveMemo, createMemo, listMemos, probe, readJson } from './memosClient';
 
 const credentials = { baseUrl: 'https://memo.example.com', token: 'memos_pat_x' };
 
@@ -142,5 +142,16 @@ describe('archiveMemo', () => {
       ok: false,
       reason: 'network',
     });
+  });
+});
+
+describe('readJson', () => {
+  it('reports a json() rejection as a server error', async () => {
+    const response = {
+      json: vi.fn(() => Promise.reject(new Error('JSON parse error'))),
+    } as unknown as Response;
+
+    const result = await readJson(response);
+    expect(result).toEqual({ ok: false, reason: 'server' });
   });
 });

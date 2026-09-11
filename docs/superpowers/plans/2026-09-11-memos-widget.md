@@ -727,7 +727,7 @@ The permission is requested at runtime for one origin. The stub has to enforce w
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
-- Produces: `hasOriginPermission(pattern: string): Promise<boolean>`, `requestOriginPermission(pattern: string): Promise<boolean>`. Stub control surface gains `grantOrigins(patterns: string[]): void` and `denyPermissionRequests(): void`.
+- Produces: `hasOriginPermission(pattern: string): Promise<boolean>`, `requestOriginPermission(pattern: string): Promise<boolean>`. Stub control surface gains `grantOrigins(patterns: string[]): void`, `denyPermissionRequests(): void` and `readSync(key: string): unknown`.
 
 - [ ] **Step 1: Declare the optional permission**
 
@@ -810,6 +810,8 @@ Add to the `ChromeStub` interface, after `setAuthToken`:
   grantOrigins: (patterns: string[]) => void;
   /** Makes the next `permissions.request` resolve false, as a refused prompt does. */
   denyPermissionRequests: () => void;
+  /** Current value of a sync storage key — the mirror of `readLocal`. */
+  readSync: (key: string) => unknown;
 ```
 
 Add next to the other module-level state inside `installChromeStub`, beside `let authToken`:
@@ -880,6 +882,7 @@ Add to the returned control object, after `setAuthToken`:
     denyPermissionRequests: () => {
       grantPermissionRequests = false;
     },
+    readSync: (key) => store.get(key),
 ```
 
 - [ ] **Step 5: Write the permission wrapper**
@@ -2124,7 +2127,7 @@ URL, token, default tag, and a Connect button that proves all three before savin
 - Test: `apps/extension/src/popup/MemosSection.test.tsx`
 
 **Interfaces:**
-- Consumes: `normalizeBaseUrl`, `originPattern` from `../utils/memos`; `probe` from `../utils/memosClient`; `requestOriginPermission` from `../utils/memosPermissions`; `getToken`, `setToken` from `../utils/memosStorage`; `Field`, `inputCls` from `./Field`.
+- Consumes: `normalizeBaseUrl`, `originPattern` from `../utils/memos`; `probe` from `../utils/memosClient`; `requestOriginPermission` from `../utils/memosPermissions`; `getToken`, `setToken` from `../utils/memosStorage`; `saveSettings` from `../hooks/useSettings`; `Field`, `inputCls` from `./Field`.
 - Produces: `MemosSection({ url, tag, onUrlChange, onTagChange })`, and `TabId` gains `'memos'`.
 
 - [ ] **Step 1: Add the translations**
@@ -2222,6 +2225,9 @@ describe('MemosSection', () => {
     await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
     expect(onUrlChange).toHaveBeenCalledWith('https://memo.example.com');
     expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
+    // Connect persists the URL itself. Leaving it to the form's Save would let
+    // someone connect, close the popup, and keep a token with no server.
+    await waitFor(() => expect(stub.readSync('memosUrl')).toBe('https://memo.example.com'));
   });
 
   // A refused prompt must not leave a half-configured widget behind.
@@ -2241,6 +2247,7 @@ describe('MemosSection', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readSync('memosUrl')).toBeUndefined();
   });
 
   it('reports an old server as a version problem and saves nothing', async () => {
@@ -2254,6 +2261,7 @@ describe('MemosSection', () => {
     await waitFor(() => expect(screen.getByText('Memos 0.30.0 or newer is required')).toBeTruthy());
     expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readSync('memosUrl')).toBeUndefined();
   });
 });
 ```
@@ -2270,6 +2278,7 @@ Create `apps/extension/src/popup/MemosSection.tsx`:
 ```tsx
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { saveSettings } from '../hooks/useSettings';
 import { normalizeBaseUrl, originPattern } from '../utils/memos';
 import { probe } from '../utils/memosClient';
 import { requestOriginPermission } from '../utils/memosPermissions';
@@ -2293,6 +2302,12 @@ type ConnectState =
  * Nothing is saved until the permission, the version and the token have all
  * been proved, so a wrong URL or a mistyped token surfaces here instead of as
  * an empty widget on the new tab page.
+ *
+ * On success both halves are persisted here — the token to local storage and
+ * the URL through `saveSettings` — rather than leaving the URL to the form's
+ * Save button. Splitting them would let someone press Connect, close the popup,
+ * and end up with a token on disk, no URL, and a widget that silently says it
+ * is not configured.
  */
 export function MemosSection({
   url,
@@ -2338,7 +2353,10 @@ export function MemosSection({
     }
 
     await setToken(token.trim());
+    saveSettings({ memosUrl: base });
     setDraftUrl(base);
+    // Keeps the form's own state coherent, so a later Save does not write back
+    // the value the field held before Connect normalised it.
     onUrlChange(base);
     setState({ kind: 'ok', version: result.value });
   };
@@ -2495,7 +2513,7 @@ Read `apps/extension/privacy-policy.md` first and fit the heading level and voic
 >
 > Access to your server is an **optional** permission. Chrome asks for it at the moment you press Connect, and only for the one address you entered. If you never configure the widget, the extension is never granted access to any additional site.
 
-Then bump the `Effective Date` at the top of the file to the date of the release that ships this.
+Then bump the `Effective Date` at the top of the file to the date you make this commit.
 
 - [ ] **Step 2: Update the store listing**
 

@@ -55,8 +55,9 @@ const RULES: { [K in keyof HubSettings]: (value: unknown) => HubSettings[K] | un
   customQuotes: (value) => (value === undefined ? undefined : sanitizeCustomQuotes(value)),
 
   // Validated as an https base, not merely as a string: this is the one setting
-  // that decides where the extension sends the user's notes.
-  memosUrl: (value) => (typeof value === 'string' ? (normalizeBaseUrl(value) ?? undefined) : undefined),
+  // that decides where the extension sends the user's notes. normalizeBaseUrl
+  // itself guards non-string input, so no separate typeof check is needed here.
+  memosUrl: (value) => normalizeBaseUrl(value) ?? undefined,
 
   // The tag is free text, but only ever a bare tag — a leading `#` would be
   // matched against `Memo.tags`, which never carries one.

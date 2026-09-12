@@ -117,6 +117,38 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current.settings.pomodoroWorkMinutes).toBe(MIN_MINUTES));
   });
 
+  // A hand-edited or corrupted memosUrl is not guaranteed to be a string.
+  // normalizeBaseUrl used to assume one and threw, which meant merge() never
+  // finished, isLoaded never became true and emit() never fired — the whole
+  // new-tab page hung on a single bad field, not just the Memos widget.
+  it('drops a non-string memosUrl instead of hanging the store on the initial read', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ memosUrl: 42 });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.memosUrl).toBe('');
+  });
+
+  it('drops a non-string memosUrl written through a live storage change', async () => {
+    installChromeStub();
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    await act(async () => {
+      result.current.saveSettings({
+        memosUrl: 42,
+      } as unknown as Partial<HubSettings>);
+      await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+    });
+
+    await waitFor(() => expect(result.current.settings.memosUrl).toBe(''));
+  });
+
   it('keeps a stable saveSettings reference across renders', async () => {
     installChromeStub();
     const useSettings = await loadUseSettings();

@@ -33,6 +33,17 @@ describe('normalizeBaseUrl', () => {
     expect(normalizeBaseUrl('not a url')).toBeNull();
     expect(normalizeBaseUrl('')).toBeNull();
   });
+
+  // Callers read this out of chrome.storage.sync, which is typed as `unknown`
+  // at the boundary — a hand-edited or corrupt stored value is not guaranteed
+  // to be a string. Every other sanitiser in this codebase guards internally
+  // rather than trusting the caller; this one must too, or a non-string value
+  // throws inside merge()/applyChanges() and the whole settings store hangs.
+  it('rejects non-string input instead of throwing', () => {
+    expect(normalizeBaseUrl(42)).toBeNull();
+    expect(normalizeBaseUrl(null)).toBeNull();
+    expect(normalizeBaseUrl(undefined)).toBeNull();
+  });
 });
 
 describe('originPattern', () => {

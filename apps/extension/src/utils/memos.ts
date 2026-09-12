@@ -28,9 +28,17 @@ export interface MemoItem {
  * HTTPS only: the new tab page is a secure context, so a plain-HTTP instance
  * would be mixed-content blocked. Rejecting here turns that into a message in
  * the popup instead of a silent failure on the dashboard.
+ *
+ * Typed `unknown`, not `string`: callers read this out of `chrome.storage.sync`,
+ * which is untyped at the boundary, so a hand-edited or corrupt stored value is
+ * not guaranteed to be a string. Guarding here rather than at each call site
+ * protects every present and future caller the way `clampDim` and
+ * `sanitizeHiddenWidgets` already guard their own inputs.
  */
-export const normalizeBaseUrl = (input: string): string | null => {
-  const trimmed = input.trim();
+export const normalizeBaseUrl = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
   if (!trimmed) return null;
 
   let url: URL;

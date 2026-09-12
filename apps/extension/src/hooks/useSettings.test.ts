@@ -133,11 +133,17 @@ describe('useSettings', () => {
   });
 
   it('drops a non-string memosUrl written through a live storage change', async () => {
-    installChromeStub();
+    // Seeded to a valid, non-empty prior value on purpose: if the sanitiser
+    // were skipped entirely, `next.memosUrl` would just keep this value
+    // rather than becoming '', so a seed of '' would let the assertion pass
+    // whether or not normalizeBaseUrl ever ran.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ memosUrl: 'https://old.example.com' });
     const useSettings = await loadUseSettings();
 
     const { result } = renderHook(() => useSettings());
     await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.memosUrl).toBe('https://old.example.com');
 
     await act(async () => {
       result.current.saveSettings({

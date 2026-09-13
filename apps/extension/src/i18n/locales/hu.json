@@ -177,6 +177,7 @@
     "errorPermission": "Csatlakozz újra a Memos szerverhez a beállításokban",
     "errorVersion": "Frissítsd a szervert Memos 0.30.0-ra vagy újabbra",
     "errorNetwork": "Tárolt jegyzetek láthatók",
+    "errorUnreachable": "A Memos szerver nem érhető el",
     "errorServer": "A Memos szerver hibát adott vissza"
   }
 }

@@ -24,6 +24,9 @@ const respondWith = (status: number, body: unknown) =>
     Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) }),
   );
 
+/** A fetch that never reaches the server at all — what `listMemos` reports as `network`. */
+const rejectingFetch = () => vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+
 /**
  * `src/test/setup.ts` calls `vi.resetModules()` before every test, so i18n has
  * to be initialised inside the test — otherwise `t()` returns raw keys and
@@ -88,5 +91,47 @@ describe('MemosWidget', () => {
     await waitFor(() =>
       expect(screen.getByText('Connect your Memos server in settings')).toBeTruthy(),
     );
+  });
+
+  // Nothing is cached yet — the very first visit to a configured-but-unreachable
+  // server — so "Showing cached memos" would be a lie, and it must not stand
+  // next to "Nothing here" either: only one of the two is ever true at once.
+  it('shows only the unreachable message when the cache is empty and the fetch fails', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', rejectingFetch());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+
+    await waitFor(() => expect(screen.getByText("Can't reach your Memos server")).toBeTruthy());
+    expect(screen.queryByText('Nothing here')).toBeNull();
+    expect(screen.queryByText('Showing cached memos')).toBeNull();
+  });
+
+  it('keeps the cached rows and reports the failure alongside them', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: { memos: payload.memos.slice(0, 2) } });
+    vi.stubGlobal('fetch', rejectingFetch());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    expect(screen.getByText('Showing cached memos')).toBeTruthy();
+  });
+
+  it('still reports the failure once the panel holding the composer is open', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: { memos: payload.memos.slice(0, 2) } });
+    vi.stubGlobal('fetch', rejectingFetch());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('Showing cached memos')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('Memos'));
+
+    expect(screen.getByPlaceholderText('New memo…')).toBeTruthy();
+    expect(screen.getByText('Showing cached memos')).toBeTruthy();
   });
 });

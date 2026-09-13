@@ -177,6 +177,7 @@
     "errorPermission": "Reconnect your Memos server in settings",
     "errorVersion": "Upgrade the server to Memos 0.30.0 or newer",
     "errorNetwork": "Showing cached memos",
+    "errorUnreachable": "Can't reach your Memos server",
     "errorServer": "The Memos server returned an error"
   }
 }

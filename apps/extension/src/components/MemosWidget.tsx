@@ -1,30 +1,11 @@
-import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMemos } from '../hooks/useMemos';
-import type { MemosFailureReason } from '../utils/memosClient';
-import { MemosPanel } from './MemosPanel';
+import { failureMessageKey } from '../utils/memosFailureMessage';
+import { ArchiveButton, MemosPanel } from './MemosPanel';
 
 /** How many rows the compact view shows before it starts counting. */
 const COMPACT_ROWS = 3;
-
-/**
- * Which translation key explains a given failure.
- *
- * A module-scope lookup rather than building the key at runtime
- * (`memos.error${Capitalized}`): `i18next.d.ts` types `t()` against the
- * literal keys in `en.json`, so a capitalised runtime string is just
- * `string` and would not typecheck. This also means a future
- * `MemosFailureReason` without an entry here fails the build instead of
- * silently falling back to English at render time.
- */
-const FAILURE_KEY = {
-  auth: 'memos.errorAuth',
-  permission: 'memos.errorPermission',
-  version: 'memos.errorVersion',
-  network: 'memos.errorNetwork',
-  server: 'memos.errorServer',
-} as const satisfies Record<MemosFailureReason, string>;
 
 /**
  * The Memos widget.
@@ -77,6 +58,7 @@ export function MemosWidget() {
           onSubmit={() => void submit()}
           submitting={submitting}
           onCollapse={() => setExpanded(false)}
+          failure={failure}
         />
       </div>
     );
@@ -84,24 +66,17 @@ export function MemosWidget() {
 
   const visible = memos.slice(0, COMPACT_ROWS);
   const hidden = memos.length - visible.length;
+  const hasRows = memos.length > 0;
 
   return (
     // A fixed minimum height so the compact view does not grow into place: the
     // cache arrives a tick after first paint, and a widget that pushes the
     // corner around on every new tab reads as a glitch.
     <div className={`${wrapper} min-h-24 w-64`}>
-      {visible.length === 0 ? (
-        <p className='text-xs text-white/30'>{t('memos.empty')}</p>
-      ) : (
+      {hasRows ? (
         visible.map((memo) => (
           <div key={memo.name} className='group flex items-start gap-2 min-w-0 w-full'>
-            <button
-              onClick={() => void archive(memo.name)}
-              title={t('memos.done')}
-              className='mt-0.5 shrink-0 w-4 h-4 rounded border border-white/25 flex items-center justify-center text-transparent hover:text-black hover:bg-white hover:border-white transition-colors'
-            >
-              <Check className='w-3 h-3' />
-            </button>
+            <ArchiveButton onClick={() => void archive(memo.name)} title={t('memos.done')} />
             <button
               onClick={() => setExpanded(true)}
               className='text-left text-sm text-white/70 hover:text-white transition-colors truncate min-w-0 flex-1'
@@ -110,6 +85,11 @@ export function MemosWidget() {
             </button>
           </div>
         ))
+      ) : (
+        // Suppressed under a failure: "Nothing here" next to "Can't reach your
+        // Memos server" would be a contradiction, since the truth is that
+        // nothing has come back yet, not that the list is genuinely empty.
+        !failure && <p className='text-xs text-white/30'>{t('memos.empty')}</p>
       )}
 
       <button
@@ -120,11 +100,14 @@ export function MemosWidget() {
       </button>
 
       {/*
-        `network` is the common case — every day spent away from the server —
-        so it is a faint line rather than an error. The cache is already on
-        screen above it.
+        One line for whichever failure applies, chosen by the same helper the
+        panel uses so the two views cannot disagree about which message a
+        given state gets. `network` with nothing cached gets its own copy —
+        "showing cached memos" would assert a cache that does not exist.
       */}
-      {failure && <p className='text-[10px] text-white/30'>{t(FAILURE_KEY[failure])}</p>}
+      {failure && (
+        <p className='text-[10px] text-white/30'>{t(failureMessageKey(failure, hasRows))}</p>
+      )}
     </div>
   );
 }

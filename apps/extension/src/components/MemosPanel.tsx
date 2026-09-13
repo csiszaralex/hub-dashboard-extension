@@ -1,6 +1,28 @@
 import { Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { MemoItem } from '../utils/memos';
+import type { MemosFailureReason } from '../utils/memosClient';
+import { failureMessageKey } from '../utils/memosFailureMessage';
+
+/**
+ * The archive control.
+ *
+ * Identical in the compact row and the panel row — the same action on the
+ * same data, not two presentations that happen to look alike — so it is one
+ * component rather than the same markup and Tailwind classes typed out twice
+ * with the risk of the two silently drifting apart.
+ */
+export function ArchiveButton({ onClick, title }: { onClick: () => void; title: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className='mt-0.5 shrink-0 w-4 h-4 rounded border border-white/25 flex items-center justify-center text-transparent hover:text-black hover:bg-white hover:border-white transition-colors'
+    >
+      <Check className='w-3 h-3' />
+    </button>
+  );
+}
 
 export function MemosPanel({
   memos,
@@ -13,6 +35,7 @@ export function MemosPanel({
   onSubmit,
   submitting,
   onCollapse,
+  failure,
 }: {
   memos: MemoItem[];
   tags: string[];
@@ -24,8 +47,10 @@ export function MemosPanel({
   onSubmit: () => void;
   submitting: boolean;
   onCollapse: () => void;
+  failure: MemosFailureReason | null;
 }) {
   const { t } = useTranslation();
+  const hasRows = memos.length > 0;
 
   return (
     <div className='w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col'>
@@ -67,28 +92,36 @@ export function MemosPanel({
       )}
 
       <div className='max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent'>
-        {memos.length === 0 ? (
-          <p className='px-4 py-6 text-center text-xs text-white/30'>{t('memos.empty')}</p>
-        ) : (
+        {hasRows ? (
           memos.map((memo) => (
             <div
               key={memo.name}
               className='group flex items-start gap-2 px-4 py-2 hover:bg-white/5 transition-colors'
             >
-              <button
-                onClick={() => onArchive(memo.name)}
-                title={t('memos.done')}
-                className='mt-0.5 shrink-0 w-4 h-4 rounded border border-white/25 flex items-center justify-center text-transparent hover:text-black hover:bg-white hover:border-white transition-colors'
-              >
-                <Check className='w-3 h-3' />
-              </button>
+              <ArchiveButton onClick={() => onArchive(memo.name)} title={t('memos.done')} />
               <span className='text-sm text-white/80 leading-snug wrap-break-word min-w-0'>
                 {memo.snippet}
               </span>
             </div>
           ))
+        ) : (
+          // Suppressed under a failure: "Nothing here" next to a failure line
+          // would claim there is genuinely nothing, when the truth is that the
+          // request never came back — the failure line below says that instead.
+          !failure && <p className='px-4 py-6 text-center text-xs text-white/30'>{t('memos.empty')}</p>
         )}
       </div>
+
+      {/*
+        Below the list, above the composer: a failed submit or a failed archive
+        must be visibly reported right where the user was just typing, not only
+        in the compact view they have since left behind by expanding.
+      */}
+      {failure && (
+        <p className='px-4 py-1.5 text-[10px] text-white/40 border-t border-white/5'>
+          {t(failureMessageKey(failure, hasRows))}
+        </p>
+      )}
 
       {/*
         The composer stays disabled until the server confirms: the id and

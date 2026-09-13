@@ -24,6 +24,10 @@ describe('MemosSection', () => {
     installChromeStub();
     const fetchMock = respondWith(200, {});
     vi.stubGlobal('fetch', fetchMock);
+    // The claim in this test's name is "without asking Chrome for anything" —
+    // only `fetchMock`/`onUrlChange` proved that before; this spy is what
+    // actually observes that `chrome.permissions.request` was never reached.
+    const requestSpy = vi.spyOn(chrome.permissions, 'request');
 
     const { onUrlChange } = await renderSection('http://memo.example.com');
     fireEvent.click(screen.getByText('Connect'));
@@ -31,6 +35,37 @@ describe('MemosSection', () => {
     await waitFor(() => expect(screen.getByText('That is not an https URL')).toBeTruthy());
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onUrlChange).not.toHaveBeenCalled();
+    expect(requestSpy).not.toHaveBeenCalled();
+  });
+
+  it('ignores a second Connect click while the permission prompt is still open', async () => {
+    installChromeStub();
+    // A real permission prompt is a native dialog the user must dismiss, so it
+    // does not resolve on its own — captured here so the test controls exactly
+    // when it does.
+    let resolvePrompt: ((granted: boolean) => void) | undefined;
+    const requestSpy = vi
+      .spyOn(chrome.permissions, 'request')
+      .mockImplementation((_permissions, callback) => {
+        resolvePrompt = callback;
+      });
+    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+
+    await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+
+    const button = screen.getByText('Connect') as HTMLButtonElement;
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    // Only one request reached Chrome, and the button disabling itself is what
+    // stops a third click from mattering either.
+    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect(button.disabled).toBe(true);
+
+    resolvePrompt?.(true);
+
+    await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
   });
 
   it('saves the url only after the permission and the probe both succeed', async () => {

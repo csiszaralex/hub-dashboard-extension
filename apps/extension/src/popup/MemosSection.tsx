@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { saveSettings } from '../hooks/useSettings';
 import { normalizeBaseUrl, originPattern } from '../utils/memos';
@@ -83,6 +83,11 @@ export function MemosSection({
   const [draftUrl, setDraftUrl] = useState(url);
   const [token, setTokenInput] = useState('');
   const [state, setState] = useState<ConnectState>({ kind: 'idle' });
+  // A ref, not `state.kind === 'busy'`: a second click can land before React
+  // re-renders with the first click's `setState`, and reading `state` at that
+  // point would still see the stale, pre-click closure. The ref is updated
+  // synchronously, so the second call sees the first one's guard immediately.
+  const connectingRef = useRef(false);
 
   // The token is not a setting, so it is not on this component's props.
   useEffect(() => {
@@ -90,33 +95,48 @@ export function MemosSection({
   }, []);
 
   const connect = async () => {
+    if (connectingRef.current) return;
+
     const base = normalizeBaseUrl(draftUrl);
     if (!base) {
       setState({ kind: 'error', reason: 'url' });
       return;
     }
 
-    // Synchronously first, while the click's gesture is still live.
-    const granted = await requestOriginPermission(originPattern(base));
-    if (!granted) {
-      setState({ kind: 'error', reason: 'permission' });
-      return;
-    }
-
+    connectingRef.current = true;
+    // Set synchronously, before the permission request: `chrome.permissions.request`
+    // shows a real native dialog on a first-time grant, and the click's gesture
+    // does not survive an `await` — `setState` does not yield, so disabling the
+    // button here still happens inside the same click.
     setState({ kind: 'busy' });
-    const result = await probe({ baseUrl: base, token: token.trim() });
-    if (!result.ok) {
-      setState({ kind: 'error', reason: result.reason });
-      return;
-    }
+    try {
+      // Still inside the click's gesture — the guard above and the `busy` state
+      // it set are what stop a second click during the time this is open.
+      const granted = await requestOriginPermission(originPattern(base));
+      if (!granted) {
+        setState({ kind: 'error', reason: 'permission' });
+        return;
+      }
 
-    await setToken(token.trim());
-    saveSettings({ memosUrl: base });
-    setDraftUrl(base);
-    // Keeps the form's own state coherent, so a later Save does not write back
-    // the value the field held before Connect normalised it.
-    onUrlChange(base);
-    setState({ kind: 'ok', version: result.value });
+      const result = await probe({ baseUrl: base, token: token.trim() });
+      if (!result.ok) {
+        setState({ kind: 'error', reason: result.reason });
+        return;
+      }
+
+      await setToken(token.trim());
+      saveSettings({ memosUrl: base });
+      setDraftUrl(base);
+      // Keeps the form's own state coherent, so a later Save does not write back
+      // the value the field held before Connect normalised it.
+      onUrlChange(base);
+      setState({ kind: 'ok', version: result.value });
+    } finally {
+      // Cleared on every exit, including a thrown `setToken`/`saveSettings` —
+      // otherwise a failed write would leave Connect permanently disabled,
+      // worse than today's behaviour where editing a field re-enables it.
+      connectingRef.current = false;
+    }
   };
 
   return (

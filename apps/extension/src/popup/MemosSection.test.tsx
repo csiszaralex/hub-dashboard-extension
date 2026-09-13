@@ -1,0 +1,85 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { installChromeStub } from '../test/chromeStub';
+
+const respondWith = (status: number, body: unknown) =>
+  vi.fn(() =>
+    Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) }),
+  );
+
+/** i18n inside the test, for the reason `MemosWidget.test.tsx` spells out. */
+const renderSection = async (url = '') => {
+  await import('../i18n/i18n');
+  const { MemosSection } = await import('./MemosSection');
+  const onUrlChange = vi.fn();
+  render(<MemosSection url={url} tag='' onUrlChange={onUrlChange} onTagChange={vi.fn()} />);
+  return { onUrlChange };
+};
+
+const typeToken = (value: string) =>
+  fireEvent.change(screen.getByLabelText('Access token'), { target: { value } });
+
+describe('MemosSection', () => {
+  it('refuses a non-https url without asking Chrome for anything', async () => {
+    installChromeStub();
+    const fetchMock = respondWith(200, {});
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { onUrlChange } = await renderSection('http://memo.example.com');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('That is not an https URL')).toBeTruthy());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onUrlChange).not.toHaveBeenCalled();
+  });
+
+  it('saves the url only after the permission and the probe both succeed', async () => {
+    const stub = installChromeStub();
+    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+
+    const { onUrlChange } = await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
+    expect(onUrlChange).toHaveBeenCalledWith('https://memo.example.com');
+    expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
+    // Connect persists the URL itself. Leaving it to the form's Save would let
+    // someone connect, close the popup, and keep a token with no server.
+    await waitFor(() => expect(stub.readSync('memosUrl')).toBe('https://memo.example.com'));
+  });
+
+  // A refused prompt must not leave a half-configured widget behind.
+  it('saves nothing when the user refuses the permission prompt', async () => {
+    const stub = installChromeStub();
+    stub.denyPermissionRequests();
+    const fetchMock = respondWith(200, { version: '0.30.0' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { onUrlChange } = await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Chrome was not given access to that server')).toBeTruthy(),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onUrlChange).not.toHaveBeenCalled();
+    expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readSync('memosUrl')).toBeUndefined();
+  });
+
+  it('reports an old server as a version problem and saves nothing', async () => {
+    const stub = installChromeStub();
+    vi.stubGlobal('fetch', respondWith(404, {}));
+
+    const { onUrlChange } = await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('Memos 0.30.0 or newer is required')).toBeTruthy());
+    expect(onUrlChange).not.toHaveBeenCalled();
+    expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readSync('memosUrl')).toBeUndefined();
+  });
+});

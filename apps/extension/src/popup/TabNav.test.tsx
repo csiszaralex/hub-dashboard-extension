@@ -24,8 +24,9 @@ describe('TabNav', () => {
 
     render(<TabNav active={ACTIVE} onChange={() => {}} />);
 
-    expect(screen.getAllByRole('button')).toHaveLength(7);
+    expect(screen.getAllByRole('button')).toHaveLength(8);
     expect(screen.queryByRole('button', { name: 'Widgets' })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Memos' })).not.toBeNull();
   });
 
   it('lets every tab shrink below its label instead of widening the strip', async () => {

@@ -144,7 +144,8 @@
     "note": "Jegyzet",
     "countdown": "Visszaszámláló",
     "backgroundInfo": "Fotó kredit",
-    "pomodoro": "Fókusz időzítő"
+    "pomodoro": "Fókusz időzítő",
+    "memos": "Memos"
   },
   "pomodoro": {
     "work": "Fókusz",
@@ -160,5 +161,22 @@
   "quote": {
     "source": "Forrás",
     "refresh": "Új idézet"
+  },
+  "memos": {
+    "title": "Memos",
+    "empty": "Nincs itt semmi",
+    "all": "Mind",
+    "placeholder": "Új jegyzet…",
+    "submit": "Hozzáad",
+    "submitting": "Küldés…",
+    "done": "Kész",
+    "more": "+{{count}} további",
+    "collapse": "Összecsuk",
+    "unconfigured": "Csatlakoztasd a Memos szerveredet a beállításokban",
+    "errorAuth": "A Memos tokened érvénytelen vagy lejárt",
+    "errorPermission": "Csatlakozz újra a Memos szerverhez a beállításokban",
+    "errorVersion": "Frissítsd a szervert Memos 0.30.0-ra vagy újabbra",
+    "errorNetwork": "Tárolt jegyzetek láthatók",
+    "errorServer": "A Memos szerver hibát adott vissza"
   }
 }

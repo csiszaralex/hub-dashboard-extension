@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
 
@@ -65,6 +65,40 @@ describe('MemosSection', () => {
 
     resolvePrompt?.(true);
 
+    await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
+  });
+
+  // `fireEvent.click` wraps each dispatch in its own `act()`, so by the time a
+  // second `fireEvent.click` runs, React has already committed the first
+  // click's `disabled={true}` to the DOM — happy-dom's disabled-button
+  // dispatch short-circuits before any listener runs, so that alone would
+  // make the test above pass even without `connectingRef`. Firing both clicks
+  // inside one `act()` batch is what actually exercises the ref: React cannot
+  // commit `disabled` between them, so only the synchronous ref stops the
+  // second click from reaching `connect()` and issuing a second request.
+  // Confirmed empirically — see the fix-round-2 report for both runs.
+  it('ignores a second click that lands before React can disable the button', async () => {
+    installChromeStub();
+    let resolvePrompt: ((granted: boolean) => void) | undefined;
+    const requestSpy = vi
+      .spyOn(chrome.permissions, 'request')
+      .mockImplementation((_permissions, callback) => {
+        resolvePrompt = callback;
+      });
+    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+
+    await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+
+    const button = screen.getByText('Connect') as HTMLButtonElement;
+    act(() => {
+      button.click();
+      button.click();
+    });
+
+    expect(requestSpy).toHaveBeenCalledTimes(1);
+
+    resolvePrompt?.(true);
     await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
   });
 

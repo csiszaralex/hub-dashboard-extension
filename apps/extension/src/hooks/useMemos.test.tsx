@@ -159,4 +159,34 @@ describe('useMemos', () => {
     expect(result.current.draft).toBe('do not lose me');
     await waitFor(() => expect(stub.readLocal('memos_draft')).toBe('do not lose me'));
   });
+
+  // The hook's own contract is "unconfigured means no fetch" — it must enforce
+  // that itself rather than trust the widget to check `status` before calling
+  // an action. A stale `credentials.current` surviving the transition would
+  // otherwise let `archive`/`submit` reach the abandoned server on stored ones.
+  it('stops issuing requests once a live settings change de-configures it', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', respondWith(200, listPayload));
+
+    const { useMemos } = await import('./useMemos');
+    const { saveSettings } = await import('./useSettings');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    // De-configure while the hook stays mounted, through the same live
+    // storage-change path the popup or a revoked permission would trigger.
+    act(() => saveSettings({ memosUrl: '' }));
+    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+
+    const freshFetch = respondWith(200, {});
+    vi.stubGlobal('fetch', freshFetch);
+
+    act(() => result.current.setDraft('should not send'));
+    await act(async () => {
+      await result.current.archive('memos/1');
+      await result.current.submit();
+    });
+
+    expect(freshFetch).not.toHaveBeenCalled();
+  });
 });

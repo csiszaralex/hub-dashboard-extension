@@ -64,6 +64,7 @@ export const useMemos = () => {
 
     const load = async () => {
       if (!memosUrl) {
+        credentials.current = null;
         if (!cancelled) setStatus('unconfigured');
         return;
       }
@@ -87,6 +88,7 @@ export const useMemos = () => {
       ]);
       if (cancelled) return;
       if (!granted || !token) {
+        credentials.current = null;
         setStatus('unconfigured');
         return;
       }

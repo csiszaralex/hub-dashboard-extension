@@ -94,6 +94,8 @@ The extension entry is `apps/extension/src/main.tsx` → `App.tsx`. The main `Ap
 
 **Settings backup** (`utils/settingsBackup.ts`): export writes the preferences as JSON; import validates every field before it reaches storage. The validation is not belt-and-braces — `useSettings` sanitises what it *reads*, so a bad value could never break the running page, but it would still be written to `chrome.storage.sync`, count against its byte quota and propagate to the user's other machines. `RULES` is a table keyed by `HubSettings` field so a new setting that nobody adds a rule for is visible in one place; a rejected field drops out rather than resetting to its default, since the file is the untrustworthy party and not the configuration the user already has.
 
+**Memos widget** (`utils/memos.ts`, `memosClient.ts`, `memosPermissions.ts`, `memosStorage.ts`, `memosFailureMessage.ts`, `hooks/useMemos.ts`, `components/MemosWidget.tsx` and `MemosPanel.tsx`, `popup/MemosSection.tsx`): the access token lives in `chrome.storage.local`, deliberately outside `HubSettings` — `settingsBackup`'s `RULES` is a mapped type over `keyof HubSettings` and `buildBackup` writes that whole object to a user-shareable file, so keeping the token out of the type makes exporting it impossible rather than merely forbidden. The base URL does sync; the token does not, which is why a second machine has to press Connect once.
+
 **Settings UI** (`src/popup/`): Separate popup page (`popup.html`), tabbed (`TabNav`) across general, appearance, weather, countdown, focus, calendars and widgets. Writes to Chrome Storage Sync; widgets react to storage changes.
 
 **Background image caching**: metadata (url, photographer, location) goes to `localStorage` via `dailyStorage`; the image itself — an Unsplash photo or a user-uploaded custom image — goes to the Cache API via `imageCache`. Never put image bytes in `localStorage` — a 4K JPEG base64-encodes past the origin quota. A cache version bump must not lose the user's own upload: `deleteObsoleteImageCaches` carries it forward, since it is the one entry in those buckets that cannot be re-downloaded.
@@ -109,13 +111,14 @@ The extension entry is `apps/extension/src/main.tsx` → `App.tsx`. The main `Ap
 
 **i18n**: `react-i18next` with locale files in `src/i18n/locales/`. ESLint is configured with `eslint-plugin-i18next` to catch JSX literal strings. `AVAILABLE_LANGUAGES` (`src/i18n/i18n.ts`) is read from `src/i18n/locales/` at build time, so the page itself picks up a new locale file automatically. The service worker cannot: importing `i18n/i18n.ts` would drag React into a worker Chrome cold-starts on every alarm, so `src/background.ts` keeps its own hand-maintained `LOCALES` map for the two Pomodoro notification strings. **Adding a locale therefore needs a manual entry in that map** — nothing warns if you forget it, since the lookup silently falls back to English. `background.test.ts`'s locale-parity suite (`it.each` over `src/i18n/locales/*.json`) is what catches a missing entry.
 
-**External APIs consumed by the extension:** every host below must also be listed in `manifest.json` under `host_permissions`.
+**External APIs consumed by the extension:** every host below must also be listed in `manifest.json` under `host_permissions` — except the Memos instance, whose one origin is granted at runtime through `optional_host_permissions` instead.
 - Hub API (this repo's `apps/api`) — background image metadata and daily quotes. The extension never calls Unsplash's search endpoint or `stoic.tekloon.net` directly; only the Hub API does, and only it needs their credentials.
 - `images.unsplash.com` — downloading the actual image bytes once the Hub API has resolved a photo
 - Open-Meteo — weather; `geocoding-api.open-meteo.com` for city lookup in the popup
 - BigDataCloud — reverse geocoding (no key needed)
 - GeoJS (`get.geojs.io`) — IP-based location fallback
 - Google Calendar API — via OAuth identity permission (`calendar.readonly`)
+- The user's own Memos instance (`optional_host_permissions`, granted at runtime for one origin) — the Memos widget. **Deliberately not proxied through the Hub API:** the Worker cannot reach a LAN or Tailscale host, and routing private notes through a public, unauthenticated proxy — with the user's token as a Worker secret — is the wrong trust boundary. Requires Memos v0.30.0+; the adapter targets one API version rather than a range.
 
 Changes to permissions, scopes or external hosts must be reflected in `privacy-policy.md`, which is what the Chrome Web Store review reads.
 

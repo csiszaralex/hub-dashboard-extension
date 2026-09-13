@@ -1,6 +1,6 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** August 11, 2026
+**Effective Date:** September 13, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
@@ -54,6 +54,13 @@ Hub schedules a daily task that downloads the next day's background image in adv
 Hub includes an optional Pomodoro-style focus timer. When a work or break interval ends, Hub shows a local system notification to let you know.
 
 - **Usage:** The notification is generated entirely on your device by the browser's native notification system. No data about your focus sessions, timings, or usage is collected, stored remotely, or sent anywhere — this permission is used solely to display that one local notification.
+
+### 6. Memos Widget (`optional_host_permissions`)
+
+The Memos widget is off until you configure it. When you do, you supply the address of your own Memos server — we do not run one, and we never see it. Access to that server is requested only when you press **Connect**, and only for the single address you entered; if you never configure the widget, the extension is never granted access to any additional site.
+
+- **Usage:** Once connected, the extension exchanges data with that server and nowhere else: it sends the memos you write, sends an archive request for each one you mark done, and reads back your recent, non-archived memos. Every request is authenticated with the access token you entered. No memo content, token or server address is sent to the Hub API or to any other service.
+- **Storage:** Your access token is stored with `chrome.storage.local` on the single device where you entered it. It is not synchronised to your other devices, and it is deliberately excluded from the settings export file, so a backup you share cannot contain it. It is removed when you uninstall the extension, which clears the extension's local storage along with it.
 
 ## Hub API
 

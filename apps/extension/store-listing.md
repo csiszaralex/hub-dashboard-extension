@@ -22,7 +22,8 @@ to the dashboard, without riding along in the package.
 ## Single purpose
 
 Hub replaces the new tab page with a dashboard: clock, weather, Google Calendar
-events, a daily quote, a countdown, a focus timer and a quick note, over a daily
+events, a daily quote, a countdown, a focus timer, a quick note and a Memos
+widget (requires a self-hosted Memos 0.30.0 or newer instance), over a daily
 background image.
 
 ## Permission justifications
@@ -41,6 +42,11 @@ Host permissions are justified by the same features: Open-Meteo and BigDataCloud
 for weather and place names, GeoJS as the IP-based location fallback,
 `images.unsplash.com` for background image bytes, the Hub API for background
 metadata and daily quotes, and `www.googleapis.com` for Google Calendar.
+
+`optional_host_permissions` (`https://*/*`) is requested at runtime, for the
+single origin the user enters in the extension's settings, so the Memos widget
+can read and write notes on that user's own self-hosted Memos server. Not
+requested unless the user configures the widget.
 
 ## Remote code
 

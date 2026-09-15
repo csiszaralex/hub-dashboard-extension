@@ -13,6 +13,12 @@ const MIN_PARTS = [0, 30, 0] as const;
 export interface MemoItem {
   /** Resource name, `memos/{uid}` — what update addresses. */
   name: string;
+  /**
+   * The author's resource name, `users/{id}` — the same format as the `name`
+   * `auth/me` returns, which is what makes the two comparable. Empty when the
+   * server did not send one, so it matches no user.
+   */
+  creator: string;
   content: string;
   /** Server-rendered short form. First-class field on `Memo`; never computed here. */
   snippet: string;
@@ -120,6 +126,7 @@ export const parseMemoList = (payload: unknown): MemoItem[] | null => {
 
     memos.push({
       name: entry.name,
+      creator: typeof entry.creator === 'string' ? entry.creator : '',
       content: entry.content,
       snippet: typeof entry.snippet === 'string' && entry.snippet ? entry.snippet : entry.content,
       tags: Array.isArray(entry.tags) ? entry.tags.filter((t): t is string => typeof t === 'string') : [],

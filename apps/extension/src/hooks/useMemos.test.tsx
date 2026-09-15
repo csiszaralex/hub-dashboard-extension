@@ -4,15 +4,16 @@ import { installChromeStub } from '../test/chromeStub';
 
 const listPayload = {
   memos: [
-    { name: 'memos/1', content: 'call the bank #todo', tags: ['todo'] },
-    { name: 'memos/2', content: 'read the paper #read', tags: ['read'] },
+    { name: 'memos/1', creator: 'users/1', content: 'call the bank #todo', tags: ['todo'] },
+    { name: 'memos/2', creator: 'users/1', content: 'read the paper #read', tags: ['read'] },
   ],
 };
 
+/** Connected as `users/1`: what a successful Connect leaves behind on this machine. */
 const seedConfigured = () => {
   const stub = installChromeStub();
   stub.seedSync({ memosUrl: 'https://memo.example.com', memosTag: 'todo' });
-  stub.seedLocal({ memos_token: 'memos_pat_x' });
+  stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
   stub.grantOrigins(['https://memo.example.com/*']);
   return stub;
 };
@@ -35,7 +36,7 @@ describe('useMemos', () => {
   it('is unconfigured when the host permission was revoked', async () => {
     const stub = installChromeStub();
     stub.seedSync({ memosUrl: 'https://memo.example.com' });
-    stub.seedLocal({ memos_token: 'memos_pat_x' });
+    stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
     const fetchMock = respondWith(200, listPayload);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -44,6 +45,50 @@ describe('useMemos', () => {
 
     await waitFor(() => expect(result.current.status).toBe('unconfigured'));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // Without the account the token belongs to, the hook cannot tell the user's
+  // own memos from the other public ones `ListMemos` returns — so it fetches
+  // nothing rather than show them all.
+  it('is unconfigured, and fetches nothing, when the connected account is not stored', async () => {
+    const stub = installChromeStub();
+    stub.seedSync({ memosUrl: 'https://memo.example.com' });
+    stub.seedLocal({ memos_token: 'memos_pat_x' });
+    stub.grantOrigins(['https://memo.example.com/*']);
+    const fetchMock = respondWith(200, listPayload);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+
+    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // An authenticated `ListMemos` also returns other users' PUBLIC and PROTECTED
+  // memos. Each would carry a live archive control, and a host account can
+  // archive them — so they are dropped before they render or reach the cache.
+  it("renders and caches only the connected account's own memos", async () => {
+    const stub = seedConfigured();
+    vi.stubGlobal(
+      'fetch',
+      respondWith(200, {
+        memos: [
+          { name: 'memos/1', creator: 'users/1', content: 'mine #todo', tags: ['todo'] },
+          { name: 'memos/2', creator: 'users/2', content: 'theirs #todo', tags: ['todo'] },
+          { name: 'memos/3', creator: 'users/1', content: 'also mine #todo', tags: ['todo'] },
+        ],
+      }),
+    );
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await waitFor(() => expect(stub.readLocal('memos_cache')).toBeDefined());
+    expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1', 'memos/3']);
+    const cached = stub.readLocal('memos_cache') as { memos: { name: string }[] };
+    expect(cached.memos.map((m) => m.name)).toEqual(['memos/1', 'memos/3']);
   });
 
   it('filters to the configured base tag', async () => {
@@ -127,7 +172,12 @@ describe('useMemos', () => {
     const { result } = renderHook(() => useMemos());
     await waitFor(() => expect(result.current.status).toBe('ready'));
 
-    const created = respondWith(200, { name: 'memos/3', content: 'new one #todo', tags: ['todo'] });
+    const created = respondWith(200, {
+      name: 'memos/3',
+      creator: 'users/1',
+      content: 'new one #todo',
+      tags: ['todo'],
+    });
     vi.stubGlobal('fetch', created);
 
     act(() => result.current.setDraft('new one'));

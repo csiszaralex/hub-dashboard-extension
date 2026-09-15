@@ -107,6 +107,7 @@ describe('parseMemoList', () => {
     memos: [
       {
         name: 'memos/abc',
+        creator: 'users/1',
         content: 'call the bank #todo',
         snippet: 'call the bank',
         tags: ['todo'],
@@ -121,6 +122,7 @@ describe('parseMemoList', () => {
     expect(parseMemoList(payload)).toEqual([
       {
         name: 'memos/abc',
+        creator: 'users/1',
         content: 'call the bank #todo',
         snippet: 'call the bank',
         tags: ['todo'],
@@ -134,12 +136,20 @@ describe('parseMemoList', () => {
     const [memo] = parseMemoList({ memos: [{ name: 'memos/x', content: 'bare' }] }) ?? [];
     expect(memo).toEqual({
       name: 'memos/x',
+      creator: '',
       content: 'bare',
       snippet: 'bare',
       tags: [],
       createTime: '',
       pinned: false,
     });
+  });
+
+  // An empty creator matches no user, so a memo whose owner cannot be read is
+  // never shown as the connected account's own.
+  it('reads a creator that is not a string as no creator', () => {
+    const [memo] = parseMemoList({ memos: [{ name: 'memos/x', content: 'a', creator: 1 }] }) ?? [];
+    expect(memo.creator).toBe('');
   });
 
   // Returns null rather than throwing, so the client can map it onto its

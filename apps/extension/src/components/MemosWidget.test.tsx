@@ -4,17 +4,18 @@ import { installChromeStub } from '../test/chromeStub';
 
 const payload = {
   memos: [
-    { name: 'memos/1', content: 'one #todo', snippet: 'one', tags: ['todo'] },
-    { name: 'memos/2', content: 'two #todo', snippet: 'two', tags: ['todo'] },
-    { name: 'memos/3', content: 'three #todo', snippet: 'three', tags: ['todo'] },
-    { name: 'memos/4', content: 'four #todo', snippet: 'four', tags: ['todo'] },
+    { name: 'memos/1', creator: 'users/1', content: 'one #todo', snippet: 'one', tags: ['todo'] },
+    { name: 'memos/2', creator: 'users/1', content: 'two #todo', snippet: 'two', tags: ['todo'] },
+    { name: 'memos/3', creator: 'users/1', content: 'three #todo', snippet: 'three', tags: ['todo'] },
+    { name: 'memos/4', creator: 'users/1', content: 'four #todo', snippet: 'four', tags: ['todo'] },
   ],
 };
 
+/** Connected as `users/1`: what a successful Connect leaves behind on this machine. */
 const seedConfigured = () => {
   const stub = installChromeStub();
   stub.seedSync({ memosUrl: 'https://memo.example.com', memosTag: 'todo' });
-  stub.seedLocal({ memos_token: 'memos_pat_x' });
+  stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
   stub.grantOrigins(['https://memo.example.com/*']);
   return stub;
 };

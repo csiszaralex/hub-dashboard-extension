@@ -5,13 +5,16 @@ import {
   getCachedMemos,
   getDraft,
   getToken,
+  getUser,
   setCachedMemos,
   setDraft,
   setToken,
+  setUser,
 } from './memosStorage';
 
 const memo = {
   name: 'memos/1',
+  creator: 'users/1',
   content: 'a #todo',
   snippet: 'a',
   tags: ['todo'],
@@ -39,6 +42,28 @@ describe('token', () => {
     await setToken('memos_pat_x');
     expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
     expect(stub.readSync('memos_token')).toBeUndefined();
+  });
+});
+
+describe('user', () => {
+  it('is empty until one is stored', async () => {
+    installChromeStub();
+    await expect(getUser()).resolves.toBe('');
+  });
+
+  it('round-trips', async () => {
+    installChromeStub();
+    await setUser('users/1');
+    await expect(getUser()).resolves.toBe('users/1');
+  });
+
+  // It belongs to the token, which is local to this machine; a synced user
+  // name would reach a machine whose token may be for a different account.
+  it('is written to the local area, not sync', async () => {
+    const stub = installChromeStub();
+    await setUser('users/1');
+    expect(stub.readLocal('memos_user')).toBe('users/1');
+    expect(stub.readSync('memos_user')).toBeUndefined();
   });
 });
 

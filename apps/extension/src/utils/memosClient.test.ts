@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { memosConnectRoutes, reply, routeFetch } from '../test/memosFetch';
 import { archiveMemo, createMemo, listMemos, probe, readJson } from './memosClient';
 
 const credentials = { baseUrl: 'https://memo.example.com', token: 'memos_pat_x' };
@@ -15,36 +16,97 @@ const respondWith = (status: number, body: unknown) =>
 describe('probe', () => {
   beforeEach(() => vi.unstubAllGlobals());
 
-  it('returns the version of a supported server', async () => {
-    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0', commit: 'abc' }));
-    await expect(probe(credentials)).resolves.toEqual({ ok: true, value: '0.30.0' });
+  /** A v0.30 server that issued `memos_pat_x` to `users/1`, and no other token. */
+  const server = () =>
+    routeFetch(memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }));
+
+  it('returns the version and the account the token belongs to', async () => {
+    vi.stubGlobal('fetch', server());
+    await expect(probe(credentials)).resolves.toEqual({
+      ok: true,
+      value: { version: '0.30.0', user: 'users/1' },
+    });
   });
 
-  it('sends the bearer token to the instance profile endpoint', async () => {
-    const fetchMock = respondWith(200, { version: '0.30.0' });
+  it('sends the bearer token to the instance profile and the current-user endpoints', async () => {
+    const fetchMock = server();
     vi.stubGlobal('fetch', fetchMock);
     await probe(credentials);
     expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/instance/profile', {
       headers: { Authorization: 'Bearer memos_pat_x' },
     });
+    expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/auth/me', {
+      headers: { Authorization: 'Bearer memos_pat_x' },
+    });
   });
 
   it('refuses a server below the floor', async () => {
-    vi.stubGlobal('fetch', respondWith(200, { version: '0.29.4' }));
+    vi.stubGlobal(
+      'fetch',
+      routeFetch(memosConnectRoutes({ version: '0.29.4', tokens: { memos_pat_x: 'users/1' } })),
+    );
     await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'version' });
   });
 
   // Pre-0.30 the endpoint was /api/v1/workspace/profile, so a 404 here is not a
   // missing route — it is an old server, and must reach the user as "upgrade"
-  // rather than as a generic failure.
+  // rather than as a generic failure. A server with none of the v0.30 routes
+  // 404s on every one of them.
   it('reads a 404 as an unsupported server, not a server error', async () => {
-    vi.stubGlobal('fetch', respondWith(404, {}));
+    vi.stubGlobal('fetch', routeFetch({}));
     await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'version' });
   });
 
-  it('reports a bad token as auth', async () => {
-    vi.stubGlobal('fetch', respondWith(401, {}));
+  // The profile endpoint is public — it answers 200 for any token — so it can
+  // never be what rejects one. Only `auth/me` does.
+  it('reports a token the server did not issue as auth, although the profile answers', async () => {
+    const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_real: 'users/1' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
     await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'auth' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://memo.example.com/api/v1/instance/profile',
+      expect.anything(),
+    );
+  });
+
+  it('reports an empty token as auth', async () => {
+    vi.stubGlobal('fetch', server());
+    await expect(probe({ ...credentials, token: '' })).resolves.toEqual({
+      ok: false,
+      reason: 'auth',
+    });
+  });
+
+  it('reports any other failure of the current-user endpoint as a server error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      routeFetch({
+        ...memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }),
+        'GET /api/v1/auth/me': () => reply(500, { code: 13, message: 'internal', details: [] }),
+      }),
+    );
+    await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
+  });
+
+  // The name is what the widget later matches `Memo.creator` against, so a
+  // body that does not carry a usable one cannot count as a connection.
+  it.each([
+    ['no user', {}],
+    ['a user without a name', { user: {} }],
+    ['a non-string name', { user: { name: 42 } }],
+    ['an empty name', { user: { name: '' } }],
+    ['a name that is not a user resource', { user: { name: 'memos/1' } }],
+    ['a bare users/ prefix', { user: { name: 'users/' } }],
+  ])('reports a current user with %s as a server error', async (_label, body) => {
+    vi.stubGlobal(
+      'fetch',
+      routeFetch({
+        ...memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }),
+        'GET /api/v1/auth/me': () => reply(200, body),
+      }),
+    );
+    await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
   });
 
   it('reports a thrown fetch as network', async () => {

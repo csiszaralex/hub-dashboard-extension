@@ -4,7 +4,7 @@ import { saveSettings } from '../hooks/useSettings';
 import { normalizeBaseUrl, originPattern } from '../utils/memos';
 import { probe, type MemosFailureReason } from '../utils/memosClient';
 import { requestOriginPermission } from '../utils/memosPermissions';
-import { getToken, setToken } from '../utils/memosStorage';
+import { getToken, setToken, setUser } from '../utils/memosStorage';
 import { Field, inputCls } from './Field';
 
 /**
@@ -50,6 +50,12 @@ const URL_PLACEHOLDER = 'https://memo.example.com';
 const TAG_PLACEHOLDER = 'todo';
 const TOKEN_AUTOCOMPLETE = 'off';
 
+/** The origin a typed URL would connect to, or null while it is not a usable URL yet. */
+const originOf = (value: string): string | null => {
+  const base = normalizeBaseUrl(value);
+  return base ? new URL(base).origin : null;
+};
+
 /**
  * The Memos tab.
  *
@@ -62,11 +68,11 @@ const TOKEN_AUTOCOMPLETE = 'off';
  * been proved, so a wrong URL or a mistyped token surfaces here instead of as
  * an empty widget on the new tab page.
  *
- * On success both halves are persisted here — the token to local storage and
- * the URL through `saveSettings` — rather than leaving the URL to the form's
- * Save button. Splitting them would let someone press Connect, close the popup,
- * and end up with a token on disk, no URL, and a widget that silently says it
- * is not configured.
+ * On success everything is persisted here — the token and its account to local
+ * storage, then the URL through `saveSettings` — rather than leaving the URL to
+ * the form's Save button. Splitting them would let someone press Connect, close
+ * the popup, and end up with a token on disk, no URL, and a widget that
+ * silently says it is not configured.
  */
 export function MemosSection({
   url,
@@ -89,10 +95,37 @@ export function MemosSection({
   // synchronously, so the second call sees the first one's guard immediately.
   const connectingRef = useRef(false);
 
+  // The origin the token in the field was saved for, or null when the field
+  // holds nothing that belongs to a server. A token is a credential for one
+  // server: pre-filling it and then letting Connect send it to whatever host is
+  // typed next would hand one server's secret to another.
+  const tokenOriginRef = useRef<string | null>(null);
+  // The `url` prop as it was when the stored token was read — the server that
+  // token was saved for. Read once, from inside the effect below.
+  const urlAtLoadRef = useRef(url);
+
   // The token is not a setting, so it is not on this component's props.
   useEffect(() => {
-    void getToken().then(setTokenInput);
+    void getToken().then((stored) => {
+      setTokenInput(stored);
+      tokenOriginRef.current = stored ? originOf(urlAtLoadRef.current) : null;
+    });
   }, []);
+
+  const changeUrl = (value: string) => {
+    setDraftUrl(value);
+    setState({ kind: 'idle' });
+
+    // Only a URL that resolves to a different origin counts: a half-typed one
+    // resolves to nothing yet, and another path on the same origin is still
+    // the server the token is for. Once cleared, the origin is forgotten, so
+    // editing back does not bring the token back either.
+    const origin = originOf(value);
+    if (tokenOriginRef.current !== null && origin !== null && origin !== tokenOriginRef.current) {
+      tokenOriginRef.current = null;
+      setTokenInput('');
+    }
+  };
 
   const connect = async () => {
     if (connectingRef.current) return;
@@ -124,13 +157,19 @@ export function MemosSection({
         return;
       }
 
+      // In this order. An already-open new tab re-runs on the `memosUrl` change
+      // and reads the token and the account straight out of local storage, so
+      // both have to be there before the URL that sends it looking.
       await setToken(token.trim());
+      await setUser(result.value.user);
       saveSettings({ memosUrl: base });
+      // The token just saved belongs to this server now, like a stored one.
+      tokenOriginRef.current = originOf(base);
       setDraftUrl(base);
       // Keeps the form's own state coherent, so a later Save does not write back
       // the value the field held before Connect normalised it.
       onUrlChange(base);
-      setState({ kind: 'ok', version: result.value });
+      setState({ kind: 'ok', version: result.value.version });
     } finally {
       // Cleared on every exit, including a thrown `setToken`/`saveSettings` —
       // otherwise a failed write would leave Connect permanently disabled,
@@ -146,10 +185,7 @@ export function MemosSection({
           id='memosUrl'
           type='url'
           value={draftUrl}
-          onChange={(e) => {
-            setDraftUrl(e.target.value);
-            setState({ kind: 'idle' });
-          }}
+          onChange={(e) => changeUrl(e.target.value)}
           className={inputCls}
           placeholder={URL_PLACEHOLDER}
         />

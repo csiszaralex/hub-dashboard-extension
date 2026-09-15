@@ -9,10 +9,14 @@ import { type MemoItem, parseMemoList } from './memos';
  * a token living there would have to be excluded by hand. Out here, exporting
  * it is impossible at the type level.
  *
+ * The connected account's name is local for the token's reason: it describes
+ * that token, and another machine may hold a token for a different account.
+ *
  * The cache and the draft are local for a plainer reason: neither is a
  * preference, and `chrome.storage.sync` has a byte quota to protect.
  */
 const TOKEN_KEY = 'memos_token';
+const USER_KEY = 'memos_user';
 const CACHE_KEY = 'memos_cache';
 const DRAFT_KEY = 'memos_draft';
 
@@ -40,6 +44,18 @@ const readString = async (key: string): Promise<string> => {
 export const getToken = (): Promise<string> => readString(TOKEN_KEY);
 
 export const setToken = (token: string): Promise<void> => writeLocal(TOKEN_KEY, token);
+
+/**
+ * The resource name (`users/{id}`) of the account the token belongs to, as
+ * Connect read it from `auth/me`.
+ *
+ * `ListMemos` also returns other users' public and protected memos, so this is
+ * what the widget keeps its list to — its own rows, and only those, carry an
+ * archive control.
+ */
+export const getUser = (): Promise<string> => readString(USER_KEY);
+
+export const setUser = (name: string): Promise<void> => writeLocal(USER_KEY, name);
 
 /**
  * The last list the server gave us, so the page renders before the network

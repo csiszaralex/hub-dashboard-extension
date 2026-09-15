@@ -79,27 +79,56 @@ export const readJson = async (
   }
 };
 
+/** What a successful Connect has proved about the server and the token. */
+export interface MemosConnection {
+  version: string;
+  /** The token's account, as a resource name: `users/{id}`. */
+  user: string;
+}
+
 /**
- * The server's version.
+ * The server's version, then the account the token belongs to.
  *
- * A 404 means an instance older than 0.30, where this route was still
- * `/api/v1/workspace/profile` — so it maps to `version`, not to `server`. That
- * is what turns an old instance into an upgrade message rather than a shrug.
+ * Two calls, because the first cannot prove the token: `instance/profile` is
+ * public and answers 200 for a wrong token or none at all. It is still first,
+ * since its 404 is how an instance older than 0.30 presents itself (the route
+ * was `/api/v1/workspace/profile` then), and that must map to `version` — an
+ * upgrade message — rather than to `server`.
+ *
+ * `auth/me` is not public: a missing, expired, revoked or unknown token gets
+ * 401, which is what makes this the check that a token is real. Its user name
+ * is kept, because `ListMemos` returns other users' visible memos too and the
+ * widget needs to know which ones are this account's own.
  */
-export const probe = async ({ baseUrl, token }: MemosCredentials): Promise<MemosResult<string>> => {
-  const result = await request(`${baseUrl}/api/v1/instance/profile`, {
-    headers: authHeader(token),
-  }, { 404: 'version' });
+export const probe = async ({
+  baseUrl,
+  token,
+}: MemosCredentials): Promise<MemosResult<MemosConnection>> => {
+  const profile = await request(
+    `${baseUrl}/api/v1/instance/profile`,
+    { headers: authHeader(token) },
+    { 404: 'version' },
+  );
+  if (!profile.ok) return profile;
 
-  if (!result.ok) return result;
+  const profileJson = await readJson(profile.response);
+  if (!profileJson.ok) return profileJson;
 
-  const json = await readJson(result.response);
-  if (!json.ok) return json;
-
-  const version = (json.payload as { version?: unknown } | null)?.version;
+  const version = (profileJson.payload as { version?: unknown } | null)?.version;
   if (!isSupportedVersion(version)) return { ok: false, reason: 'version' };
 
-  return { ok: true, value: version as string };
+  const me = await request(`${baseUrl}/api/v1/auth/me`, { headers: authHeader(token) });
+  if (!me.ok) return me;
+
+  const meJson = await readJson(me.response);
+  if (!meJson.ok) return meJson;
+
+  // A name the widget cannot match `Memo.creator` against is not a connection:
+  // every memo would be filtered out, and the list would sit silently empty.
+  const user = (meJson.payload as { user?: { name?: unknown } | null } | null)?.user?.name;
+  if (typeof user !== 'string' || !/^users\/.+/.test(user)) return { ok: false, reason: 'server' };
+
+  return { ok: true, value: { version: version as string, user } };
 };
 
 /**

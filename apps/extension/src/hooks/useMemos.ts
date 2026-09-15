@@ -13,6 +13,7 @@ import {
   getCachedMemos,
   getDraft,
   getToken,
+  getUser,
   setCachedMemos,
   setDraft as persistDraft,
 } from '../utils/memosStorage';
@@ -79,15 +80,16 @@ export const useMemos = () => {
       }
       if (savedDraft) setDraftState(savedDraft);
 
-      // A revoked permission or a token that never made it to this machine is
-      // not a network failure — there is nothing to fetch and nothing to
-      // apologise for. Send the user to the popup instead.
-      const [granted, token] = await Promise.all([
+      // A revoked permission, or a token or account that never made it to this
+      // machine, is not a network failure — there is nothing to fetch and
+      // nothing to apologise for. Send the user to the popup instead.
+      const [granted, token, user] = await Promise.all([
         hasOriginPermission(originPattern(memosUrl)),
         getToken(),
+        getUser(),
       ]);
       if (cancelled) return;
-      if (!granted || !token) {
+      if (!granted || !token || !user) {
         credentials.current = null;
         setStatus('unconfigured');
         return;
@@ -105,10 +107,16 @@ export const useMemos = () => {
         return;
       }
 
+      // `ListMemos` answers with every memo this account may *see*, which
+      // includes other users' public and protected ones. Each would get an
+      // archive control, and a host account can archive them — so they go
+      // before anything renders, and before the cache can hold them.
+      const own = result.value.filter((memo) => memo.creator === user);
+
       setFailure(null);
-      setAll(result.value);
+      setAll(own);
       setStatus('ready');
-      void setCachedMemos(result.value);
+      void setCachedMemos(own);
     };
 
     void load();

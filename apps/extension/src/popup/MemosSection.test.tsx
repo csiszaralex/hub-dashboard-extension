@@ -1,11 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { memosConnectRoutes, routeFetch } from '../test/memosFetch';
 
-const respondWith = (status: number, body: unknown) =>
-  vi.fn(() =>
-    Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) }),
-  );
+/** A v0.30 server that issued `memos_pat_x` to `users/1`, and no other token. */
+const connectable = () => routeFetch(memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }));
 
 /** i18n inside the test, for the reason `MemosWidget.test.tsx` spells out. */
 const renderSection = async (url = '') => {
@@ -19,10 +18,15 @@ const renderSection = async (url = '') => {
 const typeToken = (value: string) =>
   fireEvent.change(screen.getByLabelText('Access token'), { target: { value } });
 
+const typeUrl = (value: string) =>
+  fireEvent.change(screen.getByLabelText('Server URL'), { target: { value } });
+
+const tokenField = () => screen.getByLabelText('Access token') as HTMLInputElement;
+
 describe('MemosSection', () => {
   it('refuses a non-https url without asking Chrome for anything', async () => {
     installChromeStub();
-    const fetchMock = respondWith(200, {});
+    const fetchMock = connectable();
     vi.stubGlobal('fetch', fetchMock);
     // The claim in this test's name is "without asking Chrome for anything" —
     // only `fetchMock`/`onUrlChange` proved that before; this spy is what
@@ -49,7 +53,7 @@ describe('MemosSection', () => {
       .mockImplementation((_permissions, callback) => {
         resolvePrompt = callback;
       });
-    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+    vi.stubGlobal('fetch', connectable());
 
     await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
@@ -85,7 +89,7 @@ describe('MemosSection', () => {
       .mockImplementation((_permissions, callback) => {
         resolvePrompt = callback;
       });
-    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+    vi.stubGlobal('fetch', connectable());
 
     await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
@@ -104,7 +108,7 @@ describe('MemosSection', () => {
 
   it('saves the url only after the permission and the probe both succeed', async () => {
     const stub = installChromeStub();
-    vi.stubGlobal('fetch', respondWith(200, { version: '0.30.0' }));
+    vi.stubGlobal('fetch', connectable());
 
     const { onUrlChange } = await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
@@ -113,6 +117,7 @@ describe('MemosSection', () => {
     await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
     expect(onUrlChange).toHaveBeenCalledWith('https://memo.example.com');
     expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
+    expect(stub.readLocal('memos_user')).toBe('users/1');
     // Connect persists the URL itself. Leaving it to the form's Save would let
     // someone connect, close the popup, and keep a token with no server.
     await waitFor(() => expect(stub.readSync('memosUrl')).toBe('https://memo.example.com'));
@@ -122,7 +127,7 @@ describe('MemosSection', () => {
   it('saves nothing when the user refuses the permission prompt', async () => {
     const stub = installChromeStub();
     stub.denyPermissionRequests();
-    const fetchMock = respondWith(200, { version: '0.30.0' });
+    const fetchMock = connectable();
     vi.stubGlobal('fetch', fetchMock);
 
     const { onUrlChange } = await renderSection('https://memo.example.com');
@@ -135,12 +140,14 @@ describe('MemosSection', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readLocal('memos_user')).toBeUndefined();
     expect(stub.readSync('memosUrl')).toBeUndefined();
   });
 
   it('reports an old server as a version problem and saves nothing', async () => {
     const stub = installChromeStub();
-    vi.stubGlobal('fetch', respondWith(404, {}));
+    // A pre-0.30 server has none of the v0.30 routes, so every one of them 404s.
+    vi.stubGlobal('fetch', routeFetch({}));
 
     const { onUrlChange } = await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
@@ -149,6 +156,102 @@ describe('MemosSection', () => {
     await waitFor(() => expect(screen.getByText('Memos 0.30.0 or newer is required')).toBeTruthy());
     expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readLocal('memos_user')).toBeUndefined();
     expect(stub.readSync('memosUrl')).toBeUndefined();
+  });
+
+  // The instance profile is public and answers 200 for any token, so a server
+  // that is up and new enough proves nothing about the token. Only the
+  // current-user endpoint refuses one it did not issue.
+  it('rejects a token the server did not issue and saves nothing', async () => {
+    const stub = installChromeStub();
+    vi.stubGlobal('fetch', routeFetch(memosConnectRoutes({ tokens: { memos_pat_real: 'users/1' } })));
+
+    const { onUrlChange } = await renderSection('https://memo.example.com');
+    typeToken('memos_pat_typo');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+    expect(screen.queryByText(/Connected to Memos/)).toBeNull();
+    expect(onUrlChange).not.toHaveBeenCalled();
+    expect(stub.readLocal('memos_token')).toBeUndefined();
+    expect(stub.readLocal('memos_user')).toBeUndefined();
+    expect(stub.readSync('memosUrl')).toBeUndefined();
+  });
+
+  // An already-open new tab re-runs on the `memosUrl` change and reads the
+  // token and the account straight out of local storage. If the URL landed
+  // first, that tab would find a server with no credentials and settle on
+  // "reconnect" until it was reloaded.
+  it('writes the token and the account before the url an open tab reacts to', async () => {
+    const stub = installChromeStub();
+    vi.stubGlobal('fetch', connectable());
+
+    const writes: string[] = [];
+    let credentialsWhenUrlLanded: unknown[] = [];
+    chrome.storage.onChanged.addListener((changes, area) => {
+      for (const key of Object.keys(changes)) writes.push(`${area}:${key}`);
+      if ('memosUrl' in changes) {
+        credentialsWhenUrlLanded = [stub.readLocal('memos_token'), stub.readLocal('memos_user')];
+      }
+    });
+
+    await renderSection('https://memo.example.com');
+    typeToken('memos_pat_x');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(writes).toContain('sync:memosUrl'));
+    expect(writes).toEqual(['local:memos_token', 'local:memos_user', 'sync:memosUrl']);
+    expect(credentialsWhenUrlLanded).toEqual(['memos_pat_x', 'users/1']);
+  });
+
+  // The token field is pre-filled from storage, and a token is a credential for
+  // one server. Pointing the form at another server must not carry it along,
+  // or Connect hands the old server's secret to a host the user just typed.
+  it('does not send the stored token to a server at a different origin', async () => {
+    const stub = installChromeStub();
+    stub.seedLocal({ memos_token: 'memos_pat_old' });
+    // b is a real v0.30 server, but it never issued `memos_pat_old`.
+    const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_b: 'users/7' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderSection('https://a.example.com');
+    await waitFor(() => expect(tokenField().value).toBe('memos_pat_old'));
+
+    // Another address on the same origin is still the server the token is for.
+    typeUrl('https://a.example.com/memos');
+    expect(tokenField().value).toBe('memos_pat_old');
+
+    typeUrl('https://b.example.com');
+    expect(tokenField().value).toBe('');
+
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+
+    const toB = fetchMock.mock.calls.filter(([url]) => url.startsWith('https://b.example.com/'));
+    expect(toB.length).toBeGreaterThan(0);
+    for (const [, init] of toB) {
+      expect(new Headers(init?.headers).get('Authorization')).not.toBe('Bearer memos_pat_old');
+    }
+  });
+
+  // Once Connect has saved a token, it is the stored token for that server —
+  // the same reasoning as above applies to the next server typed.
+  it('does not carry a token Connect just saved to a server at a different origin', async () => {
+    installChromeStub();
+    vi.stubGlobal('fetch', connectable());
+
+    await renderSection('https://memo.example.com');
+    // Let the mount-time read of the (empty) stored token land first, or it
+    // blanks the field after the typing below and the last assertion would
+    // pass for that reason alone.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    typeToken('memos_pat_x');
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
+    expect(tokenField().value).toBe('memos_pat_x');
+
+    typeUrl('https://other.example.com');
+    expect(tokenField().value).toBe('');
   });
 });

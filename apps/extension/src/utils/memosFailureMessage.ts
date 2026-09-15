@@ -37,3 +37,26 @@ export const failureMessageKey = (
   hasRows: boolean,
 ): (typeof FAILURE_KEY)[MemosFailureReason] | 'memos.errorUnreachable' =>
   failure === 'network' && !hasRows ? 'memos.errorUnreachable' : FAILURE_KEY[failure];
+
+/** A submit or an archive the server did not take. Kept apart from the load's failure. */
+export interface MemosWriteFailure {
+  action: 'submit' | 'archive';
+  reason: MemosFailureReason;
+}
+
+/**
+ * The message for a failed write.
+ *
+ * Its own line rather than the load's: on an offline day "Showing cached
+ * memos" is usually on screen already, so a failed Add reported through it
+ * would change nothing the user can see. The copy says what happened to the
+ * thing they just did — except for `auth`, where the token is the cause and
+ * the one thing they can fix, so that message wins over either action's.
+ */
+export const writeFailureMessageKey = ({
+  action,
+  reason,
+}: MemosWriteFailure): 'memos.errorAuth' | 'memos.writeFailedSubmit' | 'memos.writeFailedArchive' => {
+  if (reason === 'auth') return 'memos.errorAuth';
+  return action === 'submit' ? 'memos.writeFailedSubmit' : 'memos.writeFailedArchive';
+};

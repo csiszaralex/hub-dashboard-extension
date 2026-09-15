@@ -188,12 +188,14 @@
     "done": "Mark done",
     "more": "+{{count}} more",
     "collapse": "Collapse",
-    "unconfigured": "Connect your Memos server in settings",
+    "unconfigured": "Reconnect your Memos server in settings",
     "errorAuth": "Your Memos token is invalid or has expired",
     "errorPermission": "Reconnect your Memos server in settings",
     "errorVersion": "Upgrade the server to Memos 0.30.0 or newer",
     "errorNetwork": "Showing cached memos",
     "errorUnreachable": "Can't reach your Memos server",
-    "errorServer": "The Memos server returned an error"
+    "errorServer": "The Memos server returned an error",
+    "writeFailedSubmit": "Not sent — kept as a draft",
+    "writeFailedArchive": "Couldn't mark that done"
   }
 }

@@ -188,12 +188,14 @@
     "done": "Kész",
     "more": "+{{count}} további",
     "collapse": "Összecsuk",
-    "unconfigured": "Csatlakoztasd a Memos szerveredet a beállításokban",
+    "unconfigured": "Csatlakozz újra a Memos szerverhez a beállításokban",
     "errorAuth": "A Memos tokened érvénytelen vagy lejárt",
     "errorPermission": "Csatlakozz újra a Memos szerverhez a beállításokban",
     "errorVersion": "Frissítsd a szervert Memos 0.30.0-ra vagy újabbra",
     "errorNetwork": "Tárolt jegyzetek láthatók",
     "errorUnreachable": "A Memos szerver nem érhető el",
-    "errorServer": "A Memos szerver hibát adott vissza"
+    "errorServer": "A Memos szerver hibát adott vissza",
+    "writeFailedSubmit": "Nem ment el — piszkozatként megmaradt",
+    "writeFailedArchive": "Nem sikerült késznek jelölni"
   }
 }

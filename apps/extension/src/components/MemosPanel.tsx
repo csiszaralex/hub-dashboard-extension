@@ -2,7 +2,11 @@ import { Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { MemoItem } from '../utils/memos';
 import type { MemosFailureReason } from '../utils/memosClient';
-import { failureMessageKey } from '../utils/memosFailureMessage';
+import {
+  failureMessageKey,
+  type MemosWriteFailure,
+  writeFailureMessageKey,
+} from '../utils/memosFailureMessage';
 
 /**
  * The archive control.
@@ -36,6 +40,7 @@ export function MemosPanel({
   submitting,
   onCollapse,
   failure,
+  writeFailure,
 }: {
   memos: MemoItem[];
   tags: string[];
@@ -48,6 +53,7 @@ export function MemosPanel({
   submitting: boolean;
   onCollapse: () => void;
   failure: MemosFailureReason | null;
+  writeFailure: MemosWriteFailure | null;
 }) {
   const { t } = useTranslation();
   const hasRows = memos.length > 0;
@@ -120,6 +126,17 @@ export function MemosPanel({
       {failure && (
         <p className='px-4 py-1.5 text-[10px] text-white/40 border-t border-white/5'>
           {t(failureMessageKey(failure, hasRows))}
+        </p>
+      )}
+
+      {/*
+        The last write the server did not take, on a line of its own: the load's
+        line above is often already there on an offline day, so reusing it would
+        leave a failed Add looking exactly like nothing happened.
+      */}
+      {writeFailure && (
+        <p className='px-4 py-1.5 text-[10px] text-white/60 border-t border-white/5'>
+          {t(writeFailureMessageKey(writeFailure))}
         </p>
       )}
 

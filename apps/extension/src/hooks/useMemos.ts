@@ -7,6 +7,7 @@ import {
   type MemosCredentials,
   type MemosFailureReason,
 } from '../utils/memosClient';
+import type { MemosWriteFailure } from '../utils/memosFailureMessage';
 import { hasOriginPermission } from '../utils/memosPermissions';
 import {
   clearDraft,
@@ -19,7 +20,13 @@ import {
 } from '../utils/memosStorage';
 import { useSettings } from './useSettings';
 
-export type MemosStatus = 'loading' | 'unconfigured' | 'ready';
+/**
+ * `off` is no server at all — every user who never set the widget up — and
+ * renders nothing. `unconfigured` is a server that is set but cannot be used
+ * from this machine: no token, no stored account, or no host permission. Only
+ * that one is worth a prompt.
+ */
+export type MemosStatus = 'loading' | 'off' | 'unconfigured' | 'ready';
 
 /**
  * The Memos widget's data.
@@ -40,6 +47,7 @@ export const useMemos = () => {
   const [all, setAll] = useState<MemoItem[]>([]);
   const [status, setStatus] = useState<MemosStatus>('loading');
   const [failure, setFailure] = useState<MemosFailureReason | null>(null);
+  const [writeFailure, setWriteFailure] = useState<MemosWriteFailure | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(memosTag || null);
   const [draft, setDraftState] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +74,7 @@ export const useMemos = () => {
     const load = async () => {
       if (!memosUrl) {
         credentials.current = null;
-        if (!cancelled) setStatus('unconfigured');
+        if (!cancelled) setStatus('off');
         return;
       }
 
@@ -127,6 +135,9 @@ export const useMemos = () => {
 
   const setDraft = useCallback((text: string) => {
     setDraftState(text);
+    // A draft persisted by a failed send would otherwise come back on every new
+    // tab after the user cleared the field — resurrecting text they discarded.
+    if (!text.trim()) void clearDraft();
   }, []);
 
   /**
@@ -140,16 +151,17 @@ export const useMemos = () => {
     const previous = all;
     const next = all.filter((memo) => memo.name !== name);
     setAll(next);
+    setWriteFailure(null);
 
     const result = await archiveMemo(credentials.current, name);
     if (result.ok) {
-      setFailure(null);
+      setWriteFailure(null);
       void setCachedMemos(next);
       return;
     }
 
     setAll(previous);
-    setFailure(result.reason);
+    setWriteFailure({ action: 'archive', reason: result.reason });
   }, [all]);
 
   /**
@@ -162,17 +174,18 @@ export const useMemos = () => {
     const text = draft.trim();
     if (!text || !credentials.current || submitting) return;
 
+    setWriteFailure(null);
     setSubmitting(true);
     const result = await createMemo(credentials.current, composeContent(text, activeTag));
     setSubmitting(false);
 
     if (!result.ok) {
-      setFailure(result.reason);
+      setWriteFailure({ action: 'submit', reason: result.reason });
       void persistDraft(draft);
       return;
     }
 
-    setFailure(null);
+    setWriteFailure(null);
     setDraftState('');
     void clearDraft();
     setAll((current) => {
@@ -184,8 +197,10 @@ export const useMemos = () => {
 
   return {
     status,
-    /** Why the last call failed, or null when it did not. */
+    /** Why the last load failed, or null when it did not. Writes never set it. */
     failure,
+    /** The last submit or archive the server did not take, until the next one starts. */
+    writeFailure,
     /** Already narrowed to `activeTag`. */
     memos: filterByTag(all, activeTag),
     /** Every tag in the fetched set — the chips. */

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMemos } from '../hooks/useMemos';
-import { failureMessageKey } from '../utils/memosFailureMessage';
+import { failureMessageKey, writeFailureMessageKey } from '../utils/memosFailureMessage';
 import { ArchiveButton, MemosPanel } from './MemosPanel';
 
 /** How many rows the compact view shows before it starts counting. */
@@ -21,6 +21,7 @@ export function MemosWidget() {
   const {
     status,
     failure,
+    writeFailure,
     memos,
     tags,
     activeTag,
@@ -32,7 +33,9 @@ export function MemosWidget() {
     archive,
   } = useMemos();
 
-  if (status === 'loading') return null;
+  // No server set is the widget switched off, not a prompt: nearly every user
+  // never configures it, and a nudge on every new tab would be theirs forever.
+  if (status === 'loading' || status === 'off') return null;
 
   const wrapper = 'absolute bottom-20 left-8 z-20 flex flex-col items-start gap-2';
 
@@ -59,6 +62,7 @@ export function MemosWidget() {
           submitting={submitting}
           onCollapse={() => setExpanded(false)}
           failure={failure}
+          writeFailure={writeFailure}
         />
       </div>
     );
@@ -107,6 +111,14 @@ export function MemosWidget() {
       */}
       {failure && (
         <p className='text-[10px] text-white/30'>{t(failureMessageKey(failure, hasRows))}</p>
+      )}
+
+      {/*
+        Archive is available from these rows, so its failure is reported here
+        too — on its own line, since the load's line may already be showing.
+      */}
+      {writeFailure && (
+        <p className='text-[10px] text-white/50'>{t(writeFailureMessageKey(writeFailure))}</p>
       )}
     </div>
   );

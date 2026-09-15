@@ -24,11 +24,18 @@ const respondWith = (status: number, body: unknown) =>
   );
 
 describe('useMemos', () => {
-  it('is unconfigured when no server is set', async () => {
+  // No server is what every user who never set the widget up has. That is
+  // "off", not "needs reconnecting" — nothing to prompt about, nothing to fetch.
+  it('is off, and fetches nothing, when no server is set', async () => {
     installChromeStub();
+    const fetchMock = respondWith(200, listPayload);
+    vi.stubGlobal('fetch', fetchMock);
+
     const { useMemos } = await import('./useMemos');
     const { result } = renderHook(() => useMemos());
-    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+
+    await waitFor(() => expect(result.current.status).toBe('off'));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   // A configured server whose permission was revoked in chrome://extensions is
@@ -161,7 +168,39 @@ describe('useMemos', () => {
     });
 
     expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']);
-    expect(result.current.failure).toBe('server');
+    // A write failure is reported as one, apart from the load's `failure`.
+    expect(result.current.writeFailure).toEqual({ action: 'archive', reason: 'server' });
+    expect(result.current.failure).toBeNull();
+  });
+
+  it('clears a write failure as soon as the next write starts', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', respondWith(200, listPayload));
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    vi.stubGlobal('fetch', respondWith(500, {}));
+    await act(async () => {
+      await result.current.archive('memos/1');
+    });
+    expect(result.current.writeFailure).toEqual({ action: 'archive', reason: 'server' });
+
+    // Held open, so what is observed is the moment the write starts, not its end.
+    let answer: (response: unknown) => void = () => {};
+    vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => (answer = resolve))));
+    let pending: Promise<void> = Promise.resolve();
+    act(() => {
+      pending = result.current.archive('memos/1');
+    });
+    expect(result.current.writeFailure).toBeNull();
+
+    await act(async () => {
+      answer({ ok: true, status: 200, json: () => Promise.resolve({}) });
+      await pending;
+    });
+    expect(result.current.writeFailure).toBeNull();
   });
 
   it('appends the active tag on submit and clears the draft', async () => {
@@ -210,7 +249,30 @@ describe('useMemos', () => {
     await waitFor(() => expect(stub.readLocal('memos_draft')).toBe('do not lose me'));
   });
 
-  // The hook's own contract is "unconfigured means no fetch" — it must enforce
+  // The persisted draft exists to bring text back; once the user has cleared
+  // the field, bringing it back on every new tab would resurrect text they
+  // threw away.
+  it('forgets the persisted draft once the field is cleared', async () => {
+    const stub = seedConfigured();
+    vi.stubGlobal('fetch', respondWith(200, listPayload));
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    vi.stubGlobal('fetch', respondWith(500, {}));
+    act(() => result.current.setDraft('changed my mind'));
+    await act(async () => {
+      await result.current.submit();
+    });
+    await waitFor(() => expect(stub.readLocal('memos_draft')).toBe('changed my mind'));
+
+    act(() => result.current.setDraft(''));
+
+    await waitFor(() => expect(stub.readLocal('memos_draft')).toBeUndefined());
+  });
+
+  // The hook's own contract is "off or unconfigured means no fetch" — it must enforce
   // that itself rather than trust the widget to check `status` before calling
   // an action. A stale `credentials.current` surviving the transition would
   // otherwise let `archive`/`submit` reach the abandoned server on stored ones.
@@ -226,7 +288,7 @@ describe('useMemos', () => {
     // De-configure while the hook stays mounted, through the same live
     // storage-change path the popup or a revoked permission would trigger.
     act(() => saveSettings({ memosUrl: '' }));
-    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+    await waitFor(() => expect(result.current.status).toBe('off'));
 
     const freshFetch = respondWith(200, {});
     vi.stubGlobal('fetch', freshFetch);

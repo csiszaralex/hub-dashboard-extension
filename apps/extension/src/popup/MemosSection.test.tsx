@@ -80,7 +80,10 @@ describe('MemosSection', () => {
   // inside one `act()` batch is what actually exercises the ref: React cannot
   // commit `disabled` between them, so only the synchronous ref stops the
   // second click from reaching `connect()` and issuing a second request.
-  // Confirmed empirically — see the fix-round-2 report for both runs.
+  // Confirmed empirically: with the ref guard removed, the two `click()` calls
+  // inside one `act()` both reach `connect()` before React commits `disabled`,
+  // and Chrome is asked twice — this test fails while the one above still
+  // passes. Only the ref stops the second.
   it('ignores a second click that lands before React can disable the button', async () => {
     installChromeStub();
     let resolvePrompt: ((granted: boolean) => void) | undefined;

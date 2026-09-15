@@ -34,13 +34,14 @@ To display local weather conditions, Hub needs an approximate location. It is re
 
 Hub uses your browser's storage to save:
 
-- Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, and language — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
+- Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, language, and the Memos server address and default Memos tag — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
 - Your quick notes, in `localStorage` on the device only.
 - Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
+- If you connect the Memos widget, in `chrome.storage.local` on that device only: up to 200 of your own most recent memos, including their content, so the widget can show them when your Memos server cannot be reached; any memo you wrote that could not be sent, kept as a draft; and the name of the Memos account you connected. These sit alongside the access token described in section 6 and, like it, are never synchronised.
 
-Hub does not store any API keys on your device. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
+Hub does not store any API keys of its own on your device; the only credential it keeps is the Memos access token you enter yourself, described in section 6. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
 
-The settings page can also export your preferences to a JSON file and read one back. The file is written to your own device by your browser's normal download mechanism and is never transmitted anywhere; importing one reads it locally. Only the preferences listed above are included — not your notes, and not a custom background image.
+The settings page can also export your preferences to a JSON file and read one back. The file is written to your own device by your browser's normal download mechanism and is never transmitted anywhere; importing one reads it locally. Only the preferences listed above are included, the Memos server address and default Memos tag among them — not your notes, not your memos or your Memos access token, and not a custom background image.
 
 ### 4. Scheduled Background Prefetch (`alarms` permission)
 
@@ -60,7 +61,7 @@ Hub includes an optional Pomodoro-style focus timer. When a work or break interv
 The Memos widget is off until you configure it. When you do, you supply the address of your own Memos server — we do not run one, and we never see it. Access to that server is requested only when you press **Connect**, and only for the single address you entered; if you never configure the widget, the extension is never granted access to any additional site.
 
 - **Usage:** Once connected, the extension exchanges data with that server and nowhere else: it sends the memos you write, sends an archive request for each one you mark done, and reads back your recent, non-archived memos. Every request is authenticated with the access token you entered. No memo content, token or server address is sent to the Hub API or to any other service.
-- **Storage:** Your access token is stored with `chrome.storage.local` on the single device where you entered it. It is not synchronised to your other devices, and it is deliberately excluded from the settings export file, so a backup you share cannot contain it. It is removed when you uninstall the extension, which clears the extension's local storage along with it.
+- **Storage:** Your access token is stored with `chrome.storage.local` on the single device where you entered it. It is not synchronised to your other devices, and it is deliberately excluded from the settings export file, so a backup you share cannot contain it. The same local storage on that device also holds the name of the Memos account the token belongs to, read from your server when you press **Connect**; up to 200 of your own most recent memos, including their content, so the widget can show them while your server is unreachable; and any memo you wrote that could not be sent, kept as a draft until you send it or clear it. None of these is synchronised or included in the export either. All of it is removed when you uninstall the extension, which clears the extension's local storage along with it.
 
 ## Hub API
 

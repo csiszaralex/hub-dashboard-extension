@@ -3,7 +3,7 @@ import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, DEFAULT_UNSPLASH_QUERY } from '../utils/api';
 import { sanitizeCustomQuotes } from '../utils/customQuotes';
 import { clampDim, DEFAULT_DIM } from '../utils/dim';
-import { normalizeBaseUrl } from '../utils/memos';
+import { normalizeBaseUrl, sanitizeMemosTag } from '../utils/memos';
 import {
   clampPomodoroMinutes,
   DEFAULT_BREAK_MINUTES,
@@ -96,6 +96,7 @@ const merge = (stored: Partial<HubSettings>): HubSettings => {
   );
   next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
   next.memosUrl = normalizeBaseUrl(next.memosUrl) ?? '';
+  next.memosTag = sanitizeMemosTag(next.memosTag);
   return next;
 };
 
@@ -120,6 +121,7 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
   );
   next.customQuotes = sanitizeCustomQuotes(next.customQuotes);
   next.memosUrl = normalizeBaseUrl(next.memosUrl) ?? '';
+  next.memosTag = sanitizeMemosTag(next.memosTag);
   state = { settings: next, isLoaded: state.isLoaded };
   emit();
 };

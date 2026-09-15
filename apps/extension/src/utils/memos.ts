@@ -61,6 +61,18 @@ export const normalizeBaseUrl = (value: unknown): string | null => {
 };
 
 /**
+ * The tag the widget opens on, as `Memo.tags` spells it: trimmed, and without
+ * the one leading `#` a user naturally types.
+ *
+ * Typed `unknown` for the reason `normalizeBaseUrl` is: this is read out of
+ * `chrome.storage.sync` and out of backup files, and a non-string reaching
+ * `composeContent` throws inside `submit` after the composer has been
+ * disabled, which leaves it disabled.
+ */
+export const sanitizeMemosTag = (value: unknown): string =>
+  typeof value === 'string' ? value.trim().replace(/^#/, '') : '';
+
+/**
  * The match pattern for `chrome.permissions.request`.
  *
  * Always the whole origin, even for an instance hosted under a subpath: Chrome

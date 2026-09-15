@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memosConnectRoutes, reply, routeFetch } from '../test/memosFetch';
-import { archiveMemo, createMemo, listMemos, probe, readJson } from './memosClient';
+import {
+  archiveMemo,
+  createMemo,
+  listMemos,
+  MEMOS_TIMEOUT_MS,
+  probe,
+  readJson,
+} from './memosClient';
 
 const credentials = { baseUrl: 'https://memo.example.com', token: 'memos_pat_x' };
 
@@ -34,9 +41,11 @@ describe('probe', () => {
     await probe(credentials);
     expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/instance/profile', {
       headers: { Authorization: 'Bearer memos_pat_x' },
+      signal: expect.any(AbortSignal),
     });
     expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/auth/me', {
       headers: { Authorization: 'Bearer memos_pat_x' },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -164,6 +173,7 @@ describe('createMemo', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content: 'a #todo', visibility: 'PRIVATE' }),
+      signal: expect.any(AbortSignal),
     });
     expect(result).toMatchObject({ ok: true, value: { name: 'memos/new' } });
   });
@@ -194,6 +204,7 @@ describe('archiveMemo', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ state: 'ARCHIVED' }),
+        signal: expect.any(AbortSignal),
       },
     );
   });
@@ -204,6 +215,50 @@ describe('archiveMemo', () => {
       ok: false,
       reason: 'network',
     });
+  });
+});
+
+describe('request timeout', () => {
+  beforeEach(() => vi.unstubAllGlobals());
+
+  // A LAN host that has gone away does not refuse the connection, it just never
+  // answers — and with nothing cached the widget renders nothing until the TCP
+  // timeout, which is minutes. Every call gives up after MEMOS_TIMEOUT_MS.
+  it('gives every request a signal that aborts after the timeout', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const fetchMock = routeFetch({
+      ...memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }),
+      'GET /api/v1/memos': () => reply(200, { memos: [] }),
+      'POST /api/v1/memos': () => reply(200, { name: 'memos/new', content: 'a' }),
+      'PATCH /api/v1/memos/abc': () => reply(200, {}),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await probe(credentials);
+    await listMemos(credentials);
+    await createMemo(credentials, 'a');
+    await archiveMemo(credentials, 'memos/abc');
+
+    // profile, auth/me, list, create, archive
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(timeoutSpy).toHaveBeenCalledTimes(5);
+    for (const call of timeoutSpy.mock.calls) expect(call).toEqual([MEMOS_TIMEOUT_MS]);
+    fetchMock.mock.calls.forEach(([, init], i) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      expect(init?.signal).toBe(timeoutSpy.mock.results[i].value);
+    });
+  });
+
+  it('gives up after eight seconds', () => {
+    expect(MEMOS_TIMEOUT_MS).toBe(8000);
+  });
+
+  // `AbortSignal.timeout` rejects with a `TimeoutError`; an abort from anywhere
+  // else with an `AbortError`. Either way nothing came back from the server.
+  it.each(['TimeoutError', 'AbortError'])('reports a fetch aborted with %s as network', async (name) => {
+    vi.stubGlobal('fetch', () => Promise.reject(new DOMException('signal timed out', name)));
+    await expect(listMemos(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
+    await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
   });
 });
 

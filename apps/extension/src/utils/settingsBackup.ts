@@ -2,7 +2,7 @@ import type { HubSettings } from '../hooks/useSettings';
 import { sanitizeHiddenWidgets } from '../widgets';
 import { sanitizeCustomQuotes } from './customQuotes';
 import { clampDim } from './dim';
-import { normalizeBaseUrl } from './memos';
+import { normalizeBaseUrl, sanitizeMemosTag } from './memos';
 import { clampPomodoroMinutes, DEFAULT_BREAK_MINUTES, DEFAULT_WORK_MINUTES } from './pomodoro';
 
 /**
@@ -60,8 +60,10 @@ const RULES: { [K in keyof HubSettings]: (value: unknown) => HubSettings[K] | un
   memosUrl: (value) => normalizeBaseUrl(value) ?? undefined,
 
   // The tag is free text, but only ever a bare tag — a leading `#` would be
-  // matched against `Memo.tags`, which never carries one.
-  memosTag: (value) => (typeof value === 'string' ? value.trim().replace(/^#/, '') : undefined),
+  // matched against `Memo.tags`, which never carries one. Shaped by the same
+  // sanitiser the settings store applies; a non-string still drops out rather
+  // than clearing the tag the user already has, like the text fields above.
+  memosTag: (value) => (typeof value === 'string' ? sanitizeMemosTag(value) : undefined),
 
   // A closed set the renderer switches on. An unknown source would leave the
   // background in a state no radio button matches.

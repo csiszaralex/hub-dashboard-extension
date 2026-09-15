@@ -19,6 +19,15 @@ export type MemosResult<T> = { ok: true; value: T } | { ok: false; reason: Memos
 /** One page is the whole working set: the widget shows the newest few, not an archive. */
 export const PAGE_SIZE = 200;
 
+/**
+ * How long any one request may take before it counts as `network`.
+ *
+ * The server is usually on a LAN or a tailnet, and one that has gone away
+ * tends not to refuse the connection but to never answer. Left to the TCP
+ * timeout, a new tab with nothing cached would render no widget for minutes.
+ */
+export const MEMOS_TIMEOUT_MS = 8000;
+
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 const jsonHeaders = (token: string) => ({
@@ -34,8 +43,10 @@ type RequestResult = { ok: false; reason: MemosFailureReason } | { ok: true; res
 /**
  * Fetch with unified error handling.
  *
- * Network errors are caught as `network`. Per-status overrides (e.g., 404 →
- * `version`) are applied before the generic non-ok branch. On success, the
+ * Network errors are caught as `network`, and so is running out of time: every
+ * request carries a signal that aborts after `MEMOS_TIMEOUT_MS`, and the
+ * rejection it causes lands in the same catch. Per-status overrides (e.g., 404
+ * → `version`) are applied before the generic non-ok branch. On success, the
  * Response is returned so the caller can decide whether to parse JSON.
  */
 const request = async (
@@ -45,7 +56,7 @@ const request = async (
 ): Promise<RequestResult> => {
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(MEMOS_TIMEOUT_MS) });
   } catch {
     return { ok: false, reason: 'network' };
   }

@@ -6,6 +6,7 @@ import {
   normalizeBaseUrl,
   originPattern,
   parseMemoList,
+  sanitizeMemosTag,
   tagsOf,
 } from './memos';
 
@@ -43,6 +44,33 @@ describe('normalizeBaseUrl', () => {
     expect(normalizeBaseUrl(42)).toBeNull();
     expect(normalizeBaseUrl(null)).toBeNull();
     expect(normalizeBaseUrl(undefined)).toBeNull();
+  });
+});
+
+describe('sanitizeMemosTag', () => {
+  it('keeps a bare tag', () => {
+    expect(sanitizeMemosTag('todo')).toBe('todo');
+  });
+
+  // `Memo.tags` never carries the `#`, so a stored `#todo` would match nothing.
+  it('trims the tag and drops one leading #', () => {
+    expect(sanitizeMemosTag('  #todo  ')).toBe('todo');
+    expect(sanitizeMemosTag('##todo')).toBe('#todo');
+  });
+
+  it('keeps an empty tag, which means unfiltered', () => {
+    expect(sanitizeMemosTag('')).toBe('');
+    expect(sanitizeMemosTag('   ')).toBe('');
+  });
+
+  // Read out of chrome.storage.sync, which is untyped at the boundary. A
+  // non-string reaching `composeContent` throws inside `submit`, after the
+  // composer has already been disabled — and it never re-enables.
+  it('turns a non-string into no tag instead of passing it on', () => {
+    expect(sanitizeMemosTag(42)).toBe('');
+    expect(sanitizeMemosTag(null)).toBe('');
+    expect(sanitizeMemosTag(undefined)).toBe('');
+    expect(sanitizeMemosTag(['todo'])).toBe('');
   });
 });
 

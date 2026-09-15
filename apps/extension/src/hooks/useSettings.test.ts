@@ -155,6 +155,41 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current.settings.memosUrl).toBe(''));
   });
 
+  // The same defect class as memosUrl above: a stored memosTag is not
+  // guaranteed to be a string, and a non-string one made `composeContent`
+  // throw inside `submit`, leaving the Memos composer disabled for good.
+  it('drops a non-string memosTag on the initial read', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ memosTag: 42 });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.memosTag).toBe('');
+  });
+
+  it('drops a non-string memosTag written through a live storage change', async () => {
+    // A non-empty prior value for the reason the memosUrl test gives: with a
+    // seed of '', a skipped sanitiser would leave '' behind and still pass.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ memosTag: 'todo' });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.memosTag).toBe('todo');
+
+    await act(async () => {
+      result.current.saveSettings({
+        memosTag: 42,
+      } as unknown as Partial<HubSettings>);
+      await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+    });
+
+    await waitFor(() => expect(result.current.settings.memosTag).toBe(''));
+  });
+
   it('keeps a stable saveSettings reference across renders', async () => {
     installChromeStub();
     const useSettings = await loadUseSettings();

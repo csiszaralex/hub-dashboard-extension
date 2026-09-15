@@ -34,11 +34,11 @@ const TABS = [
 export function TabNav({ active, onChange }: { active: TabId; onChange: (tab: TabId) => void }) {
   const { t } = useTranslation();
   return (
-    // A grid, not a flex row: seven tabs across a 340px popup leave ~44px each,
+    // A grid, not a flex row: eight tabs across a 340px popup leave ~38px each,
     // and the buttons' default `min-width: auto` stops flex shrinking them below
     // their label, so the row overflowed and `overflow-hidden` silently clipped
     // the rightmost tabs — Widgets disappeared entirely when Focus was added.
-    // Four columns wrap to 4+3 and give every label room to stay readable.
+    // Four columns wrap to 4+4 and give every label room to stay readable.
     //
     // `min-w-0` on each cell is what makes that permanent rather than lucky. A
     // grid item's `min-width: auto` also resolves to its min-content width, so

@@ -77,3 +77,27 @@ export const memosConnectRoutes = ({
       ? reply(200, { user: { name: tokens[token], username: 'alex', role: 'HOST' } })
       : UNAUTHENTICATED,
 });
+
+/**
+ * `ListMemos` as Memos v0.30 serves it — public, like `instance/profile`.
+ *
+ * A caller whose token the server accepts gets `memos`. Any other caller,
+ * including one whose token has expired, still gets 200 — with only the memos
+ * marked `visibility: 'PUBLIC'`. That is what once made an expired token look
+ * like an account with nothing in it, so the fake must not answer 401 here.
+ */
+export const memosListRoute = ({
+  tokens = {},
+  memos = [],
+}: {
+  tokens?: Record<string, string>;
+  memos?: Record<string, unknown>[];
+} = {}): Record<string, Handler> => ({
+  'GET /api/v1/memos': ({ token }) =>
+    reply(200, {
+      memos: Object.hasOwn(tokens, token)
+        ? memos
+        : memos.filter((memo) => memo.visibility === 'PUBLIC'),
+      nextPageToken: '',
+    }),
+});

@@ -3,6 +3,7 @@ import { memosConnectRoutes, reply, routeFetch } from '../test/memosFetch';
 import {
   archiveMemo,
   createMemo,
+  getCurrentUser,
   listMemos,
   MEMOS_TIMEOUT_MS,
   probe,
@@ -121,6 +122,40 @@ describe('probe', () => {
   it('reports a thrown fetch as network', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
+  });
+});
+
+describe('getCurrentUser', () => {
+  beforeEach(() => vi.unstubAllGlobals());
+
+  // The widget calls this on every refresh to prove the stored token still
+  // works, so it must not also pay for the version check Connect needs.
+  it('returns the account the token belongs to, from auth/me alone', async () => {
+    const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: true, value: 'users/1' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://memo.example.com/api/v1/auth/me',
+      expect.anything(),
+    );
+  });
+
+  // An expired or revoked token looks exactly like one the server never issued.
+  it('reports a token the server no longer accepts as auth', async () => {
+    vi.stubGlobal('fetch', routeFetch(memosConnectRoutes({ tokens: { memos_pat_new: 'users/1' } })));
+    await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'auth' });
+  });
+
+  it('reports a body without a usable user name as a server error', async () => {
+    vi.stubGlobal('fetch', routeFetch({ 'GET /api/v1/auth/me': () => reply(200, { user: {} }) }));
+    await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
+  });
+
+  it('reports a thrown fetch as network', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
   });
 });
 

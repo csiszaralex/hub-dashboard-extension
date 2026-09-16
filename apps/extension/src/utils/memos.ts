@@ -102,6 +102,8 @@ export const isSupportedVersion = (version: unknown): boolean => {
   return true;
 };
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * The memo body to send, with the active filter's tag appended.
  *
@@ -113,10 +115,31 @@ export const composeContent = (text: string, tag: string | null): string => {
   if (!tag || !body) return body;
 
   // Whole word, case-insensitive: `#todolist` must not count as `#todo`.
-  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (new RegExp(`#${escaped}(?![\\w-])`, 'i').test(body)) return body;
+  if (new RegExp(`#${escapeRegExp(tag)}(?![\\w-])`, 'i').test(body)) return body;
 
   return `${body} #${tag}`;
+};
+
+/**
+ * A memo's text with its tags taken out, for display next to tag chips.
+ *
+ * Only the tags the server listed are removed — `Memo.tags` is parsed out of
+ * the content by Memos itself, so a `#` inside a link, in code, or anywhere
+ * else Memos did not read as a tag is left alone rather than guessed at.
+ *
+ * A tag ends where a letter, digit, `_`, `/` or `-` would continue it. `\w` is
+ * not enough for that: it does not cover accented letters, so `#teend` would
+ * match at the start of `#teendő`. Case-insensitive, because Memos keeps only
+ * the first spelling of a tag it meets and the text may hold another.
+ */
+export const stripTags = (text: string, tags: string[]): string => {
+  const longestFirst = tags.filter(Boolean).sort((a, b) => b.length - a.length);
+
+  let result = text;
+  for (const tag of longestFirst) {
+    result = result.replace(new RegExp(`#${escapeRegExp(tag)}(?![\\p{L}\\p{N}_/-])`, 'giu'), '');
+  }
+  return result.replace(/\s+/g, ' ').trim();
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -155,3 +178,12 @@ export const tagsOf = (memos: MemoItem[]): string[] =>
 
 export const filterByTag = (memos: MemoItem[], tag: string | null): MemoItem[] =>
   tag ? memos.filter((memo) => memo.tags.includes(tag)) : memos;
+
+/**
+ * A row's tags worth showing beside it.
+ *
+ * The tag the list is filtered to is left out: every row carries it, so a chip
+ * for it on each one repeats what the filter already says.
+ */
+export const tagsExcept = (tags: string[], exclude: string | null): string[] =>
+  exclude ? tags.filter((tag) => tag !== exclude) : tags;

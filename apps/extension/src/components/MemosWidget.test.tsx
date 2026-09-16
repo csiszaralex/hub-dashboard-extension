@@ -1,32 +1,59 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
-import { UNAUTHENTICATED } from '../test/memosFetch';
+import { memosConnectRoutes, memosListRoute, routeFetch, UNAUTHENTICATED } from '../test/memosFetch';
 
-const payload = {
-  memos: [
-    { name: 'memos/1', creator: 'users/1', content: 'one #todo', snippet: 'one', tags: ['todo'] },
-    { name: 'memos/2', creator: 'users/1', content: 'two #todo', snippet: 'two', tags: ['todo'] },
-    { name: 'memos/3', creator: 'users/1', content: 'three #todo', snippet: 'three', tags: ['todo'] },
-    { name: 'memos/4', creator: 'users/1', content: 'four #todo', snippet: 'four', tags: ['todo'] },
-  ],
-};
+const BASE = 'https://memo.example.com';
+const TOKENS = { memos_pat_x: 'users/1' };
+
+/**
+ * Snippets carry their tags, the way the server writes them: `GenerateSnippet`
+ * renders a tag node back as `#` plus the tag. The widget is what takes them
+ * out again.
+ */
+const payload = [
+  { name: 'memos/1', creator: 'users/1', content: 'one #todo', snippet: 'one #todo', tags: ['todo'] },
+  {
+    name: 'memos/2',
+    creator: 'users/1',
+    content: 'two #todo #proj',
+    snippet: 'two #todo #proj',
+    tags: ['todo', 'proj'],
+  },
+  {
+    name: 'memos/3',
+    creator: 'users/1',
+    content: 'three #todo',
+    snippet: 'three #todo',
+    tags: ['todo'],
+  },
+  { name: 'memos/4', creator: 'users/1', content: 'four #todo', snippet: 'four #todo', tags: ['todo'] },
+];
+
+const cacheOf = (memos: Record<string, unknown>[]) => ({ baseUrl: BASE, memos });
+
+/** Says the server was asked a moment ago, so a load uses the cache instead. */
+const freshCheck = () => ({ baseUrl: BASE, nextAt: Date.now() + 60_000, failure: null });
 
 /** Connected as `users/1`: what a successful Connect leaves behind on this machine. */
-const seedConfigured = () => {
+const seedConfigured = (memosTag = 'todo') => {
   const stub = installChromeStub();
-  stub.seedSync({ memosUrl: 'https://memo.example.com', memosTag: 'todo' });
-  stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
-  stub.grantOrigins(['https://memo.example.com/*']);
+  stub.seedSync({ memosUrl: BASE, memosTag });
+  stub.seedLocal({ memos_server: BASE, memos_token: 'memos_pat_x', memos_user: 'users/1' });
+  stub.grantOrigins([`${BASE}/*`]);
   return stub;
 };
+
+/** A v0.30 server holding `memos`, which accepts only this machine's token. */
+const serve = (memos: Record<string, unknown>[] = payload) =>
+  routeFetch({ ...memosConnectRoutes({ tokens: TOKENS }), ...memosListRoute({ tokens: TOKENS, memos }) });
 
 const respondWith = (status: number, body: unknown) =>
   vi.fn(() =>
     Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) }),
   );
 
-/** A fetch that never reaches the server at all — what `listMemos` reports as `network`. */
+/** A fetch that never reaches the server at all — what the client reports as `network`. */
 const rejectingFetch = () => vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
 /**
@@ -55,7 +82,7 @@ const load = async () => {
 describe('MemosWidget', () => {
   it('shows three rows and a count of the rest', async () => {
     seedConfigured();
-    vi.stubGlobal('fetch', respondWith(200, payload));
+    vi.stubGlobal('fetch', serve());
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -70,7 +97,7 @@ describe('MemosWidget', () => {
   // cost an expand first.
   it('archives straight from a compact row', async () => {
     seedConfigured();
-    vi.stubGlobal('fetch', respondWith(200, payload));
+    vi.stubGlobal('fetch', serve());
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -84,7 +111,7 @@ describe('MemosWidget', () => {
 
   it('expands into the panel and shows the composer', async () => {
     seedConfigured();
-    vi.stubGlobal('fetch', respondWith(200, payload));
+    vi.stubGlobal('fetch', serve());
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -95,7 +122,82 @@ describe('MemosWidget', () => {
     expect(screen.getByPlaceholderText('New memo…')).toBeTruthy();
     expect(screen.getByText('four')).toBeTruthy();
   });
+});
 
+describe('MemosWidget — tags', () => {
+  // The tag is written into the memo's text, and composeContent appends one to
+  // everything the widget itself sends. Left in, every row would repeat the
+  // filter it is already under.
+  it('takes the tags out of the text and shows them as chips', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('two')).toBeTruthy());
+
+    expect(screen.getByText('proj')).toBeTruthy();
+    expect(screen.queryByText('#proj')).toBeNull();
+    expect(screen.queryByText('two #todo #proj')).toBeNull();
+  });
+
+  it('leaves the filtered tag off the rows that all carry it', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+
+    expect(screen.queryByText('todo')).toBeNull();
+  });
+
+  // Nothing but a tag is a perfectly ordinary memo; it should still be a row.
+  it('shows the chip alone when the memo was nothing but a tag', async () => {
+    seedConfigured('');
+    vi.stubGlobal(
+      'fetch',
+      serve([{ name: 'memos/1', creator: 'users/1', content: '#todo', snippet: '#todo', tags: ['todo'] }]),
+    );
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+
+    await waitFor(() => expect(screen.getByText('todo')).toBeTruthy());
+    expect(screen.queryByText('#todo')).toBeNull();
+  });
+
+  it('filters to a tag clicked on a row in the panel', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    fireEvent.click(screen.getByText('+1 more'));
+
+    const row = screen.getByText('two').closest('div') as HTMLElement;
+    fireEvent.click(within(row).getByText('proj'));
+
+    await waitFor(() => expect(screen.queryByText('one')).toBeNull());
+    expect(screen.getByText('two')).toBeTruthy();
+  });
+
+  // In the compact view a click on the row opens the panel; a chip that also
+  // filtered would change what is shown with no filter row to say so.
+  it('shows compact chips as labels rather than buttons', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('two')).toBeTruthy());
+
+    expect(screen.getByText('proj').tagName).toBe('SPAN');
+  });
+});
+
+describe('MemosWidget — setup states', () => {
   // Every user who never set the widget up — which is nearly all of them — has
   // no server. They must not get a Memos prompt on every new tab; the widget is
   // off until it is configured.
@@ -115,9 +217,9 @@ describe('MemosWidget', () => {
   // to act on.
   it('prompts a reconnect when a server is set but this machine has no token for it', async () => {
     const stub = installChromeStub();
-    stub.seedSync({ memosUrl: 'https://memo.example.com', memosTag: 'todo' });
-    stub.seedLocal({ memos_user: 'users/1' });
-    stub.grantOrigins(['https://memo.example.com/*']);
+    stub.seedSync({ memosUrl: BASE, memosTag: 'todo' });
+    stub.seedLocal({ memos_server: BASE, memos_user: 'users/1' });
+    stub.grantOrigins([`${BASE}/*`]);
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -126,7 +228,9 @@ describe('MemosWidget', () => {
       expect(screen.getByText('Reconnect your Memos server in settings')).toBeTruthy(),
     );
   });
+});
 
+describe('MemosWidget — failures', () => {
   // Nothing is cached yet — the very first visit to a configured-but-unreachable
   // server — so "Showing cached memos" would be a lie, and it must not stand
   // next to "Nothing here" either: only one of the two is ever true at once.
@@ -144,7 +248,7 @@ describe('MemosWidget', () => {
 
   it('keeps the cached rows and reports the failure alongside them', async () => {
     const stub = seedConfigured();
-    stub.seedLocal({ memos_cache: { memos: payload.memos.slice(0, 2) } });
+    stub.seedLocal({ memos_cache: cacheOf(payload.slice(0, 2)) });
     vi.stubGlobal('fetch', rejectingFetch());
     const MemosWidget = await load();
 
@@ -154,9 +258,34 @@ describe('MemosWidget', () => {
     expect(screen.getByText('Showing cached memos')).toBeTruthy();
   });
 
+  // An expired token is the one failure that looks like success: the list
+  // endpoint still answers, with public memos only. The user is told, and the
+  // rows they had stay on screen.
+  it('reports a token the server no longer accepts, keeping the cached rows', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: cacheOf(payload.slice(0, 2)) });
+    vi.stubGlobal(
+      'fetch',
+      routeFetch({
+        ...memosConnectRoutes({ tokens: { memos_pat_renewed: 'users/1' } }),
+        ...memosListRoute({ tokens: { memos_pat_renewed: 'users/1' }, memos: [] }),
+      }),
+    );
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Your Memos token is invalid or has expired — reconnect in settings'),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByText('one')).toBeTruthy();
+  });
+
   it('still reports the failure once the panel holding the composer is open', async () => {
     const stub = seedConfigured();
-    stub.seedLocal({ memos_cache: { memos: payload.memos.slice(0, 2) } });
+    stub.seedLocal({ memos_cache: cacheOf(payload.slice(0, 2)) });
     vi.stubGlobal('fetch', rejectingFetch());
     const MemosWidget = await load();
 
@@ -174,7 +303,7 @@ describe('MemosWidget', () => {
   // A write failure gets its own line, next to the load's.
   it('reports a failed submit on its own line, in addition to the load failure', async () => {
     const stub = seedConfigured();
-    stub.seedLocal({ memos_cache: { memos: payload.memos.slice(0, 2) } });
+    stub.seedLocal({ memos_cache: cacheOf(payload.slice(0, 2)) });
     vi.stubGlobal('fetch', rejectingFetch());
     const MemosWidget = await load();
 
@@ -190,7 +319,7 @@ describe('MemosWidget', () => {
 
   it('reports a failed archive where it happened, in the compact view', async () => {
     seedConfigured();
-    vi.stubGlobal('fetch', respondWith(200, payload));
+    vi.stubGlobal('fetch', serve());
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -206,7 +335,7 @@ describe('MemosWidget', () => {
   // The token is the cause the user can act on, so it wins over "not sent".
   it('explains a submit the server refused for the token with the token message', async () => {
     seedConfigured();
-    vi.stubGlobal('fetch', respondWith(200, payload));
+    vi.stubGlobal('fetch', serve());
     const MemosWidget = await load();
 
     render(<MemosWidget />);
@@ -217,8 +346,31 @@ describe('MemosWidget', () => {
     composeAndSubmit('call the bank');
 
     await waitFor(() =>
-      expect(screen.getByText('Your Memos token is invalid or has expired')).toBeTruthy(),
+      expect(
+        screen.getByText('Your Memos token is invalid or has expired — reconnect in settings'),
+      ).toBeTruthy(),
     );
     expect(screen.queryByText('Not sent — kept as a draft')).toBeNull();
+  });
+});
+
+describe('MemosWidget — refreshing', () => {
+  // New tabs use the cache for a few minutes so the server is not asked twice
+  // per tab. The button is how a memo written elsewhere arrives before then.
+  it('asks the server again when refresh is pressed', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: cacheOf(payload.slice(0, 1)), memos_check: freshCheck() });
+    const fetchMock = serve();
+    vi.stubGlobal('fetch', fetchMock);
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Memos'));
+    fireEvent.click(screen.getByTitle('Refresh'));
+
+    await waitFor(() => expect(screen.getByText('two')).toBeTruthy());
   });
 });

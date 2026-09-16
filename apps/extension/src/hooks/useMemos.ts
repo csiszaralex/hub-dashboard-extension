@@ -3,6 +3,7 @@ import { composeContent, filterByTag, type MemoItem, originPattern, tagsOf } fro
 import {
   archiveMemo,
   createMemo,
+  getCurrentUser,
   listMemos,
   type MemosCredentials,
   type MemosFailureReason,
@@ -12,13 +13,36 @@ import { hasOriginPermission } from '../utils/memosPermissions';
 import {
   clearDraft,
   getCachedMemos,
+  getCheck,
+  getConnectedServer,
   getDraft,
   getToken,
   getUser,
   setCachedMemos,
+  setCheck,
   setDraft as persistDraft,
 } from '../utils/memosStorage';
 import { useSettings } from './useSettings';
+
+/**
+ * How long a successful refresh keeps new tabs from asking again.
+ *
+ * Every new tab would otherwise cost two requests, and people open a lot of
+ * tabs. Writes made from the widget land in the cache straight away, so this
+ * only delays memos written somewhere else — and the panel's refresh button
+ * skips it.
+ */
+export const MEMOS_FRESH_MS = 5 * 60_000;
+
+/**
+ * How long a failed refresh waits before a new tab tries again: short enough
+ * that the list recovers soon after the network does, long enough that a day
+ * away from the server is not a request per tab.
+ */
+export const MEMOS_RETRY_MS = 60_000;
+
+/** The local keys a reconnect writes; a change to any means the connection behind the list changed. */
+const CREDENTIAL_KEYS = ['memos_server', 'memos_token', 'memos_user'];
 
 /**
  * `off` is no server at all — every user who never set the widget up — and
@@ -36,9 +60,9 @@ export type MemosStatus = 'loading' | 'off' | 'unconfigured' | 'ready';
  * instances would fetch twice and then disagree the moment either one archived
  * something. `MemosWidget` owns it and passes the result into the panel.
  *
- * Cache first, network behind it. The new tab page must render before the
- * user's own server answers — and on most days, when that server is not
- * reachable at all, the cache is the only thing it will ever have.
+ * Cache first, network behind it — and not on every tab. The new tab page must
+ * render before the user's own server answers, and on most days away from that
+ * server the cache is the only thing it will ever have.
  */
 export const useMemos = () => {
   const { settings, isLoaded } = useSettings();
@@ -51,10 +75,18 @@ export const useMemos = () => {
   const [activeTag, setActiveTag] = useState<string | null>(memosTag || null);
   const [draft, setDraftState] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Read inside the callbacks rather than captured into them: the token lives
   // outside the settings store, so it is not on any render's props.
   const credentials = useRef<MemosCredentials | null>(null);
+  const refreshingRef = useRef(false);
+
+  // Bumped when the token or the account changes in local storage, so a tab
+  // left open reloads after a reconnect. `forceRef` makes that reload ignore
+  // the check, which described the credentials that were just replaced.
+  const [reloadKey, setReloadKey] = useState(0);
+  const forceRef = useRef(false);
 
   // A new tab opens on the configured tag, whatever chip the last one ended on.
   // Adjusted during render rather than in an effect — React's documented way to
@@ -66,52 +98,27 @@ export const useMemos = () => {
     setActiveTag(memosTag || null);
   }
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  /**
+   * Asks the server, and commits what it said only if every part of it holds.
+   *
+   * The token check and the list go out together. `ListMemos` is public, so
+   * with an expired token it still answers — with only public memos, usually
+   * none of this account's — and trusting that blanked the list and overwrote
+   * the offline cache. The list is therefore used only when `auth/me` has
+   * vouched for the token in the same refresh; otherwise the cache stands and
+   * the failure says why.
+   */
+  const refreshFromServer = useCallback(
+    async (creds: MemosCredentials, isStale: () => boolean) => {
+      const [me, list] = await Promise.all([getCurrentUser(creds), listMemos(creds)]);
+      if (isStale()) return;
 
-    let cancelled = false;
-
-    const load = async () => {
-      if (!memosUrl) {
-        credentials.current = null;
-        if (!cancelled) setStatus('off');
-        return;
-      }
-
-      // Show whatever the last visit stored before anything is asked of the
-      // network. One tick, not a round trip.
-      const [cached, savedDraft] = await Promise.all([getCachedMemos(), getDraft()]);
-      if (cancelled) return;
-      if (cached.length > 0) {
-        setAll(cached);
+      const now = Date.now();
+      const reason = !me.ok ? me.reason : !list.ok ? list.reason : null;
+      if (reason || !me.ok || !list.ok) {
+        setFailure(reason);
         setStatus('ready');
-      }
-      if (savedDraft) setDraftState(savedDraft);
-
-      // A revoked permission, or a token or account that never made it to this
-      // machine, is not a network failure — there is nothing to fetch and
-      // nothing to apologise for. Send the user to the popup instead.
-      const [granted, token, user] = await Promise.all([
-        hasOriginPermission(originPattern(memosUrl)),
-        getToken(),
-        getUser(),
-      ]);
-      if (cancelled) return;
-      if (!granted || !token || !user) {
-        credentials.current = null;
-        setStatus('unconfigured');
-        return;
-      }
-
-      credentials.current = { baseUrl: memosUrl, token };
-      const result = await listMemos(credentials.current);
-      if (cancelled) return;
-
-      if (!result.ok) {
-        setFailure(result.reason);
-        // Stay on the cache if there is one; otherwise there is simply nothing
-        // to show, which the widget renders as its empty state.
-        setStatus('ready');
+        void setCheck({ baseUrl: creds.baseUrl, nextAt: now + MEMOS_RETRY_MS, failure: reason });
         return;
       }
 
@@ -119,19 +126,121 @@ export const useMemos = () => {
       // includes other users' public and protected ones. Each would get an
       // archive control, and a host account can archive them — so they go
       // before anything renders, and before the cache can hold them.
-      const own = result.value.filter((memo) => memo.creator === user);
+      const own = list.value.filter((memo) => memo.creator === me.value);
 
       setFailure(null);
       setAll(own);
       setStatus('ready');
-      void setCachedMemos(own);
+      void setCachedMemos(creds.baseUrl, own);
+      void setCheck({ baseUrl: creds.baseUrl, nextAt: now + MEMOS_FRESH_MS, failure: null });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area !== 'local' || !CREDENTIAL_KEYS.some((key) => key in changes)) return;
+      forceRef.current = true;
+      setReloadKey((key) => key + 1);
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    return () => chrome.storage.onChanged.removeListener(onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      const force = forceRef.current;
+      forceRef.current = false;
+
+      if (!memosUrl) {
+        credentials.current = null;
+        if (!cancelled) setStatus('off');
+        return;
+      }
+
+      // Checked before the cache is shown. All three are local and near-instant,
+      // and a widget that cannot be used must not flash its old rows first.
+      // A revoked permission, or a token or account that never made it to this
+      // machine, is not a network failure — there is nothing to fetch and
+      // nothing to apologise for. Send the user to the popup instead.
+      const [granted, server, token, user] = await Promise.all([
+        hasOriginPermission(originPattern(memosUrl)),
+        getConnectedServer(),
+        getToken(),
+        getUser(),
+      ]);
+      if (cancelled) return;
+      // `server !== memosUrl` is a reconnect this tab has only half heard: the
+      // token for the new server has landed, the URL has not. Asking now would
+      // send that token to the old host, so it waits for the settings change.
+      if (!granted || !token || !user || server !== memosUrl) {
+        credentials.current = null;
+        setStatus('unconfigured');
+        return;
+      }
+
+      const creds = { baseUrl: memosUrl, token };
+      credentials.current = creds;
+
+      // Both are kept per server: after another machine moves to a different
+      // one, what this machine holds describes the old server.
+      const [cached, savedDraft, check] = await Promise.all([
+        getCachedMemos(memosUrl),
+        getDraft(),
+        getCheck(memosUrl),
+      ]);
+      if (cancelled) return;
+      setAll(cached);
+      // Never over text already in the field: a reload can land while typing.
+      if (savedDraft) setDraftState((current) => current || savedDraft);
+
+      if (!force && check && Date.now() < check.nextAt) {
+        setFailure(check.failure);
+        setStatus('ready');
+        return;
+      }
+
+      if (cached.length > 0) setStatus('ready');
+      await refreshFromServer(creds, () => cancelled);
     };
 
     void load();
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, memosUrl]);
+  }, [isLoaded, memosUrl, reloadKey, refreshFromServer]);
+
+  /**
+   * A write the server took proves it is reachable and the token still good,
+   * so a failure recorded earlier stops being true — on screen, and in the
+   * check, which the next tab would otherwise read the message back out of.
+   */
+  const noteWriteSucceeded = useCallback(async (baseUrl: string) => {
+    setFailure(null);
+    const current = await getCheck(baseUrl);
+    if (current?.failure) void setCheck({ ...current, failure: null });
+  }, []);
+
+  /** Asks the server now, whatever the check says — the panel's refresh button. */
+  const refresh = useCallback(async () => {
+    const creds = credentials.current;
+    if (!creds || refreshingRef.current) return;
+
+    refreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      // Stale once the credentials it set out with are no longer the current
+      // ones — a disconnect or a server switch that landed mid-refresh.
+      await refreshFromServer(creds, () => credentials.current !== creds);
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [refreshFromServer]);
 
   const setDraft = useCallback((text: string) => {
     setDraftState(text);
@@ -146,23 +255,25 @@ export const useMemos = () => {
    * here is a row that reappears, not a note that is gone.
    */
   const archive = useCallback(async (name: string) => {
-    if (!credentials.current) return;
+    const creds = credentials.current;
+    if (!creds) return;
 
     const previous = all;
     const next = all.filter((memo) => memo.name !== name);
     setAll(next);
     setWriteFailure(null);
 
-    const result = await archiveMemo(credentials.current, name);
+    const result = await archiveMemo(creds, name);
     if (result.ok) {
       setWriteFailure(null);
-      void setCachedMemos(next);
+      void setCachedMemos(creds.baseUrl, next);
+      void noteWriteSucceeded(creds.baseUrl);
       return;
     }
 
     setAll(previous);
     setWriteFailure({ action: 'archive', reason: result.reason });
-  }, [all]);
+  }, [all, noteWriteSucceeded]);
 
   /**
    * Not optimistic: the id and timestamps come from the server, and a phantom
@@ -172,11 +283,12 @@ export const useMemos = () => {
    */
   const submit = useCallback(async () => {
     const text = draft.trim();
-    if (!text || !credentials.current || submitting) return;
+    const creds = credentials.current;
+    if (!text || !creds || submitting) return;
 
     setWriteFailure(null);
     setSubmitting(true);
-    const result = await createMemo(credentials.current, composeContent(text, activeTag));
+    const result = await createMemo(creds, composeContent(text, activeTag));
     setSubmitting(false);
 
     if (!result.ok) {
@@ -190,10 +302,11 @@ export const useMemos = () => {
     void clearDraft();
     setAll((current) => {
       const next = [result.value, ...current];
-      void setCachedMemos(next);
+      void setCachedMemos(creds.baseUrl, next);
       return next;
     });
-  }, [activeTag, draft, submitting]);
+    void noteWriteSucceeded(creds.baseUrl);
+  }, [activeTag, draft, noteWriteSucceeded, submitting]);
 
   return {
     status,
@@ -212,5 +325,8 @@ export const useMemos = () => {
     submit,
     submitting,
     archive,
+    refresh,
+    /** True while `refresh` is waiting on the server. */
+    refreshing,
   };
 };

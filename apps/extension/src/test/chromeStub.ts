@@ -47,7 +47,7 @@ const OPTIONAL_HOST_PATTERNS = [/^https:\/\/[^/]+\/\*$/];
  * three, so this is shared rather than repeated per call site. Manifest
  * membership is a separate check that only `request` applies (see below).
  */
-const assertValidOriginPattern = (origin: string, caller: 'contains' | 'request') => {
+const assertValidOriginPattern = (origin: string, caller: 'contains' | 'request' | 'remove') => {
   if (!/^[a-z-]+:\/\/[^/]+\/./.test(origin)) {
     throw new TypeError(
       `Error in invocation of permissions.${caller}(object permissions, optional function callback): Invalid value for origin pattern: ${origin}`,
@@ -409,6 +409,19 @@ export const installChromeStub = (): ChromeStub => {
           for (const origin of options.origins ?? []) grantedOrigins.add(origin);
         }
         queueMicrotask(() => cb(grantPermissionRequests));
+      },
+      /**
+       * Shape-validated like the other two. Needs no user gesture and shows no
+       * prompt. Reports `true` when something held was actually given up; what
+       * Chrome reports for an origin that was never held is not modelled as
+       * meaningful, so code must not branch on the answer.
+       */
+      remove: (options: { origins?: string[] }, cb?: (removed: boolean) => void) => {
+        const unwanted = options.origins ?? [];
+        for (const origin of unwanted) assertValidOriginPattern(origin, 'remove');
+        let removed = false;
+        for (const origin of unwanted) removed = grantedOrigins.delete(origin) || removed;
+        queueMicrotask(() => cb?.(removed));
       },
     },
     runtime: {

@@ -10,6 +10,7 @@ declare const chrome: {
   permissions: {
     contains: (options: { origins: string[] }, cb: (result: boolean) => void) => void;
     request: (options: { origins: string[] }, cb: (granted: boolean) => void) => void;
+    remove: (options: { origins: string[] }, cb: (removed: boolean) => void) => void;
   };
 };
 
@@ -23,3 +24,13 @@ export const hasOriginPermission = (pattern: string): Promise<boolean> =>
  */
 export const requestOriginPermission = (pattern: string): Promise<boolean> =>
   new Promise((resolve) => chrome.permissions.request({ origins: [pattern] }, resolve));
+
+/**
+ * Hands a server's origin back, when the user disconnects or moves to another
+ * server — so the extension does not keep access to a host it no longer uses.
+ *
+ * Settles with nothing: Chrome's `removed` flag says nothing a caller can act
+ * on, and an origin that was never held is already the wanted end state.
+ */
+export const removeOriginPermission = (pattern: string): Promise<void> =>
+  new Promise((resolve) => chrome.permissions.remove({ origins: [pattern] }, () => resolve()));

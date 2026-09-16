@@ -98,6 +98,34 @@ export interface MemosConnection {
 }
 
 /**
+ * The account the token belongs to — which is also the only proof the token
+ * still works.
+ *
+ * `auth/me` is not public: a missing, expired, revoked or unknown token gets
+ * 401, where `ListMemos` would answer 200 with other users' public memos. The
+ * widget calls this beside every refresh for that reason, and Connect calls it
+ * after the version check. The name is kept, because it is what `Memo.creator`
+ * is matched against to tell this account's own memos from the rest.
+ */
+export const getCurrentUser = async ({
+  baseUrl,
+  token,
+}: MemosCredentials): Promise<MemosResult<string>> => {
+  const me = await request(`${baseUrl}/api/v1/auth/me`, { headers: authHeader(token) });
+  if (!me.ok) return me;
+
+  const json = await readJson(me.response);
+  if (!json.ok) return json;
+
+  // A name the widget cannot match `Memo.creator` against is not an account:
+  // every memo would be filtered out, and the list would sit silently empty.
+  const user = (json.payload as { user?: { name?: unknown } | null } | null)?.user?.name;
+  if (typeof user !== 'string' || !/^users\/.+/.test(user)) return { ok: false, reason: 'server' };
+
+  return { ok: true, value: user };
+};
+
+/**
  * The server's version, then the account the token belongs to.
  *
  * Two calls, because the first cannot prove the token: `instance/profile` is
@@ -106,18 +134,12 @@ export interface MemosConnection {
  * was `/api/v1/workspace/profile` then), and that must map to `version` — an
  * upgrade message — rather than to `server`.
  *
- * `auth/me` is not public: a missing, expired, revoked or unknown token gets
- * 401, which is what makes this the check that a token is real. Its user name
- * is kept, because `ListMemos` returns other users' visible memos too and the
- * widget needs to know which ones are this account's own.
+ * The token itself is then proved by `getCurrentUser`.
  */
-export const probe = async ({
-  baseUrl,
-  token,
-}: MemosCredentials): Promise<MemosResult<MemosConnection>> => {
+export const probe = async (credentials: MemosCredentials): Promise<MemosResult<MemosConnection>> => {
   const profile = await request(
-    `${baseUrl}/api/v1/instance/profile`,
-    { headers: authHeader(token) },
+    `${credentials.baseUrl}/api/v1/instance/profile`,
+    { headers: authHeader(credentials.token) },
     { 404: 'version' },
   );
   if (!profile.ok) return profile;
@@ -128,18 +150,10 @@ export const probe = async ({
   const version = (profileJson.payload as { version?: unknown } | null)?.version;
   if (!isSupportedVersion(version)) return { ok: false, reason: 'version' };
 
-  const me = await request(`${baseUrl}/api/v1/auth/me`, { headers: authHeader(token) });
-  if (!me.ok) return me;
+  const user = await getCurrentUser(credentials);
+  if (!user.ok) return user;
 
-  const meJson = await readJson(me.response);
-  if (!meJson.ok) return meJson;
-
-  // A name the widget cannot match `Memo.creator` against is not a connection:
-  // every memo would be filtered out, and the list would sit silently empty.
-  const user = (meJson.payload as { user?: { name?: unknown } | null } | null)?.user?.name;
-  if (typeof user !== 'string' || !/^users\/.+/.test(user)) return { ok: false, reason: 'server' };
-
-  return { ok: true, value: { version: version as string, user } };
+  return { ok: true, value: { version: version as string, user: user.value } };
 };
 
 /**

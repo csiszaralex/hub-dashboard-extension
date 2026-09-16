@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMemos } from '../hooks/useMemos';
+import { stripTags, tagsExcept } from '../utils/memos';
 import { failureMessageKey, writeFailureMessageKey } from '../utils/memosFailureMessage';
-import { ArchiveButton, MemosPanel } from './MemosPanel';
+import { ArchiveButton, MemosPanel, MemoTags } from './MemosPanel';
 
 /** How many rows the compact view shows before it starts counting. */
 const COMPACT_ROWS = 3;
@@ -31,6 +32,8 @@ export function MemosWidget() {
     submit,
     submitting,
     archive,
+    refresh,
+    refreshing,
   } = useMemos();
 
   // No server set is the widget switched off, not a prompt: nearly every user
@@ -61,6 +64,8 @@ export function MemosWidget() {
           onSubmit={() => void submit()}
           submitting={submitting}
           onCollapse={() => setExpanded(false)}
+          onRefresh={() => void refresh()}
+          refreshing={refreshing}
           failure={failure}
           writeFailure={writeFailure}
         />
@@ -78,17 +83,27 @@ export function MemosWidget() {
     // corner around on every new tab reads as a glitch.
     <div className={`${wrapper} min-h-24 w-64`}>
       {hasRows ? (
-        visible.map((memo) => (
-          <div key={memo.name} className='group flex items-start gap-2 min-w-0 w-full'>
-            <ArchiveButton onClick={() => void archive(memo.name)} title={t('memos.done')} />
-            <button
-              onClick={() => setExpanded(true)}
-              className='text-left text-sm text-white/70 hover:text-white transition-colors truncate min-w-0 flex-1'
-            >
-              {memo.snippet}
-            </button>
-          </div>
-        ))
+        visible.map((memo) => {
+          // Tags out of the text, chips after it — and the text is what gives
+          // way when the row runs out of room, since a chip that truncates
+          // says nothing at all.
+          const text = stripTags(memo.snippet, memo.tags);
+
+          return (
+            <div key={memo.name} className='group flex items-start gap-2 min-w-0 w-full'>
+              <ArchiveButton onClick={() => void archive(memo.name)} title={t('memos.done')} />
+              {text && (
+                <button
+                  onClick={() => setExpanded(true)}
+                  className='text-left text-sm text-white/70 hover:text-white transition-colors truncate min-w-0 flex-1'
+                >
+                  {text}
+                </button>
+              )}
+              <MemoTags tags={tagsExcept(memo.tags, activeTag)} />
+            </div>
+          );
+        })
       ) : (
         // Suppressed under a failure: "Nothing here" next to "Can't reach your
         // Memos server" would be a contradiction, since the truth is that

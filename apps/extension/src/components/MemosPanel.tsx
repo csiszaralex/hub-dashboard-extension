@@ -1,6 +1,6 @@
-import { Check, X } from 'lucide-react';
+import { Check, RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { MemoItem } from '../utils/memos';
+import { type MemoItem, stripTags, tagsExcept } from '../utils/memos';
 import type { MemosFailureReason } from '../utils/memosClient';
 import {
   failureMessageKey,
@@ -16,6 +16,40 @@ import {
  * component rather than the same markup and Tailwind classes typed out twice
  * with the risk of the two silently drifting apart.
  */
+/**
+ * A memo's own tags, beside its text.
+ *
+ * Without `onSelect` they are labels. The compact view uses that: a click on a
+ * compact row opens the panel, and a chip that filtered instead would change
+ * what is shown with no filter row on screen to say so.
+ */
+const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/50';
+
+export function MemoTags({ tags, onSelect }: { tags: string[]; onSelect?: (tag: string) => void }) {
+  if (tags.length === 0) return null;
+
+  return (
+    <span className='flex shrink-0 flex-wrap gap-1'>
+      {tags.map((tag) =>
+        onSelect ? (
+          <button
+            key={tag}
+            type='button'
+            onClick={() => onSelect(tag)}
+            className={`${CHIP} hover:bg-white/20 hover:text-white/80 transition-colors`}
+          >
+            {tag}
+          </button>
+        ) : (
+          <span key={tag} className={CHIP}>
+            {tag}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
+
 export function ArchiveButton({ onClick, title }: { onClick: () => void; title: string }) {
   return (
     <button
@@ -39,6 +73,8 @@ export function MemosPanel({
   onSubmit,
   submitting,
   onCollapse,
+  onRefresh,
+  refreshing,
   failure,
   writeFailure,
 }: {
@@ -52,6 +88,8 @@ export function MemosPanel({
   onSubmit: () => void;
   submitting: boolean;
   onCollapse: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
   failure: MemosFailureReason | null;
   writeFailure: MemosWriteFailure | null;
 }) {
@@ -64,13 +102,28 @@ export function MemosPanel({
         <span className='text-xs font-bold text-white/70 uppercase tracking-widest'>
           {t('memos.title')}
         </span>
-        <button
-          onClick={onCollapse}
-          className='text-white/40 hover:text-white transition-colors'
-          title={t('memos.collapse')}
-        >
-          <X className='w-3.5 h-3.5' />
-        </button>
+        <div className='flex items-center gap-2'>
+          {/*
+            New tabs use the cache for a few minutes rather than asking twice
+            per tab, so this is how a memo written on another device arrives
+            before that window is up.
+          */}
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            className='text-white/40 hover:text-white transition-colors disabled:opacity-50'
+            title={t('memos.refresh')}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={onCollapse}
+            className='text-white/40 hover:text-white transition-colors'
+            title={t('memos.collapse')}
+          >
+            <X className='w-3.5 h-3.5' />
+          </button>
+        </div>
       </div>
 
       {tags.length > 0 && (
@@ -91,7 +144,7 @@ export function MemosPanel({
                 activeTag === tag ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
               }`}
             >
-              {`#${tag}`}
+              {tag}
             </button>
           ))}
         </div>
@@ -99,17 +152,28 @@ export function MemosPanel({
 
       <div className='max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent'>
         {hasRows ? (
-          memos.map((memo) => (
-            <div
-              key={memo.name}
-              className='group flex items-start gap-2 px-4 py-2 hover:bg-white/5 transition-colors'
-            >
-              <ArchiveButton onClick={() => onArchive(memo.name)} title={t('memos.done')} />
-              <span className='text-sm text-white/80 leading-snug wrap-break-word min-w-0'>
-                {memo.snippet}
-              </span>
-            </div>
-          ))
+          memos.map((memo) => {
+            // The tags come out of the text and back as chips: Memos writes
+            // them into the content, and composeContent appends one to
+            // everything sent from here, so leaving them in would repeat the
+            // filter on every row.
+            const text = stripTags(memo.snippet, memo.tags);
+
+            return (
+              <div
+                key={memo.name}
+                className='group flex items-start gap-2 px-4 py-2 hover:bg-white/5 transition-colors'
+              >
+                <ArchiveButton onClick={() => onArchive(memo.name)} title={t('memos.done')} />
+                {text && (
+                  <span className='text-sm text-white/80 leading-snug wrap-break-word min-w-0 flex-1'>
+                    {text}
+                  </span>
+                )}
+                <MemoTags tags={tagsExcept(memo.tags, activeTag)} onSelect={onTagChange} />
+              </div>
+            );
+          })
         ) : (
           // Suppressed under a failure: "Nothing here" next to a failure line
           // would claim there is genuinely nothing, when the truth is that the
@@ -154,7 +218,7 @@ export function MemosPanel({
       >
         {activeTag && (
           <span className='shrink-0 px-1.5 py-0.5 rounded bg-white/15 text-[10px] text-white/70'>
-            {`#${activeTag}`}
+            {activeTag}
           </span>
         )}
         <input

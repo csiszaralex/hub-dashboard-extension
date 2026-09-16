@@ -3,8 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { saveSettings } from '../hooks/useSettings';
 import { normalizeBaseUrl, originPattern } from '../utils/memos';
 import { probe, type MemosFailureReason } from '../utils/memosClient';
-import { requestOriginPermission } from '../utils/memosPermissions';
-import { getToken, setToken, setUser } from '../utils/memosStorage';
+import { removeOriginPermission, requestOriginPermission } from '../utils/memosPermissions';
+import {
+  clearAllMemosData,
+  clearServerData,
+  getToken,
+  setConnectedServer,
+  setToken,
+  setUser,
+} from '../utils/memosStorage';
 import { Field, inputCls } from './Field';
 
 /**
@@ -40,6 +47,7 @@ type ConnectState =
   | { kind: 'idle' }
   | { kind: 'busy' }
   | { kind: 'ok'; version: string }
+  | { kind: 'disconnected' }
   | { kind: 'error'; reason: keyof typeof CONNECT_ERROR_KEY };
 
 // Module scope, like TabNav's TABS and PopupForm's BACKGROUND_SOURCES:
@@ -157,9 +165,23 @@ export function MemosSection({
         return;
       }
 
-      // In this order. An already-open new tab re-runs on the `memosUrl` change
-      // and reads the token and the account straight out of local storage, so
-      // both have to be there before the URL that sends it looking.
+      // Only now that the server has answered for itself: clearing first would
+      // throw away a working setup every time a Connect failed — offline, say.
+      const previousOrigin = originOf(url);
+      const movedServer = previousOrigin !== null && previousOrigin !== new URL(base).origin;
+      // The old server's memos are not this one's, and its check would keep new
+      // tabs from asking this one for minutes. The draft stays: it is text the
+      // user typed, not the old server's data.
+      if (movedServer) await clearServerData();
+
+      // In this order, and the server first of all. An already-open tab reloads
+      // on each of these local writes and asks nothing while the stored server
+      // and its own `memosUrl` disagree — so writing the token before the
+      // server would leave a window in which that tab pairs the new token with
+      // the old URL and sends the credential to the host being left behind.
+      // The URL comes last for the mirror reason: it is what sends the tab
+      // looking, and the credentials have to be there before it does.
+      await setConnectedServer(base);
       await setToken(token.trim());
       await setUser(result.value.user);
       saveSettings({ memosUrl: base });
@@ -169,11 +191,42 @@ export function MemosSection({
       // Keeps the form's own state coherent, so a later Save does not write back
       // the value the field held before Connect normalised it.
       onUrlChange(base);
+      if (movedServer) await removeOriginPermission(`${previousOrigin}/*`);
       setState({ kind: 'ok', version: result.value.version });
     } finally {
       // Cleared on every exit, including a thrown `setToken`/`saveSettings` —
       // otherwise a failed write would leave Connect permanently disabled,
       // worse than today's behaviour where editing a field re-enables it.
+      connectingRef.current = false;
+    }
+  };
+
+  /**
+   * Gives the server up entirely: everything this machine stored for it, the
+   * synced URL, and the host permission.
+   *
+   * All of it is local, so it works with the server unreachable — which is
+   * often exactly when someone wants to be rid of it. It is also the only way
+   * to remove the token short of uninstalling the extension.
+   */
+  const disconnect = async () => {
+    if (connectingRef.current) return;
+    connectingRef.current = true;
+    // Same guard and the same visible state as Connect, so neither button can
+    // be pressed into the other's work.
+    setState({ kind: 'busy' });
+    try {
+      const origin = originOf(url);
+      saveSettings({ memosUrl: '' });
+      onUrlChange('');
+      await clearAllMemosData();
+      if (origin) await removeOriginPermission(`${origin}/*`);
+
+      setDraftUrl('');
+      setTokenInput('');
+      tokenOriginRef.current = null;
+      setState({ kind: 'disconnected' });
+    } finally {
       connectingRef.current = false;
     }
   };
@@ -221,6 +274,21 @@ export function MemosSection({
       )}
       {state.kind === 'error' && (
         <p className='text-[10px] text-red-300/80'>{t(CONNECT_ERROR_KEY[state.reason])}</p>
+      )}
+      {state.kind === 'disconnected' && (
+        <p className='text-[10px] text-white/50'>{t('popup.memosDisconnected')}</p>
+      )}
+
+      {/* Nothing to disconnect from until a server has been saved. */}
+      {url && (
+        <button
+          type='button'
+          onClick={() => void disconnect()}
+          disabled={state.kind === 'busy'}
+          className='w-full border border-white/10 hover:bg-white/10 transition-colors py-2 rounded-md text-sm text-white/70 disabled:opacity-50'
+        >
+          {t('popup.memosDisconnect')}
+        </button>
       )}
 
       <Field id='memosTag' label={t('popup.memosTag')} hint={t('popup.memosTagHint')}>

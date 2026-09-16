@@ -191,6 +191,8 @@
     "more": "+{{count}} more",
     "collapse": "Collapse",
     "refresh": "Refresh",
+    "accessLost": "Chrome no longer has access to your Memos server",
+    "grantAccess": "Reconnect",
     "unconfigured": "Reconnect your Memos server in settings",
     "errorAuth": "Your Memos token is invalid or has expired — reconnect in settings",
     "errorPermission": "Reconnect your Memos server in settings",

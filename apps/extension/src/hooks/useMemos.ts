@@ -9,7 +9,7 @@ import {
   type MemosFailureReason,
 } from '../utils/memosClient';
 import type { MemosWriteFailure } from '../utils/memosFailureMessage';
-import { hasOriginPermission } from '../utils/memosPermissions';
+import { hasOriginPermission, requestOriginPermission } from '../utils/memosPermissions';
 import {
   clearDraft,
   getCachedMemos,
@@ -20,6 +20,7 @@ import {
   getUser,
   setCachedMemos,
   setCheck,
+  setConnectedServer,
   setDraft as persistDraft,
 } from '../utils/memosStorage';
 import { useSettings } from './useSettings';
@@ -46,11 +47,16 @@ const CREDENTIAL_KEYS = ['memos_server', 'memos_token', 'memos_user'];
 
 /**
  * `off` is no server at all — every user who never set the widget up — and
- * renders nothing. `unconfigured` is a server that is set but cannot be used
- * from this machine: no token, no stored account, or no host permission. Only
- * that one is worth a prompt.
+ * renders nothing. `unconfigured` is a server that is set but has no usable
+ * connection on this machine, which takes the popup to sort out.
+ *
+ * `needs-access` is the narrower case worth telling apart: the connection is
+ * whole and only Chrome's host grant is missing. That happens on every reload
+ * of an unpacked build, and whenever someone revokes it by hand — and asking
+ * for it back needs nothing but a click, since a click on the page is the user
+ * gesture `permissions.request` requires.
  */
-export type MemosStatus = 'loading' | 'off' | 'unconfigured' | 'ready';
+export type MemosStatus = 'loading' | 'off' | 'unconfigured' | 'needs-access' | 'ready';
 
 /**
  * The Memos widget's data.
@@ -174,12 +180,31 @@ export const useMemos = () => {
         getUser(),
       ]);
       if (cancelled) return;
-      // `server !== memosUrl` is a reconnect this tab has only half heard: the
-      // token for the new server has landed, the URL has not. Asking now would
-      // send that token to the old host, so it waits for the settings change.
-      if (!granted || !token || !user || server !== memosUrl) {
+      if (!token || !user) {
         credentials.current = null;
         setStatus('unconfigured');
+        return;
+      }
+
+      // A stored server that differs is a reconnect this tab has only half
+      // heard: the token for the new server has landed, the URL has not.
+      // Asking now would send that token to the old host, so it waits for the
+      // settings change. No stored server at all is different — a connection
+      // made before the server was kept beside the token — and demanding a
+      // reconnect for that would make an extension update look like a lost
+      // setup. The configured URL is adopted once; after that this rule guards
+      // it like any other connection.
+      if (!server) {
+        void setConnectedServer(memosUrl);
+      } else if (server !== memosUrl) {
+        credentials.current = null;
+        setStatus('unconfigured');
+        return;
+      }
+
+      if (!granted) {
+        credentials.current = null;
+        setStatus('needs-access');
         return;
       }
 
@@ -224,6 +249,23 @@ export const useMemos = () => {
     const current = await getCheck(baseUrl);
     if (current?.failure) void setCheck({ ...current, failure: null });
   }, []);
+
+  /**
+   * Asks Chrome for the host grant back, and loads once it is given.
+   *
+   * Must be called straight from a click handler: `permissions.request` needs
+   * a user gesture, and the gesture does not survive an `await` — so the
+   * request goes out before anything else here does.
+   */
+  const grantAccess = useCallback(async () => {
+    if (!memosUrl) return;
+
+    const granted = await requestOriginPermission(originPattern(memosUrl));
+    if (!granted) return;
+
+    forceRef.current = true;
+    setReloadKey((key) => key + 1);
+  }, [memosUrl]);
 
   /** Asks the server now, whatever the check says — the panel's refresh button. */
   const refresh = useCallback(async () => {
@@ -328,5 +370,6 @@ export const useMemos = () => {
     refresh,
     /** True while `refresh` is waiting on the server. */
     refreshing,
+    grantAccess,
   };
 };

@@ -212,6 +212,25 @@ describe('MemosWidget — setup states', () => {
     expect(container.innerHTML).toBe('');
   });
 
+  // Chrome drops the host grant every time an unpacked build is reloaded, and
+  // the connection is otherwise intact. Sending the user to the popup to press
+  // Connect again would be busywork: a click on this page is the very gesture
+  // `permissions.request` needs.
+  it('offers one click to get host access back, without opening the popup', async () => {
+    const stub = installChromeStub();
+    stub.seedSync({ memosUrl: BASE, memosTag: 'todo' });
+    stub.seedLocal({ memos_server: BASE, memos_token: 'memos_pat_x', memos_user: 'users/1' });
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('Reconnect')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('Reconnect'));
+
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+  });
+
   // A server is set, so the user did configure it — but this machine has no
   // token for it (the URL syncs, the token does not), so there is something
   // to act on.

@@ -150,7 +150,17 @@ export function MemosPanel({
         </div>
       )}
 
-      <div className='max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent'>
+      {/*
+        Styled through the standard `scrollbar-width` and `scrollbar-color`
+        properties, as `WhatsNewModal` does. The `scrollbar-thin` and
+        `scrollbar-thumb-*` classes this carried before come from a Tailwind
+        plugin this project does not have, so they named nothing and the panel
+        fell back to the platform scrollbar: an opaque light-grey bar with a
+        solid track, the one piece of unstyled OS chrome in a translucent dark
+        interface. The rows keep their own `px-4`, so the bar still sits
+        against the panel edge.
+      */}
+      <div className='max-h-64 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
         {hasRows ? (
           memos.map((memo) => {
             // The tags come out of the text and back as chips: Memos writes

@@ -75,9 +75,11 @@ describe('useMemos — setup', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  // A configured server whose permission was revoked in chrome://extensions is
-  // not a network failure — nothing should be fetched at all.
-  it('is unconfigured when the host permission was revoked', async () => {
+  // Chrome drops the host grant when an unpacked extension is reloaded, and a
+  // user can revoke it by hand. The connection itself is intact, so this is
+  // not "unconfigured": it is one permission away, and asking for it needs
+  // only a click. Nothing is fetched in the meantime.
+  it('needs access, not a reconnect, when only the host permission is gone', async () => {
     const stub = installChromeStub();
     stub.seedSync({ memosUrl: BASE });
     stub.seedLocal({ memos_server: BASE, memos_token: 'memos_pat_x', memos_user: 'users/1' });
@@ -87,7 +89,45 @@ describe('useMemos — setup', () => {
     const { useMemos } = await import('./useMemos');
     const { result } = renderHook(() => useMemos());
 
-    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+    await waitFor(() => expect(result.current.status).toBe('needs-access'));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('loads as soon as the permission is granted back', async () => {
+    const stub = installChromeStub();
+    stub.seedSync({ memosUrl: BASE, memosTag: 'todo' });
+    stub.seedLocal({ memos_server: BASE, memos_token: 'memos_pat_x', memos_user: 'users/1' });
+    vi.stubGlobal('fetch', serve());
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.status).toBe('needs-access'));
+
+    await act(async () => {
+      await result.current.grantAccess();
+    });
+
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+  });
+
+  // A refused prompt leaves it exactly where it was, with nothing sent.
+  it('stays where it is when the prompt is refused', async () => {
+    const stub = installChromeStub();
+    stub.seedSync({ memosUrl: BASE });
+    stub.seedLocal({ memos_server: BASE, memos_token: 'memos_pat_x', memos_user: 'users/1' });
+    stub.denyPermissionRequests();
+    const fetchMock = serve();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.status).toBe('needs-access'));
+
+    await act(async () => {
+      await result.current.grantAccess();
+    });
+
+    expect(result.current.status).toBe('needs-access');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -140,7 +180,7 @@ describe('useMemos — setup', () => {
       return memos;
     });
 
-    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+    await waitFor(() => expect(result.current.status).toBe('needs-access'));
     expect(seen).not.toContain('ready');
   });
 });
@@ -165,6 +205,24 @@ describe('useMemos — the token belongs to one server', () => {
     await waitFor(() => expect(result.current.status).toBe('unconfigured'));
     await act(async () => {});
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // A connection made before the server was kept beside the token has no
+  // server recorded. Demanding a reconnect for that would make every rebuild
+  // or update look like a lost setup; the configured URL is adopted instead,
+  // and from then on the pairing rule guards it like any other.
+  it('adopts the configured server for a connection stored without one', async () => {
+    const stub = installChromeStub();
+    stub.seedSync({ memosUrl: BASE, memosTag: 'todo' });
+    stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
+    stub.grantOrigins([`${BASE}/*`]);
+    vi.stubGlobal('fetch', serve());
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+    expect(stub.readLocal('memos_server')).toBe(BASE);
   });
 
   it('starts once the stored server catches up', async () => {

@@ -34,6 +34,7 @@ export function MemosWidget() {
     archive,
     refresh,
     refreshing,
+    grantAccess,
   } = useMemos();
 
   // No server set is the widget switched off, not a prompt: nearly every user
@@ -46,6 +47,24 @@ export function MemosWidget() {
     return (
       <div className={wrapper}>
         <p className='text-xs text-white/35 max-w-56'>{t('memos.unconfigured')}</p>
+      </div>
+    );
+  }
+
+  // The connection is whole and only Chrome's host grant is missing — which is
+  // what every reload of an unpacked build leaves behind. Asking for it back
+  // is one click, and this click is the gesture that allows the asking, so
+  // there is no reason to send anyone to the popup for it.
+  if (status === 'needs-access') {
+    return (
+      <div className={wrapper}>
+        <p className='text-xs text-white/35 max-w-56'>{t('memos.accessLost')}</p>
+        <button
+          onClick={() => void grantAccess()}
+          className='px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs text-white/80 transition-colors'
+        >
+          {t('memos.grantAccess')}
+        </button>
       </div>
     );
   }

@@ -191,6 +191,8 @@
     "more": "+{{count}} további",
     "collapse": "Összecsuk",
     "refresh": "Frissítés",
+    "accessLost": "A Chrome már nem fér hozzá a Memos szerveredhez",
+    "grantAccess": "Újracsatlakozás",
     "unconfigured": "Csatlakozz újra a Memos szerverhez a beállításokban",
     "errorAuth": "A Memos tokened érvénytelen vagy lejárt — csatlakozz újra a beállításokban",
     "errorPermission": "Csatlakozz újra a Memos szerverhez a beállításokban",

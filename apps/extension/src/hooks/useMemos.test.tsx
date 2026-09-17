@@ -207,22 +207,23 @@ describe('useMemos — the token belongs to one server', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  // A connection made before the server was kept beside the token has no
-  // server recorded. Demanding a reconnect for that would make every rebuild
-  // or update look like a lost setup; the configured URL is adopted instead,
-  // and from then on the pairing rule guards it like any other.
-  it('adopts the configured server for a connection stored without one', async () => {
+  // A token with no server recorded beside it cannot be paired with anything:
+  // the settings URL may have been moved by another machine since, and there
+  // is nothing here to say whether this token was issued for it. Connect in
+  // the popup is what re-establishes the pair, so that is where this goes.
+  it('sends the user to the popup for a token stored without its server', async () => {
     const stub = installChromeStub();
     stub.seedSync({ memosUrl: BASE, memosTag: 'todo' });
     stub.seedLocal({ memos_token: 'memos_pat_x', memos_user: 'users/1' });
     stub.grantOrigins([`${BASE}/*`]);
-    vi.stubGlobal('fetch', serve());
+    const fetchMock = serve();
+    vi.stubGlobal('fetch', fetchMock);
 
     const { useMemos } = await import('./useMemos');
     const { result } = renderHook(() => useMemos());
 
-    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
-    expect(stub.readLocal('memos_server')).toBe(BASE);
+    await waitFor(() => expect(result.current.status).toBe('unconfigured'));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('starts once the stored server catches up', async () => {
@@ -549,6 +550,110 @@ describe('useMemos — asking the server less often', () => {
   });
 });
 
+describe('useMemos — a refresh and a write at the same time', () => {
+  /** A server whose list answer is held open until the returned function is called. */
+  const serveWithHeldList = (extra: Record<string, unknown> = {}) => {
+    const server = routeFetch({
+      ...memosConnectRoutes({ tokens: TOKENS }),
+      ...memosListRoute({ tokens: TOKENS, memos: listPayload.memos }),
+      'PATCH /api/v1/memos/1': () => ({ status: 200, body: {} }),
+      'POST /api/v1/memos': () => ({
+        status: 200,
+        body: { name: 'memos/9', creator: 'users/1', content: 'new one #todo', tags: ['todo'] },
+      }),
+      ...extra,
+    });
+
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+      if (String(input).includes('/api/v1/memos?')) await held;
+      return server(input, init);
+    });
+    return { fetchMock, release: () => release() };
+  };
+
+  // The list this refresh is holding was fetched before the archive was sent,
+  // so it still has the row in it. Committing it would put the row back on
+  // screen and into the cache seconds after the user ticked it off — and the
+  // check is fresh by then, so no other tab would correct it for five minutes.
+  it('does not let a refresh that set out first undo an archive', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: cacheOf(listPayload.memos) });
+    const { fetchMock, release } = serveWithHeldList();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+
+    await act(async () => {
+      await result.current.archive('memos/1');
+    });
+    expect(result.current.memos).toHaveLength(0);
+
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.memos).toHaveLength(0);
+    expect((stub.readLocal('memos_cache') as CacheRecord).memos.map((m) => m.name)).toEqual([
+      'memos/2',
+    ]);
+  });
+
+  it('does not let a refresh that set out first swallow a new memo', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: cacheOf(listPayload.memos) });
+    const { fetchMock, release } = serveWithHeldList();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+
+    act(() => result.current.setDraft('new one'));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.memos.map((m) => m.name)).toContain('memos/9');
+
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.memos.map((m) => m.name)).toContain('memos/9');
+    expect((stub.readLocal('memos_cache') as CacheRecord).memos.map((m) => m.name)).toContain(
+      'memos/9',
+    );
+  });
+
+  // Disconnect wipes local storage from the popup; a refresh still in flight
+  // here would otherwise write the user's memo contents back moments later,
+  // where nothing shows them and nothing else will clear them.
+  it('does not write a cache back for a connection that has been disconnected', async () => {
+    const stub = seedConfigured();
+    stub.seedLocal({ memos_cache: cacheOf(listPayload.memos) });
+    const { fetchMock, release } = serveWithHeldList();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+
+    const { clearAllMemosData } = await import('../utils/memosStorage');
+    await act(async () => {
+      await clearAllMemosData();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(stub.readLocal('memos_cache')).toBeUndefined();
+  });
+});
+
 describe('useMemos — writing', () => {
   it('archives optimistically, keeps it gone on success, and updates the cache', async () => {
     const stub = seedConfigured();
@@ -591,6 +696,27 @@ describe('useMemos — writing', () => {
 
     expect(result.current.failure).toBeNull();
     await waitFor(() => expect((stub.readLocal('memos_check') as CheckRecord).failure).toBeNull());
+  });
+
+  // A write is often the first thing to notice the server has gone, and the
+  // check is what other tabs read. Without recording it, the next tab renders
+  // the cache inside a window that still says everything was fine.
+  it('records a write that could not reach the server, for the tabs that follow', async () => {
+    const stub = seedConfigured();
+    vi.stubGlobal('fetch', serve());
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect((stub.readLocal('memos_check') as CheckRecord).failure).toBeNull());
+
+    vi.stubGlobal('fetch', offline);
+    await act(async () => {
+      await result.current.archive('memos/1');
+    });
+
+    await waitFor(() =>
+      expect((stub.readLocal('memos_check') as CheckRecord).failure).toBe('network'),
+    );
   });
 
   // Safe to be optimistic only because it can be put back.

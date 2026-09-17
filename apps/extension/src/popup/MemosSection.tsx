@@ -150,6 +150,23 @@ export function MemosSection({
     // does not survive an `await` — `setState` does not yield, so disabling the
     // button here still happens inside the same click.
     setState({ kind: 'busy' });
+
+    const previousOrigin = originOf(url);
+    const nextOrigin = new URL(base).origin;
+    const movedServer = previousOrigin !== null && previousOrigin !== nextOrigin;
+    /**
+     * Gives back a grant this attempt asked for, when the attempt then failed.
+     *
+     * Only one it asked for: a grant the user already had for the server they
+     * are reconnecting to is not this failure's to take away. Without this, a
+     * mistyped token would leave the extension holding access to a host it
+     * never managed to use — and on a fresh install there is not even a
+     * Disconnect button yet to hand it back with.
+     */
+    const releaseNewGrant = async () => {
+      if (previousOrigin !== nextOrigin) await removeOriginPermission(originPattern(base));
+    };
+
     try {
       // Still inside the click's gesture — the guard above and the `busy` state
       // it set are what stop a second click during the time this is open.
@@ -162,13 +179,12 @@ export function MemosSection({
       const result = await probe({ baseUrl: base, token: token.trim() });
       if (!result.ok) {
         setState({ kind: 'error', reason: result.reason });
+        await releaseNewGrant();
         return;
       }
 
       // Only now that the server has answered for itself: clearing first would
       // throw away a working setup every time a Connect failed — offline, say.
-      const previousOrigin = originOf(url);
-      const movedServer = previousOrigin !== null && previousOrigin !== new URL(base).origin;
       // The old server's memos are not this one's, and its check would keep new
       // tabs from asking this one for minutes. The draft stays: it is text the
       // user typed, not the old server's data.

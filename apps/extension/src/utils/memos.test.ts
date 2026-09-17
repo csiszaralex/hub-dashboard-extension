@@ -126,6 +126,13 @@ describe('composeContent', () => {
     expect(composeContent('read #todolist', 'todo')).toBe('read #todolist #todo');
   });
 
+  // The same boundary `stripTags` uses. With `\w`, `#teend` would be found
+  // inside `#teendő`, the tag would be judged already present, and the memo
+  // would file under a tag the filter it was written in does not match.
+  it('treats accented letters as part of the word, like stripTags does', () => {
+    expect(composeContent('#teendő mosogatás', 'teend')).toBe('#teendő mosogatás #teend');
+  });
+
   it('leaves the text alone when there is no active tag', () => {
     expect(composeContent('  a thought  ', null)).toBe('a thought');
     expect(composeContent('a thought', '')).toBe('a thought');

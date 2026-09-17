@@ -277,6 +277,45 @@ describe('MemosSection', () => {
   });
 });
 
+describe('MemosSection — a Connect that fails', () => {
+  const held = (origin: string) =>
+    new Promise((resolve) => chrome.permissions.contains({ origins: [`${origin}/*`] }, resolve));
+
+  // The grant is asked for before the server can be probed, because the click's
+  // gesture does not survive an await. A failure after that would otherwise
+  // leave the extension holding access to a host it never managed to use — and
+  // on a fresh install there is no Disconnect button yet to hand it back.
+  it('hands back a grant it had just asked for', async () => {
+    installChromeStub();
+    vi.stubGlobal('fetch', connectable());
+
+    await renderSection('');
+    typeUrl('https://memo.example.com');
+    typeToken('memos_pat_wrong');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+    await expect(held('https://memo.example.com')).resolves.toBe(false);
+  });
+
+  // One it already had is not its to take away: the user is reconnecting to the
+  // server they are already using, and a mistyped token is no reason to make
+  // them grant access to it again.
+  it('keeps a grant it already had when the same server refuses the token', async () => {
+    const stub = installChromeStub();
+    stub.grantOrigins(['https://memo.example.com/*']);
+    vi.stubGlobal('fetch', connectable());
+
+    await renderSection('https://memo.example.com');
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    typeToken('memos_pat_wrong');
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+    await expect(held('https://memo.example.com')).resolves.toBe(true);
+  });
+});
+
 describe('MemosSection — disconnecting', () => {
   const seedConnected = (baseUrl = 'https://memo.example.com') => {
     const stub = installChromeStub();

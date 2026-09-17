@@ -114,8 +114,10 @@ export const composeContent = (text: string, tag: string | null): string => {
   const body = text.trim();
   if (!tag || !body) return body;
 
-  // Whole word, case-insensitive: `#todolist` must not count as `#todo`.
-  if (new RegExp(`#${escapeRegExp(tag)}(?![\\w-])`, 'i').test(body)) return body;
+  // Whole word, case-insensitive, with the same boundary `stripTags` uses:
+  // `#todolist` must not count as `#todo`, and `\w` would not cover an
+  // accented letter, so `#teend` would be found inside `#teendő`.
+  if (new RegExp(`#${escapeRegExp(tag)}(?![\\p{L}\\p{N}_/-])`, 'iu').test(body)) return body;
 
   return `${body} #${tag}`;
 };

@@ -111,7 +111,14 @@ export const getCurrentUser = async ({
   baseUrl,
   token,
 }: MemosCredentials): Promise<MemosResult<string>> => {
-  const me = await request(`${baseUrl}/api/v1/auth/me`, { headers: authHeader(token) });
+  // A 404 is not a missing route to report as a server error: a server
+  // downgraded below 0.30 has no `auth/me` at all, which is an upgrade to ask
+  // for, the same as `instance/profile`'s 404.
+  const me = await request(
+    `${baseUrl}/api/v1/auth/me`,
+    { headers: authHeader(token) },
+    { 404: 'version' },
+  );
   if (!me.ok) return me;
 
   const json = await readJson(me.response);

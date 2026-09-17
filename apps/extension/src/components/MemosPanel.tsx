@@ -8,14 +8,8 @@ import {
   writeFailureMessageKey,
 } from '../utils/memosFailureMessage';
 
-/**
- * The archive control.
- *
- * Identical in the compact row and the panel row — the same action on the
- * same data, not two presentations that happen to look alike — so it is one
- * component rather than the same markup and Tailwind classes typed out twice
- * with the risk of the two silently drifting apart.
- */
+const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/50';
+
 /**
  * A memo's own tags, beside its text.
  *
@@ -23,7 +17,6 @@ import {
  * compact row opens the panel, and a chip that filtered instead would change
  * what is shown with no filter row on screen to say so.
  */
-const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/50';
 
 export function MemoTags({ tags, onSelect }: { tags: string[]; onSelect?: (tag: string) => void }) {
   if (tags.length === 0) return null;
@@ -50,6 +43,14 @@ export function MemoTags({ tags, onSelect }: { tags: string[]; onSelect?: (tag: 
   );
 }
 
+/**
+ * The archive control.
+ *
+ * Identical in the compact row and the panel row — the same action on the
+ * same data, not two presentations that happen to look alike — so it is one
+ * component rather than the same markup and Tailwind classes typed out twice
+ * with the risk of the two silently drifting apart.
+ */
 export function ArchiveButton({ onClick, title }: { onClick: () => void; title: string }) {
   return (
     <button

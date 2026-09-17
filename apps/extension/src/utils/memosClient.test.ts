@@ -148,6 +148,14 @@ describe('getCurrentUser', () => {
     await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'auth' });
   });
 
+  // A server downgraded below 0.30 has no `auth/me` at all. Reading that as a
+  // generic server error would tell the user to look at their server's logs
+  // for what is really an upgrade.
+  it('reads a 404 as an unsupported server', async () => {
+    vi.stubGlobal('fetch', routeFetch({}));
+    await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'version' });
+  });
+
   it('reports a body without a usable user name as a server error', async () => {
     vi.stubGlobal('fetch', routeFetch({ 'GET /api/v1/auth/me': () => reply(200, { user: {} }) }));
     await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: false, reason: 'server' });

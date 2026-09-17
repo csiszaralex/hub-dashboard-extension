@@ -20,7 +20,6 @@ import {
   getUser,
   setCachedMemos,
   setCheck,
-  setConnectedServer,
   setDraft as persistDraft,
 } from '../utils/memosStorage';
 import { useSettings } from './useSettings';
@@ -87,6 +86,8 @@ export const useMemos = () => {
   // outside the settings store, so it is not on any render's props.
   const credentials = useRef<MemosCredentials | null>(null);
   const refreshingRef = useRef(false);
+  /** Bumped by every write the server took, so a refresh can tell it is holding older news. */
+  const writeEpoch = useRef(0);
 
   // Bumped when the token or the account changes in local storage, so a tab
   // left open reloads after a reconnect. `forceRef` makes that reload ignore
@@ -116,8 +117,22 @@ export const useMemos = () => {
    */
   const refreshFromServer = useCallback(
     async (creds: MemosCredentials, isStale: () => boolean) => {
+      const epoch = writeEpoch.current;
       const [me, list] = await Promise.all([getCurrentUser(creds), listMemos(creds)]);
       if (isStale()) return;
+
+      // A write that finished while this was in flight knows more than the list
+      // does: the list was fetched before it. Committing anyway would put an
+      // archived row back, or drop a memo just written — on screen and in the
+      // cache, for as long as the check stays fresh. The same in-memory counter
+      // the service worker's Pomodoro commands use.
+      if (writeEpoch.current !== epoch) return;
+
+      // The connection may also have been cleared or replaced under it, from
+      // the popup. Writing the cache back after a disconnect would leave the
+      // user's memo contents on disk with nothing to show or remove them.
+      const [server, token] = await Promise.all([getConnectedServer(), getToken()]);
+      if (server !== creds.baseUrl || token !== creds.token || isStale()) return;
 
       const now = Date.now();
       const reason = !me.ok ? me.reason : !list.ok ? list.reason : null;
@@ -186,17 +201,14 @@ export const useMemos = () => {
         return;
       }
 
-      // A stored server that differs is a reconnect this tab has only half
-      // heard: the token for the new server has landed, the URL has not.
-      // Asking now would send that token to the old host, so it waits for the
-      // settings change. No stored server at all is different — a connection
-      // made before the server was kept beside the token — and demanding a
-      // reconnect for that would make an extension update look like a lost
-      // setup. The configured URL is adopted once; after that this rule guards
-      // it like any other connection.
-      if (!server) {
-        void setConnectedServer(memosUrl);
-      } else if (server !== memosUrl) {
+      // The token is stored with the server it was issued for, and the two
+      // must agree before anything is sent. A different one is a reconnect
+      // this tab has only half heard — the token for the new server has
+      // landed, the URL has not — and asking now would send that token to the
+      // old host. None at all is a token this build cannot place: the settings
+      // URL may have been moved by another machine since. Either way the popup
+      // is what re-establishes the pair.
+      if (server !== memosUrl) {
         credentials.current = null;
         setStatus('unconfigured');
         return;
@@ -248,6 +260,20 @@ export const useMemos = () => {
     setFailure(null);
     const current = await getCheck(baseUrl);
     if (current?.failure) void setCheck({ ...current, failure: null });
+  }, []);
+
+  /**
+   * A write is often the first thing to notice the server has gone, or that
+   * the token has stopped working, and the check is what the next tab reads.
+   * Left unrecorded, that tab would render the cache inside a window still
+   * saying everything was fine.
+   *
+   * Only for the two that describe the connection: a `server` failure says
+   * something about that one request, not about whether the server is there.
+   */
+  const noteWriteFailed = useCallback((baseUrl: string, reason: MemosFailureReason) => {
+    if (reason !== 'network' && reason !== 'auth') return;
+    void setCheck({ baseUrl, nextAt: Date.now() + MEMOS_RETRY_MS, failure: reason });
   }, []);
 
   /**
@@ -307,6 +333,7 @@ export const useMemos = () => {
 
     const result = await archiveMemo(creds, name);
     if (result.ok) {
+      writeEpoch.current += 1;
       setWriteFailure(null);
       void setCachedMemos(creds.baseUrl, next);
       void noteWriteSucceeded(creds.baseUrl);
@@ -315,7 +342,8 @@ export const useMemos = () => {
 
     setAll(previous);
     setWriteFailure({ action: 'archive', reason: result.reason });
-  }, [all, noteWriteSucceeded]);
+    noteWriteFailed(creds.baseUrl, result.reason);
+  }, [all, noteWriteFailed, noteWriteSucceeded]);
 
   /**
    * Not optimistic: the id and timestamps come from the server, and a phantom
@@ -335,20 +363,22 @@ export const useMemos = () => {
 
     if (!result.ok) {
       setWriteFailure({ action: 'submit', reason: result.reason });
+      noteWriteFailed(creds.baseUrl, result.reason);
       void persistDraft(draft);
       return;
     }
 
+    writeEpoch.current += 1;
     setWriteFailure(null);
     setDraftState('');
     void clearDraft();
-    setAll((current) => {
-      const next = [result.value, ...current];
-      void setCachedMemos(creds.baseUrl, next);
-      return next;
-    });
+    // Computed outside the updater: React double-invokes updaters under
+    // StrictMode, and a storage write is not something to do twice.
+    const next = [result.value, ...all];
+    setAll(next);
+    void setCachedMemos(creds.baseUrl, next);
     void noteWriteSucceeded(creds.baseUrl);
-  }, [activeTag, draft, noteWriteSucceeded, submitting]);
+  }, [activeTag, all, draft, noteWriteFailed, noteWriteSucceeded, submitting]);
 
   return {
     status,

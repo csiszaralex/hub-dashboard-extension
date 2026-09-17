@@ -17,7 +17,9 @@ import type { MemosFailureReason } from './memosClient';
  */
 const FAILURE_KEY = {
   auth: 'memos.errorAuth',
-  permission: 'memos.errorPermission',
+  // The widget shows this state as its own prompt with a button; the copy is
+  // shared so the two can never drift into saying different things.
+  permission: 'memos.accessLost',
   version: 'memos.errorVersion',
   network: 'memos.errorNetwork',
   server: 'memos.errorServer',

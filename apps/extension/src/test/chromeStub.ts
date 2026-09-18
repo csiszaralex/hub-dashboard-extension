@@ -35,6 +35,27 @@ type NotificationOptions = {
 const LOCAL_QUOTA_BYTES = 10_485_760;
 
 /**
+ * Mirrors `optional_host_permissions` in `manifest.json`. Chrome refuses to
+ * request anything outside it, so the stub must too — otherwise a forgotten
+ * manifest entry passes here and fails in every real browser.
+ */
+const OPTIONAL_HOST_PATTERNS = [/^https:\/\/[^/]+\/\*$/];
+
+/**
+ * Chrome parses and validates a match pattern's shape — before `contains`,
+ * `request` or `remove` do anything else with it — the same way for all
+ * three, so this is shared rather than repeated per call site. Manifest
+ * membership is a separate check that only `request` applies (see below).
+ */
+const assertValidOriginPattern = (origin: string, caller: 'contains' | 'request' | 'remove') => {
+  if (!/^[a-z-]+:\/\/[^/]+\/./.test(origin)) {
+    throw new TypeError(
+      `Error in invocation of permissions.${caller}(object permissions, optional function callback): Invalid value for origin pattern: ${origin}`,
+    );
+  }
+};
+
+/**
  * `chrome.storage` stores values as JSON, so what comes back out is always a
  * copy and never the object that went in, and anything JSON cannot represent
  * (a Blob, a Response, a function, `undefined`) is dropped or rejected outright.
@@ -86,6 +107,12 @@ export interface ChromeStub {
   fireStartup: () => void;
   /** Token handed back by `identity.getAuthToken`; `null` simulates a signed-out user. */
   setAuthToken: (token: string | null) => void;
+  /** Pre-grants optional host permissions, as a returning user would already have. */
+  grantOrigins: (patterns: string[]) => void;
+  /** Makes the next `permissions.request` resolve false, as a refused prompt does. */
+  denyPermissionRequests: () => void;
+  /** Current value of a sync storage key — the mirror of `readLocal`. */
+  readSync: (key: string) => unknown;
   /** Every notification successfully created, in order. */
   sentNotifications: () => NotificationOptions[];
   /** Every `runtime.sendMessage` payload in order, whether or not anything received it. */
@@ -112,6 +139,8 @@ export const installChromeStub = (): ChromeStub => {
   const messageLog: unknown[] = [];
   let getCount = 0;
   let authToken: string | null = null;
+  const grantedOrigins = new Set<string>();
+  let grantPermissionRequests = true;
 
   /**
    * Chrome reports a failed call through `runtime.lastError` — readable only
@@ -341,6 +370,60 @@ export const installChromeStub = (): ChromeStub => {
         queueMicrotask(() => cb?.(id));
       },
     },
+    permissions: {
+      /**
+       * Shape is validated on both `contains` and `request`, but manifest
+       * membership only on `request`: `contains` is a plain query against
+       * whatever the extension currently holds, and Chrome answers `false`
+       * for an origin it doesn't have — it does not throw. Mirroring the
+       * membership check here too would make the stub stricter than the
+       * real API, the same infidelity as not modelling it at all.
+       */
+      contains: (options: { origins?: string[] }, cb: (result: boolean) => void) => {
+        const wanted = options.origins ?? [];
+        for (const origin of wanted) assertValidOriginPattern(origin, 'contains');
+        const held = wanted.every((origin) => grantedOrigins.has(origin));
+        queueMicrotask(() => cb(held));
+      },
+      /**
+       * Chrome rejects an origin that `optional_host_permissions` does not
+       * cover, on top of the shape check above — modelling only the prompt
+       * would let a forgotten manifest entry pass a green test and fail on
+       * install.
+       *
+       * The real API also requires a user gesture. That has no meaning in
+       * happy-dom, so it is not modelled; what is modelled is the part a test
+       * can get wrong — that the answer may be `false`.
+       */
+      request: (options: { origins?: string[] }, cb: (granted: boolean) => void) => {
+        for (const origin of options.origins ?? []) {
+          assertValidOriginPattern(origin, 'request');
+          if (!OPTIONAL_HOST_PATTERNS.some((pattern) => pattern.test(origin))) {
+            throw new Error(
+              'Error: Optional permissions must be listed in the extension manifest.',
+            );
+          }
+        }
+
+        if (grantPermissionRequests) {
+          for (const origin of options.origins ?? []) grantedOrigins.add(origin);
+        }
+        queueMicrotask(() => cb(grantPermissionRequests));
+      },
+      /**
+       * Shape-validated like the other two. Needs no user gesture and shows no
+       * prompt. Reports `true` when something held was actually given up; what
+       * Chrome reports for an origin that was never held is not modelled as
+       * meaningful, so code must not branch on the answer.
+       */
+      remove: (options: { origins?: string[] }, cb?: (removed: boolean) => void) => {
+        const unwanted = options.origins ?? [];
+        for (const origin of unwanted) assertValidOriginPattern(origin, 'remove');
+        let removed = false;
+        for (const origin of unwanted) removed = grantedOrigins.delete(origin) || removed;
+        queueMicrotask(() => cb?.(removed));
+      },
+    },
     runtime: {
       id: EXTENSION_ID,
       lastError: undefined as { message: string } | undefined,
@@ -395,6 +478,13 @@ export const installChromeStub = (): ChromeStub => {
       authToken = token;
       chromeStub.runtime.lastError = token ? undefined : { message: 'not signed in' };
     },
+    grantOrigins: (patterns) => {
+      for (const pattern of patterns) grantedOrigins.add(pattern);
+    },
+    denyPermissionRequests: () => {
+      grantPermissionRequests = false;
+    },
+    readSync: (key) => store.get(key),
     sentNotifications: () => [...notifications],
     sentMessages: () => [...messageLog],
   };

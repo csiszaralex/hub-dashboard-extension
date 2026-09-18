@@ -117,7 +117,25 @@
     "pomodoroWork": "Focus length (minutes)",
     "pomodoroBreak": "Break length (minutes)",
     "pomodoroSession": "Current session",
-    "pomodoroSessionHint": "The timer runs in the background, so it keeps going even when the Focus widget is hidden."
+    "pomodoroSessionHint": "The timer runs in the background, so it keeps going even when the Focus widget is hidden.",
+    "tabMemos": "Memos",
+    "memosUrl": "Server URL",
+    "memosUrlHint": "Your own Memos instance. HTTPS only.",
+    "memosToken": "Access token",
+    "memosTokenHint": "Settings → Access Tokens in Memos. Stored on this device only, and never included in a settings export.",
+    "memosDisconnect": "Disconnect",
+    "memosDisconnected": "Disconnected",
+    "memosTag": "Default tag",
+    "memosTagHint": "The tag every new tab opens on. Leave empty to show the newest memos.",
+    "memosConnect": "Connect",
+    "memosConnecting": "Connecting…",
+    "memosConnected": "Connected to Memos {{version}}",
+    "memosErrorUrl": "That is not an https URL",
+    "memosErrorPermission": "Chrome was not given access to that server",
+    "memosErrorAuth": "The server rejected that token",
+    "memosErrorVersion": "Memos 0.30.0 or newer is required",
+    "memosErrorNetwork": "Could not reach that server",
+    "memosErrorServer": "The server returned an error"
   },
   "app": {
     "newBackground": "Request new background",
@@ -144,7 +162,8 @@
     "note": "Quick note",
     "countdown": "Countdown",
     "backgroundInfo": "Photo credit",
-    "pomodoro": "Focus timer"
+    "pomodoro": "Focus timer",
+    "memos": "Memos"
   },
   "pomodoro": {
     "work": "Focus",
@@ -160,5 +179,27 @@
   "quote": {
     "source": "Source",
     "refresh": "New quote"
+  },
+  "memos": {
+    "title": "Memos",
+    "empty": "Nothing here",
+    "all": "All",
+    "placeholder": "New memo…",
+    "submit": "Add",
+    "submitting": "Adding…",
+    "done": "Mark done",
+    "more": "+{{count}} more",
+    "collapse": "Collapse",
+    "refresh": "Refresh",
+    "accessLost": "Chrome no longer has access to your Memos server",
+    "grantAccess": "Reconnect",
+    "unconfigured": "Reconnect your Memos server in settings",
+    "errorAuth": "Your Memos token is invalid or has expired — reconnect in settings",
+    "errorVersion": "Upgrade the server to Memos 0.30.0 or newer",
+    "errorNetwork": "Showing cached memos",
+    "errorUnreachable": "Can't reach your Memos server",
+    "errorServer": "The Memos server returned an error",
+    "writeFailedSubmit": "Not sent — kept as a draft",
+    "writeFailedArchive": "Couldn't mark that done"
   }
 }

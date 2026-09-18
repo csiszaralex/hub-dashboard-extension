@@ -117,7 +117,25 @@
     "pomodoroWork": "Fókusz hossza (perc)",
     "pomodoroBreak": "Szünet hossza (perc)",
     "pomodoroSession": "Aktuális munkamenet",
-    "pomodoroSessionHint": "Az időzítő a háttérben fut, így akkor is jár, ha a Fókusz widget rejtve van."
+    "pomodoroSessionHint": "Az időzítő a háttérben fut, így akkor is jár, ha a Fókusz widget rejtve van.",
+    "tabMemos": "Memos",
+    "memosUrl": "Szerver URL",
+    "memosUrlHint": "A saját Memos példányod. Csak HTTPS.",
+    "memosToken": "Hozzáférési token",
+    "memosTokenHint": "Memos → Beállítások → Access Tokens. Csak ezen a gépen tárolódik, és sosem kerül bele a beállítás-exportba.",
+    "memosDisconnect": "Lecsatlakozás",
+    "memosDisconnected": "Lecsatlakozva",
+    "memosTag": "Alapértelmezett címke",
+    "memosTagHint": "Ezzel a címkével nyit minden új lap. Üresen hagyva a legfrissebb jegyzetek látszanak.",
+    "memosConnect": "Csatlakozás",
+    "memosConnecting": "Csatlakozás…",
+    "memosConnected": "Csatlakozva — Memos {{version}}",
+    "memosErrorUrl": "Ez nem egy https URL",
+    "memosErrorPermission": "A Chrome nem kapott hozzáférést ahhoz a szerverhez",
+    "memosErrorAuth": "A szerver elutasította ezt a tokent",
+    "memosErrorVersion": "Memos 0.30.0 vagy újabb szükséges",
+    "memosErrorNetwork": "A szerver nem érhető el",
+    "memosErrorServer": "A szerver hibát adott vissza"
   },
   "app": {
     "newBackground": "Új háttérkép kérése",
@@ -144,7 +162,8 @@
     "note": "Jegyzet",
     "countdown": "Visszaszámláló",
     "backgroundInfo": "Fotó kredit",
-    "pomodoro": "Fókusz időzítő"
+    "pomodoro": "Fókusz időzítő",
+    "memos": "Memos"
   },
   "pomodoro": {
     "work": "Fókusz",
@@ -160,5 +179,27 @@
   "quote": {
     "source": "Forrás",
     "refresh": "Új idézet"
+  },
+  "memos": {
+    "title": "Memos",
+    "empty": "Nincs itt semmi",
+    "all": "Mind",
+    "placeholder": "Új jegyzet…",
+    "submit": "Hozzáad",
+    "submitting": "Küldés…",
+    "done": "Kész",
+    "more": "+{{count}} további",
+    "collapse": "Összecsuk",
+    "refresh": "Frissítés",
+    "accessLost": "A Chrome már nem fér hozzá a Memos szerveredhez",
+    "grantAccess": "Újracsatlakozás",
+    "unconfigured": "Csatlakozz újra a Memos szerverhez a beállításokban",
+    "errorAuth": "A Memos tokened érvénytelen vagy lejárt — csatlakozz újra a beállításokban",
+    "errorVersion": "Frissítsd a szervert Memos 0.30.0-ra vagy újabbra",
+    "errorNetwork": "Tárolt jegyzetek láthatók",
+    "errorUnreachable": "A Memos szerver nem érhető el",
+    "errorServer": "A Memos szerver hibát adott vissza",
+    "writeFailedSubmit": "Nem ment el — piszkozatként megmaradt",
+    "writeFailedArchive": "Nem sikerült késznek jelölni"
   }
 }

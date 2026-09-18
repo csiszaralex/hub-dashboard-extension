@@ -12,6 +12,7 @@ export const WIDGET_IDS = [
   'countdown',
   'backgroundInfo',
   'pomodoro',
+  'memos',
 ] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];

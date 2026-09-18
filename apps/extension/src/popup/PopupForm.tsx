@@ -11,6 +11,7 @@ import {
 import { type WidgetId } from '../widgets';
 import { Field, inputCls } from './Field';
 import { CalendarsSection, type CalendarListEntry } from './CalendarsSection';
+import { MemosSection } from './MemosSection';
 import { PomodoroSession } from './PomodoroSession';
 import { QuoteSourceSection } from './QuoteSourceSection';
 import { SettingsBackup } from './SettingsBackup';
@@ -61,6 +62,8 @@ export function PopupForm({
   const [quoteQuery, setQuoteQuery] = useState(initialSettings.quoteQuery);
   const [customQuotes, setCustomQuotes] = useState(initialSettings.customQuotes);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(initialSettings.hiddenWidgets);
+  const [memosUrl, setMemosUrl] = useState(initialSettings.memosUrl);
+  const [memosTag, setMemosTag] = useState(initialSettings.memosTag);
   // Held as the raw typed string, not a number: `Number('')` is `0`, so a
   // number-typed state would redisplay `0` the instant the field is cleared
   // and turn a fresh `3` into `03`. Parsed and clamped once, at submit time.
@@ -205,6 +208,8 @@ export function PopupForm({
       quoteQuery,
       customQuotes,
       hiddenWidgets,
+      memosUrl,
+      memosTag,
       // Clamped here too, not just where settings are read back
       // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
       // when another tab is selected, so a value left cleared or corrupt
@@ -401,6 +406,15 @@ export function PopupForm({
 
         {activeTab === 'widgets' && (
           <WidgetsSection hidden={hiddenWidgets} onToggle={toggleWidget} />
+        )}
+
+        {activeTab === 'memos' && (
+          <MemosSection
+            url={memosUrl}
+            tag={memosTag}
+            onUrlChange={setMemosUrl}
+            onTagChange={setMemosTag}
+          />
         )}
       </div>
 

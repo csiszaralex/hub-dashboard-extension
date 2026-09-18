@@ -22,6 +22,8 @@ const baseSettings: HubSettings = {
   quoteSource: 'stoic',
   quoteQuery: '',
   customQuotes: [],
+  memosUrl: '',
+  memosTag: '',
 };
 
 describe('PopupForm', () => {

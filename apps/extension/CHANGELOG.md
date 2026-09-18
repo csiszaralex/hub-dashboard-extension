@@ -1,3 +1,9 @@
+## 2.8.0 (2026-09-18)
+
+### 🚀 Features
+
+- **extension:** show a self-hosted Memos server on the new tab page ([f238444](https://github.com/csiszaralex/hub-dashboard-extension/commit/f238444))
+
 ## 2.7.1 (2026-08-26)
 
 ### 🩹 Fixes

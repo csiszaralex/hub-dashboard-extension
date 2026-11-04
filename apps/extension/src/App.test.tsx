@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from './test/chromeStub';
+import { warmUp } from './test/warmUp';
+
+warmUp(() => Promise.all([import('./i18n/i18n'), import('./App')]));
 
 const QUOTE_WITH_SOURCE = {
   text: 'Üres fejjel lehet megélni, üres gyomorral nem.',

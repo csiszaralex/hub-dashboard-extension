@@ -54,7 +54,11 @@ Extension tests run under happy-dom with stubs for `chrome` and the Cache API
 (`src/test/`). Hooks backed by module-level stores (`useSettings`) must be
 imported inside the test via `await import(...)`, because `src/test/setup.ts`
 calls `vi.resetModules()` before each test to give every test the clean slate a
-fresh page load would have.
+fresh page load would have. That makes a file's first test pay for Vite
+transforming everything its import reaches; a file that loads a large graph
+(`App`, a widget) calls `warmUp` from `src/test/warmUp.ts` so the one-off
+compile runs outside the 20-second test timeout, which a busy machine
+otherwise exceeds.
 
 A test double must model what the real API *enforces*, not just its happy
 path — two bugs have shipped past a green suite here because a stub didn't:

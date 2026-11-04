@@ -13,5 +13,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     }
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
   }
 }

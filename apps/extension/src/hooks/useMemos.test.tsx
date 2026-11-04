@@ -519,8 +519,9 @@ describe('useMemos — asking the server less often', () => {
       await first;
     });
     expect(result.current.refreshing).toBe(false);
-    // One refresh is the token check and the list — two requests, not four.
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // One refresh is the page's API prefix lookup, the token check and the
+    // list — three requests, not five.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   // Reconnecting in the popup writes a new token. A tab left open must pick it
@@ -773,7 +774,8 @@ describe('useMemos — writing', () => {
 
     // Held open, so what is observed is the moment the write starts, not its end.
     let answer: (response: unknown) => void = () => {};
-    vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => (answer = resolve))));
+    const held = vi.fn(() => new Promise((resolve) => (answer = resolve)));
+    vi.stubGlobal('fetch', held);
     let pending: Promise<void> = Promise.resolve();
     act(() => {
       pending = result.current.archive('memos/1');
@@ -781,6 +783,9 @@ describe('useMemos — writing', () => {
     expect(result.current.writeFailure).toBeNull();
 
     await act(async () => {
+      // The request leaves a microtask after the call, once the client has its
+      // remembered API prefix in hand.
+      await vi.waitFor(() => expect(held).toHaveBeenCalled());
       answer({ ok: true, status: 200, json: () => Promise.resolve({}) });
       await pending;
     });

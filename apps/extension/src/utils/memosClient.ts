@@ -38,7 +38,9 @@ const jsonHeaders = (token: string) => ({
 const reasonFor = (status: number): MemosFailureReason =>
   status === 401 || status === 403 ? 'auth' : 'server';
 
-type RequestResult = { ok: false; reason: MemosFailureReason } | { ok: true; response: Response };
+type RequestResult =
+  | { ok: false; reason: MemosFailureReason; status?: number }
+  | { ok: true; response: Response };
 
 /**
  * Fetch with unified error handling.
@@ -62,11 +64,11 @@ const request = async (
   }
 
   if (overrides && response.status in overrides) {
-    return { ok: false, reason: overrides[response.status] };
+    return { ok: false, reason: overrides[response.status], status: response.status };
   }
 
   if (!response.ok) {
-    return { ok: false, reason: reasonFor(response.status) };
+    return { ok: false, reason: reasonFor(response.status), status: response.status };
   }
 
   return { ok: true, response };
@@ -90,6 +92,81 @@ export const readJson = async (
   }
 };
 
+/**
+ * Where a server keeps its REST API, below its base URL.
+ *
+ * Memos 26.10 moved every route from `/api/v1/...` to `/api/...` and left the
+ * JSON as it was; the old prefix answers 410 Gone in that release (404 in later
+ * ones). Both are spoken, since a server is upgraded on its owner's schedule.
+ */
+type ApiPrefix = '/api' | '/api/v1';
+
+/**
+ * Each server's prefix, looked up once per page and shared by every call.
+ *
+ * Not stored: the lookup is one request to a public endpoint, paid only by a
+ * page that talks to the server anyway, and a stored answer would go stale the
+ * day the server is upgraded under a token that survives the upgrade.
+ */
+const prefixes = new Map<string, Promise<MemosResult<ApiPrefix>>>();
+
+/**
+ * `GET /api/instance/profile`: 200 on 26.10 and later. A 0.30 server has no
+ * route there and answers 404, which is the sign to fall back to `/api/v1`. A
+ * server older than 0.30 404s there as well, and `probe` reports `version`.
+ */
+const lookUpPrefix = async ({ baseUrl, token }: MemosCredentials): Promise<MemosResult<ApiPrefix>> => {
+  const profile = await request(`${baseUrl}/api/instance/profile`, {
+    headers: authHeader(token),
+  });
+  if (profile.ok) return { ok: true, value: '/api' };
+  if (profile.status === 404) return { ok: true, value: '/api/v1' };
+  return { ok: false, reason: profile.reason };
+};
+
+/** The remembered lookup, or a new one. A failed lookup is forgotten, so the next call tries again. */
+const prefixFor = (credentials: MemosCredentials): Promise<MemosResult<ApiPrefix>> => {
+  const known = prefixes.get(credentials.baseUrl);
+  if (known) return known;
+
+  const pending = lookUpPrefix(credentials).then((result) => {
+    if (!result.ok && prefixes.get(credentials.baseUrl) === pending) {
+      prefixes.delete(credentials.baseUrl);
+    }
+    return result;
+  });
+  prefixes.set(credentials.baseUrl, pending);
+  return pending;
+};
+
+/**
+ * `request` against `path` under the server's API prefix.
+ *
+ * A 410 is the server saying the prefix moved — it was upgraded while this
+ * page was open — so the lookup is forgotten and the request sent once more.
+ * Resending a write is safe for the same reason: a removed route has nothing
+ * behind it that could have run it.
+ */
+const call = async (
+  credentials: MemosCredentials,
+  path: string,
+  init?: RequestInit,
+  overrides?: Record<number, MemosFailureReason>,
+  retried = false,
+): Promise<RequestResult> => {
+  const lookup = prefixFor(credentials);
+  const prefix = await lookup;
+  if (!prefix.ok) return prefix;
+
+  const result = await request(`${credentials.baseUrl}${prefix.value}${path}`, init, overrides);
+  if (!result.ok && result.status === 410 && !retried) {
+    if (prefixes.get(credentials.baseUrl) === lookup) prefixes.delete(credentials.baseUrl);
+    return call(credentials, path, init, overrides, true);
+  }
+  // The status was only for the line above; callers get the four-way reason.
+  return result.ok ? result : { ok: false, reason: result.reason };
+};
+
 /** What a successful Connect has proved about the server and the token. */
 export interface MemosConnection {
   version: string;
@@ -107,16 +184,16 @@ export interface MemosConnection {
  * after the version check. The name is kept, because it is what `Memo.creator`
  * is matched against to tell this account's own memos from the rest.
  */
-export const getCurrentUser = async ({
-  baseUrl,
-  token,
-}: MemosCredentials): Promise<MemosResult<string>> => {
+export const getCurrentUser = async (
+  credentials: MemosCredentials,
+): Promise<MemosResult<string>> => {
   // A 404 is not a missing route to report as a server error: a server
   // downgraded below 0.30 has no `auth/me` at all, which is an upgrade to ask
   // for, the same as `instance/profile`'s 404.
-  const me = await request(
-    `${baseUrl}/api/v1/auth/me`,
-    { headers: authHeader(token) },
+  const me = await call(
+    credentials,
+    '/auth/me',
+    { headers: authHeader(credentials.token) },
     { 404: 'version' },
   );
   if (!me.ok) return me;
@@ -137,15 +214,16 @@ export const getCurrentUser = async ({
  *
  * Two calls, because the first cannot prove the token: `instance/profile` is
  * public and answers 200 for a wrong token or none at all. It is still first,
- * since its 404 is how an instance older than 0.30 presents itself (the route
- * was `/api/v1/workspace/profile` then), and that must map to `version` — an
- * upgrade message — rather than to `server`.
+ * since its 404 under `/api/v1` is how an instance older than 0.30 presents
+ * itself (the route was `/api/v1/workspace/profile` then), and that must map to
+ * `version` — an upgrade message — rather than to `server`.
  *
  * The token itself is then proved by `getCurrentUser`.
  */
 export const probe = async (credentials: MemosCredentials): Promise<MemosResult<MemosConnection>> => {
-  const profile = await request(
-    `${credentials.baseUrl}/api/v1/instance/profile`,
+  const profile = await call(
+    credentials,
+    '/instance/profile',
     { headers: authHeader(credentials.token) },
     { 404: 'version' },
   );
@@ -166,16 +244,15 @@ export const probe = async (credentials: MemosCredentials): Promise<MemosResult<
 /**
  * The newest memos, archived ones excluded by the request itself.
  *
- * `state` is a first-class list parameter in v0.30, so nothing has to be
+ * `state` is a first-class list parameter since v0.30, so nothing has to be
  * filtered out afterwards. Tag filtering stays client-side: chips then cost
  * zero requests, which is what matters on a page that opens constantly.
  */
-export const listMemos = async ({
-  baseUrl,
-  token,
-}: MemosCredentials): Promise<MemosResult<MemoItem[]>> => {
-  const result = await request(`${baseUrl}/api/v1/memos?pageSize=${PAGE_SIZE}&state=NORMAL`, {
-    headers: authHeader(token),
+export const listMemos = async (
+  credentials: MemosCredentials,
+): Promise<MemosResult<MemoItem[]>> => {
+  const result = await call(credentials, `/memos?pageSize=${PAGE_SIZE}&state=NORMAL`, {
+    headers: authHeader(credentials.token),
   });
 
   if (!result.ok) return result;
@@ -190,12 +267,12 @@ export const listMemos = async ({
 };
 
 export const createMemo = async (
-  { baseUrl, token }: MemosCredentials,
+  credentials: MemosCredentials,
   content: string,
 ): Promise<MemosResult<MemoItem>> => {
-  const result = await request(`${baseUrl}/api/v1/memos`, {
+  const result = await call(credentials, '/memos', {
     method: 'POST',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders(credentials.token),
     body: JSON.stringify({ content, visibility: 'PRIVATE' }),
   });
 
@@ -220,12 +297,12 @@ export const createMemo = async (
  * `memos/` prefix — it is the resource name, not a bare id.
  */
 export const archiveMemo = async (
-  { baseUrl, token }: MemosCredentials,
+  credentials: MemosCredentials,
   name: string,
 ): Promise<MemosResult<null>> => {
-  const result = await request(`${baseUrl}/api/v1/${name}?updateMask=state`, {
+  const result = await call(credentials, `/${name}?updateMask=state`, {
     method: 'PATCH',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders(credentials.token),
     body: JSON.stringify({ state: 'ARCHIVED' }),
   });
 

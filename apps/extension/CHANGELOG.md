@@ -1,3 +1,13 @@
+## 2.8.1 (2026-11-04)
+
+### 🩹 Fixes
+
+- **extension:** follow the Memos 26.10 move from /api/v1 to /api ([a84c6c0](https://github.com/csiszaralex/hub-dashboard-extension/commit/a84c6c0))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.6
+
 ## 2.8.0 (2026-09-18)
 
 ### 🚀 Features

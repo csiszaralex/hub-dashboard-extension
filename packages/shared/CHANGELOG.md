@@ -1,3 +1,9 @@
+## 0.1.6 (2026-11-04)
+
+### 🩹 Fixes
+
+- **shared:** give typecheck its own typescript ([e20620f](https://github.com/csiszaralex/hub-dashboard-extension/commit/e20620f))
+
 ## 0.1.5 (2026-08-26)
 
 ### 🚀 Features

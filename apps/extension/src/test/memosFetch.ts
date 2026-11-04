@@ -21,6 +21,23 @@ export const UNAUTHENTICATED: FakeReply = reply(401, {
 /** What the gateway answers for a route this server does not have. */
 const NOT_FOUND: FakeReply = reply(404, { code: 5, message: 'Not Found', details: [] });
 
+/**
+ * Where a Memos server serves its REST API: `/api/v1` up to 0.30, `/api` from
+ * 26.10 on. The JSON on either side is the same.
+ */
+export type MemosApi = '/api' | '/api/v1';
+
+/**
+ * What a 26.10+ server answers for anything under `/api/v1`: 410 Gone, gRPC
+ * `FailedPrecondition` (code 12). Measured against 26.11.0, message shortened.
+ * Only the release that removed v1 does this — later ones are to answer 404.
+ */
+const V1_GONE: FakeReply = reply(410, { code: 12, message: 'API v1 has been removed. Use /api/...' });
+
+/** Whether a route table describes a server on the post-26.10 prefix. */
+const servesNewApi = (routes: Record<string, unknown>): boolean =>
+  Object.keys(routes).some((key) => / \/api\/(?!v1\/)/.test(key));
+
 export interface FakeRequest {
   url: URL;
   init: RequestInit | undefined;
@@ -36,7 +53,9 @@ type Handler = (request: FakeRequest) => FakeReply;
  *
  * Keys are `'GET /api/v1/auth/me'`. Anything not routed gets the 404 a real
  * server would send — not a rejection, which the client would read as a
- * network failure and so hide a request to the wrong URL.
+ * network failure and so hide a request to the wrong URL. A table with routes
+ * on the new `/api` prefix is a 26.10+ server, so an unrouted `/api/v1` path
+ * gets that release's 410 instead.
  */
 export const routeFetch = (routes: Record<string, Handler>) =>
   vi.fn((input: string, init?: RequestInit) => {
@@ -46,7 +65,9 @@ export const routeFetch = (routes: Record<string, Handler>) =>
     const authorization = new Headers(init?.headers).get('Authorization') ?? '';
     const token = authorization.replace(/^Bearer\s*/, '');
 
-    const { status, body } = handler ? handler({ url, init, token }) : NOT_FOUND;
+    const unrouted =
+      servesNewApi(routes) && url.pathname.startsWith('/api/v1/') ? V1_GONE : NOT_FOUND;
+    const { status, body } = handler ? handler({ url, init, token }) : unrouted;
     return Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
@@ -55,7 +76,8 @@ export const routeFetch = (routes: Record<string, Handler>) =>
   });
 
 /**
- * The two endpoints Connect calls, as Memos v0.30 serves them.
+ * The two endpoints Connect calls, as Memos serves them on `api` — v0.30's
+ * `/api/v1` unless the test asks for a 26.10+ server.
  *
  * The asymmetry is the whole point. `instance/profile` is public: it answers
  * 200 for any token, a wrong one or none at all, so it can never prove a token.
@@ -65,21 +87,23 @@ export const routeFetch = (routes: Record<string, Handler>) =>
  * `tokens` maps each token the server accepts to its user's resource name.
  */
 export const memosConnectRoutes = ({
-  version = '0.30.0',
+  api = '/api/v1',
+  version = api === '/api' ? '26.11.0' : '0.30.0',
   tokens = {},
 }: {
+  api?: MemosApi;
   version?: string;
   tokens?: Record<string, string>;
 } = {}): Record<string, Handler> => ({
-  'GET /api/v1/instance/profile': () => reply(200, { version, commit: 'abc123' }),
-  'GET /api/v1/auth/me': ({ token }) =>
+  [`GET ${api}/instance/profile`]: () => reply(200, { version, commit: 'abc123' }),
+  [`GET ${api}/auth/me`]: ({ token }) =>
     Object.hasOwn(tokens, token)
       ? reply(200, { user: { name: tokens[token], username: 'alex', role: 'HOST' } })
       : UNAUTHENTICATED,
 });
 
 /**
- * `ListMemos` as Memos v0.30 serves it — public, like `instance/profile`.
+ * `ListMemos` as Memos serves it on `api` — public, like `instance/profile`.
  *
  * A caller whose token the server accepts gets `memos`. Any other caller,
  * including one whose token has expired, still gets 200 — with only the memos
@@ -87,13 +111,15 @@ export const memosConnectRoutes = ({
  * like an account with nothing in it, so the fake must not answer 401 here.
  */
 export const memosListRoute = ({
+  api = '/api/v1',
   tokens = {},
   memos = [],
 }: {
+  api?: MemosApi;
   tokens?: Record<string, string>;
   memos?: Record<string, unknown>[];
 } = {}): Record<string, Handler> => ({
-  'GET /api/v1/memos': ({ token }) =>
+  [`GET ${api}/memos`]: ({ token }) =>
     reply(200, {
       memos: Object.hasOwn(tokens, token)
         ? memos

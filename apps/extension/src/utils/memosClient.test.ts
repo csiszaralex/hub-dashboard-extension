@@ -1,25 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { memosConnectRoutes, reply, routeFetch } from '../test/memosFetch';
-import {
-  archiveMemo,
-  createMemo,
-  getCurrentUser,
-  listMemos,
-  MEMOS_TIMEOUT_MS,
-  probe,
-  readJson,
-} from './memosClient';
+import { memosConnectRoutes, memosListRoute, reply, routeFetch } from '../test/memosFetch';
+import type * as Client from './memosClient';
+
+// Imported per test: the client remembers each server's API prefix for the
+// life of the page, and every test is a fresh page.
+let archiveMemo: typeof Client.archiveMemo;
+let createMemo: typeof Client.createMemo;
+let getCurrentUser: typeof Client.getCurrentUser;
+let listMemos: typeof Client.listMemos;
+let MEMOS_TIMEOUT_MS: typeof Client.MEMOS_TIMEOUT_MS;
+let probe: typeof Client.probe;
+let readJson: typeof Client.readJson;
+
+beforeEach(async () => {
+  ({ archiveMemo, createMemo, getCurrentUser, listMemos, MEMOS_TIMEOUT_MS, probe, readJson } =
+    await import('./memosClient'));
+});
 
 const credentials = { baseUrl: 'https://memo.example.com', token: 'memos_pat_x' };
 
-const respondWith = (status: number, body: unknown) =>
-  vi.fn(() =>
-    Promise.resolve({
-      ok: status >= 200 && status < 300,
-      status,
-      json: () => Promise.resolve(body),
-    }),
-  );
+/** Every URL a fetch mock was called with, in order. */
+const urls = (fetchMock: { mock: { calls: unknown[][] } }) =>
+  fetchMock.mock.calls.map(([input]) => String(input));
 
 describe('probe', () => {
   beforeEach(() => vi.unstubAllGlobals());
@@ -129,17 +131,17 @@ describe('getCurrentUser', () => {
   beforeEach(() => vi.unstubAllGlobals());
 
   // The widget calls this on every refresh to prove the stored token still
-  // works, so it must not also pay for the version check Connect needs.
+  // works, so it must not also pay for the version check Connect needs. The
+  // page's one prefix lookup is the only other request.
   it('returns the account the token belongs to, from auth/me alone', async () => {
     const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(getCurrentUser(credentials)).resolves.toEqual({ ok: true, value: 'users/1' });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(urls(fetchMock)).toEqual([
+      'https://memo.example.com/api/instance/profile',
       'https://memo.example.com/api/v1/auth/me',
-      expect.anything(),
-    );
+    ]);
   });
 
   // An expired or revoked token looks exactly like one the server never issued.
@@ -170,19 +172,25 @@ describe('getCurrentUser', () => {
 describe('listMemos', () => {
   beforeEach(() => vi.unstubAllGlobals());
 
+  const listing = (body: unknown, status = 200) =>
+    routeFetch({
+      ...memosConnectRoutes({ api: '/api' }),
+      'GET /api/memos': () => reply(status, body),
+    });
+
   it('asks only for normal-state memos', async () => {
-    const fetchMock = respondWith(200, { memos: [] });
+    const fetchMock = listing({ memos: [] });
     vi.stubGlobal('fetch', fetchMock);
     await listMemos(credentials);
-    expect((fetchMock.mock.calls[0] as unknown[])[0]).toBe(
-      'https://memo.example.com/api/v1/memos?pageSize=200&state=NORMAL',
+    expect(urls(fetchMock)).toContain(
+      'https://memo.example.com/api/memos?pageSize=200&state=NORMAL',
     );
   });
 
   it('returns parsed memos', async () => {
     vi.stubGlobal(
       'fetch',
-      respondWith(200, { memos: [{ name: 'memos/1', content: 'a #todo', tags: ['todo'] }] }),
+      listing({ memos: [{ name: 'memos/1', content: 'a #todo', tags: ['todo'] }] }),
     );
     const result = await listMemos(credentials);
     expect(result).toMatchObject({ ok: true });
@@ -190,12 +198,12 @@ describe('listMemos', () => {
   });
 
   it('reports a malformed body as a server error', async () => {
-    vi.stubGlobal('fetch', respondWith(200, { nope: true }));
+    vi.stubGlobal('fetch', listing({ nope: true }));
     await expect(listMemos(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
   });
 
   it('reports a 500 as a server error', async () => {
-    vi.stubGlobal('fetch', respondWith(500, {}));
+    vi.stubGlobal('fetch', listing({}, 500));
     await expect(listMemos(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
   });
 });
@@ -204,12 +212,16 @@ describe('createMemo', () => {
   beforeEach(() => vi.unstubAllGlobals());
 
   it('posts the content and returns the created memo', async () => {
-    const fetchMock = respondWith(200, { name: 'memos/new', content: 'a #todo', tags: ['todo'] });
+    const fetchMock = routeFetch({
+      ...memosConnectRoutes({ api: '/api' }),
+      'POST /api/memos': () =>
+        reply(200, { name: 'memos/new', content: 'a #todo', tags: ['todo'] }),
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await createMemo(credentials, 'a #todo');
 
-    expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/memos', {
+    expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/memos', {
       method: 'POST',
       headers: {
         Authorization: 'Bearer memos_pat_x',
@@ -222,7 +234,10 @@ describe('createMemo', () => {
   });
 
   it('reports a rejected write as a server error', async () => {
-    vi.stubGlobal('fetch', respondWith(400, {}));
+    vi.stubGlobal(
+      'fetch',
+      routeFetch({ ...memosConnectRoutes({ api: '/api' }), 'POST /api/memos': () => reply(400) }),
+    );
     await expect(createMemo(credentials, 'a')).resolves.toEqual({ ok: false, reason: 'server' });
   });
 });
@@ -233,13 +248,18 @@ describe('archiveMemo', () => {
   // The resource name already carries the `memos/` prefix, so the URL must not
   // add a second one.
   it('patches the resource name with an updateMask', async () => {
-    const fetchMock = respondWith(200, {});
+    const fetchMock = routeFetch({
+      ...memosConnectRoutes({ api: '/api' }),
+      'PATCH /api/memos/abc': () => reply(200),
+    });
     vi.stubGlobal('fetch', fetchMock);
 
-    await archiveMemo(credentials, 'memos/abc');
-
+    await expect(archiveMemo(credentials, 'memos/abc')).resolves.toEqual({
+      ok: true,
+      value: null,
+    });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://memo.example.com/api/v1/memos/abc?updateMask=state',
+      'https://memo.example.com/api/memos/abc?updateMask=state',
       {
         method: 'PATCH',
         headers: {
@@ -261,6 +281,131 @@ describe('archiveMemo', () => {
   });
 });
 
+describe('API prefix', () => {
+  beforeEach(() => vi.unstubAllGlobals());
+
+  const tokens = { memos_pat_x: 'users/1' };
+
+  /** A 26.10+ server: everything under /api, and 410 for anything under /api/v1. */
+  const currentServer = () =>
+    routeFetch({
+      ...memosConnectRoutes({ api: '/api', tokens }),
+      ...memosListRoute({ api: '/api', tokens }),
+      'POST /api/memos': () => reply(200, { name: 'memos/new', content: 'a' }),
+      'PATCH /api/memos/abc': () => reply(200),
+    });
+
+  /** A 0.30 server: everything under /api/v1, and 404 for the rest. */
+  const legacyServer = () =>
+    routeFetch({ ...memosConnectRoutes({ tokens }), ...memosListRoute({ tokens }) });
+
+  // 26.10 moved every route from /api/v1 to /api and answers the old prefix
+  // with 410. Nothing may still be sent there.
+  it('talks to a 26.10+ server under /api only', async () => {
+    const fetchMock = currentServer();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(probe(credentials)).resolves.toEqual({
+      ok: true,
+      value: { version: '26.11.0', user: 'users/1' },
+    });
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+    await expect(createMemo(credentials, 'a')).resolves.toMatchObject({ ok: true });
+    await expect(archiveMemo(credentials, 'memos/abc')).resolves.toMatchObject({ ok: true });
+
+    expect(urls(fetchMock).filter((url) => url.includes('/api/v1/'))).toEqual([]);
+  });
+
+  // A 0.30 server has nothing under /api but v1, so its 404 on the new
+  // profile route is the sign to use the old prefix, not a failure.
+  it('falls back to /api/v1 on a server that 404s the new profile route', async () => {
+    const fetchMock = legacyServer();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(probe(credentials)).resolves.toEqual({
+      ok: true,
+      value: { version: '0.30.0', user: 'users/1' },
+    });
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+
+    expect(urls(fetchMock)).toEqual([
+      'https://memo.example.com/api/instance/profile',
+      'https://memo.example.com/api/v1/instance/profile',
+      'https://memo.example.com/api/v1/auth/me',
+      'https://memo.example.com/api/v1/memos?pageSize=200&state=NORMAL',
+    ]);
+  });
+
+  // A refresh sends `auth/me` and the list together; they must share one
+  // lookup rather than each paying for its own.
+  it('looks the prefix up once for calls made together', async () => {
+    const fetchMock = currentServer();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await Promise.all([getCurrentUser(credentials), listMemos(credentials)]);
+    await listMemos(credentials);
+
+    expect(urls(fetchMock).filter((url) => url.endsWith('/instance/profile'))).toHaveLength(1);
+  });
+
+  it('keeps the prefix per server', async () => {
+    const current = currentServer();
+    const legacy = legacyServer();
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+      input.startsWith('https://old.example.com/') ? legacy(input, init) : current(input, init),
+    );
+
+    await expect(listMemos({ ...credentials, baseUrl: 'https://old.example.com' })).resolves
+      .toMatchObject({ ok: true });
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+
+    expect(urls(legacy)).toContain(
+      'https://old.example.com/api/v1/memos?pageSize=200&state=NORMAL',
+    );
+    expect(urls(current)).toContain(
+      'https://memo.example.com/api/memos?pageSize=200&state=NORMAL',
+    );
+  });
+
+  // Offline is the everyday case. Remembering that lookup's failure would keep
+  // the page from reaching the server once it is back.
+  it('does not remember a lookup that failed', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(listMemos(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
+
+    vi.stubGlobal('fetch', currentServer());
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+  });
+
+  // The server can be upgraded under an open tab. Its 410 on v1 means "the API
+  // moved", not a broken server: the page looks again and resends once.
+  it('looks again and resends once when a v1 route answers 410', async () => {
+    vi.stubGlobal('fetch', legacyServer());
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+
+    const upgraded = currentServer();
+    vi.stubGlobal('fetch', upgraded);
+
+    await expect(listMemos(credentials)).resolves.toMatchObject({ ok: true });
+    expect(urls(upgraded)).toEqual([
+      'https://memo.example.com/api/v1/memos?pageSize=200&state=NORMAL',
+      'https://memo.example.com/api/instance/profile',
+      'https://memo.example.com/api/memos?pageSize=200&state=NORMAL',
+    ]);
+  });
+
+  it('reports a 410 that persists after looking again as a server error', async () => {
+    const fetchMock = routeFetch({
+      ...memosConnectRoutes({ api: '/api' }),
+      'GET /api/memos': () => reply(410),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listMemos(credentials)).resolves.toEqual({ ok: false, reason: 'server' });
+    expect(urls(fetchMock).filter((url) => url.includes('/memos?'))).toHaveLength(2);
+  });
+});
+
 describe('request timeout', () => {
   beforeEach(() => vi.unstubAllGlobals());
 
@@ -270,10 +415,10 @@ describe('request timeout', () => {
   it('gives every request a signal that aborts after the timeout', async () => {
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
     const fetchMock = routeFetch({
-      ...memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }),
-      'GET /api/v1/memos': () => reply(200, { memos: [] }),
-      'POST /api/v1/memos': () => reply(200, { name: 'memos/new', content: 'a' }),
-      'PATCH /api/v1/memos/abc': () => reply(200, {}),
+      ...memosConnectRoutes({ api: '/api', tokens: { memos_pat_x: 'users/1' } }),
+      'GET /api/memos': () => reply(200, { memos: [] }),
+      'POST /api/memos': () => reply(200, { name: 'memos/new', content: 'a' }),
+      'PATCH /api/memos/abc': () => reply(200, {}),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -282,9 +427,9 @@ describe('request timeout', () => {
     await createMemo(credentials, 'a');
     await archiveMemo(credentials, 'memos/abc');
 
-    // profile, auth/me, list, create, archive
-    expect(fetchMock).toHaveBeenCalledTimes(5);
-    expect(timeoutSpy).toHaveBeenCalledTimes(5);
+    // prefix lookup, profile, auth/me, list, create, archive
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(timeoutSpy).toHaveBeenCalledTimes(6);
     for (const call of timeoutSpy.mock.calls) expect(call).toEqual([MEMOS_TIMEOUT_MS]);
     fetchMock.mock.calls.forEach(([, init], i) => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);

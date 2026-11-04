@@ -82,7 +82,7 @@ describe('originPattern', () => {
   });
 
   // A subpath instance still needs the whole origin: Chrome grants host access
-  // per origin, and the API lives at /api/v1 regardless of where the UI sits.
+  // per origin, and the API lives under /api regardless of where the UI sits.
   it('widens a subpath to its origin', () => {
     expect(originPattern('https://example.com/memos')).toBe('https://example.com/*');
   });
@@ -93,6 +93,8 @@ describe('isSupportedVersion', () => {
     expect(isSupportedVersion('0.30.0')).toBe(true);
     expect(isSupportedVersion('0.30.1')).toBe(true);
     expect(isSupportedVersion('0.31.0')).toBe(true);
+    // Calendar versioning from 26.10 on: the major part alone clears the floor.
+    expect(isSupportedVersion('26.11.0')).toBe(true);
     expect(isSupportedVersion('1.0.0')).toBe(true);
   });
 

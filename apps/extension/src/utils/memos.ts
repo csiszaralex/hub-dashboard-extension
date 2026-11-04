@@ -5,6 +5,10 @@
  * repeatedly — `rowStatus` became `state`, the CEL filter syntax was reworked,
  * and in 0.30 `workspace_service` was renamed to `instance_service` outright.
  * A dual-shape parser would be guesswork against versions nobody runs.
+ *
+ * The one later move this does follow is 26.10's, because it changed where the
+ * routes live (`/api/v1/...` became `/api/...`) and not what they answer: the
+ * client looks the prefix up per server rather than parsing anything twice.
  */
 export const MIN_MEMOS_VERSION = '0.30.0';
 

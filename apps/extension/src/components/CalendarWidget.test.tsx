@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { warmUp } from '../test/warmUp';
+
+warmUp(() => Promise.all([import('../i18n/i18n'), import('./CalendarWidget')]));
 
 const CALENDAR_LIST = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
 

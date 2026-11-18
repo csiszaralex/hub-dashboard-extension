@@ -33,7 +33,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # A pull request only checks what it touched; a push to main checks
-      # everything, so the release that follows is never unverified.
+      # everything, because release.yml starts from this run's success and
+      # tags the commit it passed.
       - name: Check affected projects
         if: github.event_name == 'pull_request'
         run: pnpm nx affected --base=origin/${{ github.base_ref }} -t typecheck lint test build

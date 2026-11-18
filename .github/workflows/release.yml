@@ -1,9 +1,14 @@
 name: Release
 
+# A release starts when Check has finished for a push to main, never on the
+# push itself. Started side by side, the two raced: the tags were cut and the
+# deploy workflows were running before the tests had reported, and nothing
+# stopped a red tree from shipping.
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [Check]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: release-main
@@ -11,32 +16,63 @@ concurrency:
 
 jobs:
   release:
+    # `workflow_run` fires for every finished Check: the failed and cancelled
+    # ones, and the Check of a pull request whose head branch is itself called
+    # main. Only a passing Check of a push to main may release.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          # A `workflow_run` job is handed the default branch, not the commit
+          # that was checked, so the branch is named and then compared below.
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.ACTION_PAT }}
 
+      # Check vouched for one commit, and main may have moved since. A later
+      # push has a Check run of its own on the way, and that run covers
+      # everything before it, so the release is left to that one.
+      - name: Confirm main is the commit Check passed
+        id: verified
+        env:
+          CHECKED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          head="$(git rev-parse HEAD)"
+          if [ "$head" = "$CHECKED_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::main is at $head but Check passed for $CHECKED_SHA; leaving the release to the newer commit's Check."
+          fi
+
       - name: Install pnpm
+        if: steps.verified.outputs.current == 'true'
         uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
+        if: steps.verified.outputs.current == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: steps.verified.outputs.current == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Configure Git
+        if: steps.verified.outputs.current == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run Nx Release
+        if: steps.verified.outputs.current == 'true'
         run: pnpm nx release
         env:
           GITHUB_TOKEN: ${{ secrets.ACTION_PAT }}

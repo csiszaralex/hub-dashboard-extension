@@ -37,8 +37,10 @@ const LOCAL_QUOTA_BYTES = 10_485_760;
 /**
  * `chrome.storage.sync`'s limits: `QUOTA_BYTES`, `QUOTA_BYTES_PER_ITEM` and
  * `MAX_ITEMS`. The write-rate limits (`MAX_WRITE_OPERATIONS_PER_MINUTE` and
- * `_PER_HOUR`) are not modelled: nothing here writes in a loop, and a test
- * would have to make over a hundred calls to reach one.
+ * `_PER_HOUR`) are not modelled: nothing here writes in a loop (the popup's
+ * text fields write once per pause, see `useDraftSetting`'s
+ * `DRAFT_SAVE_DELAY_MS`), and a test would have to make over a hundred calls
+ * to reach one.
  */
 const SYNC_QUOTA_BYTES = 102_400;
 const SYNC_QUOTA_BYTES_PER_ITEM = 8_192;

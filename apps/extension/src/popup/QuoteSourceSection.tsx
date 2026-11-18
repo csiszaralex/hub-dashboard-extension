@@ -11,6 +11,8 @@ import {
   serializeCustomQuotes,
 } from '../utils/customQuotes';
 import { Field, inputCls } from './Field';
+import { useSave } from './saveStatus';
+import { useDraftSetting } from './useDraftSetting';
 
 interface ApiSource {
   id: string;
@@ -19,14 +21,15 @@ interface ApiSource {
 }
 
 interface Props {
+  /** The stored settings, read once when the section mounts. */
   source: string;
   query: string;
-  language: string;
   customQuotes: QuoteData[];
-  onSourceChange: (source: string) => void;
-  onQueryChange: (query: string) => void;
-  onCustomQuotesChange: (quotes: QuoteData[]) => void;
+  language: string;
 }
+
+/** What the textarea's text keeps: the quotes that fit, and how many did not. */
+const fitText = (text: string) => fitCustomQuotes(parseCustomQuotes(text));
 
 /**
  * Picks where the daily quote comes from.
@@ -37,16 +40,30 @@ interface Props {
  * fewer option instead of one that fails on every request.
  */
 export function QuoteSourceSection({
-  source,
-  query,
-  language,
+  source: storedSource,
+  query: storedQuery,
   customQuotes,
-  onSourceChange,
-  onQueryChange,
-  onCustomQuotesChange,
+  language,
 }: Props) {
   const { t } = useTranslation();
+  const { save } = useSave();
   const [sources, setSources] = useState<ApiSource[] | null>(null);
+  const [source, setSource] = useState(storedSource);
+  const query = useDraftSetting(storedQuery, (value) => ({ quoteQuery: value }));
+  /**
+   * The textarea holds raw text while it is being edited, so a half-typed line
+   * is not reformatted under the cursor. It is serialised from the stored
+   * quotes only when the editor mounts, and parsed when it is written.
+   */
+  const quotesText = useDraftSetting(serializeCustomQuotes(customQuotes), (text) => ({
+    customQuotes: fitText(text).kept,
+  }));
+  /**
+   * How many typed quotes fit and how many the list cannot hold, said under
+   * the textarea as the user types: the draft keeps every line, so without
+   * this the ones past the budget would vanish only on the next open.
+   */
+  const fitted = fitText(quotesText.draft);
 
   useEffect(() => {
     let live = true;
@@ -70,35 +87,24 @@ export function QuoteSourceSection({
   const selected = usable.find((entry) => entry.id === source);
   const isCustom = source === CUSTOM_QUOTE_SOURCE;
 
-  /**
-   * The textarea holds raw text while it is being edited, so a half-typed line
-   * is not reformatted under the cursor. It is parsed on every change — the
-   * parent stores quotes, not text — but only serialised back when the editor
-   * mounts.
-   */
-  const [draft, setDraft] = useState(() => serializeCustomQuotes(customQuotes));
-  /**
-   * How many typed quotes the list cannot hold, said under the textarea as the
-   * user types: the draft keeps every line, so without this the ones past the
-   * budget would vanish only on the next open of the popup.
-   */
-  const [dropped, setDropped] = useState(0);
-
   return (
     <>
       <Field id='quoteSource' label={t('popup.quoteSource')} hint={t('popup.quoteSourceHint')}>
         <select
           id='quoteSource'
           value={source}
-          onChange={(e) => onSourceChange(e.target.value)}
+          onChange={(e) => {
+            setSource(e.target.value);
+            void save({ quoteSource: e.target.value });
+          }}
           className={inputCls}
           disabled={sources === null}
         >
           {/*
             The saved value is always an option, even before the list arrives or
             when it no longer contains it. Without this the select would show
-            whatever happens to be first and silently save that on the next
-            submit — changing a preference the user never touched.
+            whatever happens to be first, claiming a preference the user never
+            chose.
           */}
           {!selected && <option value={source}>{source || DEFAULT_QUOTE_SOURCE_ID}</option>}
           {usable.map((entry) => (
@@ -123,22 +129,18 @@ export function QuoteSourceSection({
         >
           <textarea
             id='customQuotes'
-            value={draft}
+            value={quotesText.draft}
             rows={5}
             placeholder={t('popup.customQuotesPlaceholder')}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              const fitted = fitCustomQuotes(parseCustomQuotes(e.target.value));
-              setDropped(fitted.dropped);
-              onCustomQuotesChange(fitted.kept);
-            }}
+            onChange={(e) => quotesText.change(e.target.value)}
+            onBlur={quotesText.flush}
             className={inputCls}
           />
           <p className='text-[10px] text-white/40'>
-            {t('popup.customQuotesCount', { count: customQuotes.length })}
-            {dropped > 0 && (
+            {t('popup.customQuotesCount', { count: fitted.kept.length })}
+            {fitted.dropped > 0 && (
               <span className='ml-1 text-amber-300/80'>
-                {t('popup.customQuotesDropped', { count: dropped })}
+                {t('popup.customQuotesDropped', { count: fitted.dropped })}
               </span>
             )}
           </p>
@@ -150,8 +152,9 @@ export function QuoteSourceSection({
           <input
             id='quoteQuery'
             type='text'
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            value={query.draft}
+            onChange={(e) => query.change(e.target.value)}
+            onBlur={query.flush}
             placeholder={t('popup.quoteQueryPlaceholder')}
             className={inputCls}
           />

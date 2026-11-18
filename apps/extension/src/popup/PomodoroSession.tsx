@@ -48,15 +48,11 @@ export function PomodoroSession() {
           </span>
         </div>
         {/*
-          `type='button'` on both, and not by habit: a <button> inside a <form>
-          defaults to `type="submit"`, so a click on either of these would run
-          the popup's save handler and write every pending field on the form as
-          a side effect of pressing Start.
-
-          They also do not route through that handler on purpose. Start and
-          Reset are commands — they post their message to the worker the moment
-          they are pressed, unlike the two length fields above them, which are
-          settings and wait for "Apply settings" like everything else.
+          Start and Reset are commands, not settings: they post their message
+          to the worker the moment they are pressed and write nothing to
+          `chrome.storage.sync`, unlike the two length fields above them.
+          `type='button'` keeps them inert should they ever end up in a <form>,
+          where a <button> defaults to `type="submit"`.
         */}
         <div className='flex gap-2 shrink-0'>
           {/*

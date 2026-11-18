@@ -18,7 +18,7 @@ export function Popup() {
       <h2 className='text-base font-semibold text-white/90 border-b border-white/10 pb-2.5'>
         {t('popup.title')}
       </h2>
-      <PopupForm initialSettings={settings} onSave={saveSettings} />
+      <PopupForm settings={settings} onSave={saveSettings} />
     </div>
   );
 }

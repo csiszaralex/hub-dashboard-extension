@@ -121,7 +121,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
 
 export const CalendarWidget = () => {
   const { settings, isLoaded: settingsLoaded } = useSettings();
-  const { events, signedIn, login, loading } = useCalendar(
+  const { status, events, refreshFailed, login, retry } = useCalendar(
     settings.selectedCalendars,
     settingsLoaded,
   );
@@ -132,9 +132,39 @@ export const CalendarWidget = () => {
     [events],
   );
 
-  if (!settingsLoaded || loading) return null;
+  if (!settingsLoaded || status === 'loading') return null;
 
-  if (!signedIn) {
+  // Neither state may fall through to the empty-day copy below: that tells the
+  // user they are free. For `needs-sign-in` the click on this button is the
+  // gesture the interactive sign-in needs, so the way back is here rather than
+  // in the popup.
+  if (status === 'needs-sign-in' || status === 'failed') {
+    const needsSignIn = status === 'needs-sign-in';
+    return (
+      <div className='absolute top-8 left-8 flex items-center gap-3 px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl'>
+        <div className='p-1.5 bg-white/5 rounded-full text-amber-300'>
+          <Calendar className='w-4 h-4' />
+        </div>
+        <p className='text-sm text-white/80'>
+          {needsSignIn ? t('calendar.signInAgainHint') : t('calendar.loadFailed')}
+        </p>
+        <button
+          onClick={needsSignIn ? login : retry}
+          className='px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs text-white/80 transition-colors shrink-0'
+        >
+          {needsSignIn ? t('calendar.signInAgain') : t('calendar.retry')}
+        </button>
+      </div>
+    );
+  }
+
+  // A refresh that failed after a success: the events below are the last ones
+  // Google sent, which is better than nothing but should not pass for current.
+  const staleNote = refreshFailed && (
+    <p className='text-[10px] text-white/40'>{t('calendar.refreshFailed')}</p>
+  );
+
+  if (status === 'signed-out') {
     return (
       <div className='absolute top-8 left-8'>
         <button
@@ -157,6 +187,7 @@ export const CalendarWidget = () => {
         <div>
           <p className='text-sm font-bold text-white/90'>{t('calendar.empty')}</p>
           <p className='text-[10px] text-white/50 uppercase tracking-wider'>{t('calendar.flowState')}</p>
+          {staleNote}
         </div>
       </div>
     );
@@ -203,6 +234,8 @@ export const CalendarWidget = () => {
           </div>
         )}
       </div>
+
+      {staleNote && <div className='px-2.5'>{staleNote}</div>}
     </div>
   );
 };

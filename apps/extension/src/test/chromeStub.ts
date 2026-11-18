@@ -52,6 +52,14 @@ const SYNC_MAX_ITEMS = 512;
 const OPTIONAL_HOST_PATTERNS = [/^https:\/\/[^/]+\/\*$/];
 
 /**
+ * What a non-interactive `identity.getAuthToken` fails with when it would need
+ * a prompt: no account signed in to Chrome, or one whose grant is gone. Worded
+ * as Chromium's `kUserNotSignedIn` and `kNoGrant` (`identity_constants.h`).
+ */
+const NOT_SIGNED_IN = 'The user is not signed in.';
+const GRANT_REVOKED = 'OAuth2 not granted or revoked.';
+
+/**
  * Chrome parses and validates a match pattern's shape — before `contains`,
  * `request` or `remove` do anything else with it — the same way for all
  * three, so this is shared rather than repeated per call site. Manifest
@@ -159,8 +167,35 @@ export interface ChromeStub {
   fireInstalled: (reason: string) => void;
   /** Delivers `runtime.onStartup`. */
   fireStartup: () => void;
-  /** Token handed back by `identity.getAuthToken`; `null` simulates a signed-out user. */
+  /**
+   * Puts `token` in Chrome's token cache, as for a user who signed in and
+   * consented earlier, so `identity.getAuthToken` hands it out without a
+   * prompt. `null` simulates a signed-out user: nothing cached.
+   */
   setAuthToken: (token: string | null) => void;
+  /**
+   * The token an interactive `getAuthToken` obtains when nothing is cached, as
+   * if the user completed the sign-in prompt. `null`, the default, is the user
+   * closing it.
+   */
+  completePromptWith: (token: string | null) => void;
+  /**
+   * Google stops accepting the cached token, while Chrome keeps handing it out
+   * until `removeCachedAuthToken` drops it; after that, `fresh` comes back
+   * without a prompt.
+   */
+  expireCachedToken: (fresh: string) => void;
+  /**
+   * The user revoked the grant: the cached token is rejected, and once it is
+   * removed a new one cannot be had without a prompt.
+   */
+  revokeGrant: () => void;
+  /** Whether Google would accept `token` — for a test's `fetch` fake to answer 401 by. */
+  acceptsToken: (token: string | null) => boolean;
+  /** Every token passed to `removeCachedAuthToken`, in order. */
+  removedTokens: () => string[];
+  /** Every `getAuthToken` call in order, by whether it was interactive. */
+  authTokenRequests: () => { interactive: boolean }[];
   /** Pre-grants optional host permissions, as a returning user would already have. */
   grantOrigins: (patterns: string[]) => void;
   /** Makes the next `permissions.request` resolve false, as a refused prompt does. */
@@ -192,7 +227,18 @@ export const installChromeStub = (): ChromeStub => {
   const notifications: NotificationOptions[] = [];
   const messageLog: unknown[] = [];
   let getCount = 0;
-  let authToken: string | null = null;
+  /** What Chrome's in-memory token cache holds: handed out without a prompt. */
+  let cachedToken: string | null = null;
+  /** Takes the cached token's place once it is removed; see `expireCachedToken`. */
+  let replacementToken: string | null = null;
+  /** What an interactive call obtains when nothing is cached; `null` is the user closing the prompt. */
+  let promptToken: string | null = null;
+  /** Why a non-interactive call failed, in Chrome's words. */
+  let nonInteractiveFailure = NOT_SIGNED_IN;
+  /** Tokens Google would accept: issued by this stub and not since rejected. */
+  const issuedTokens = new Set<string>();
+  const removedTokenLog: string[] = [];
+  const identityCalls: { interactive: boolean }[] = [];
   const grantedOrigins = new Set<string>();
   let grantPermissionRequests = true;
 
@@ -438,8 +484,74 @@ export const installChromeStub = (): ChromeStub => {
       },
     },
     identity: {
-      getAuthToken: (_options: { interactive: boolean }, cb: (token: string) => void) =>
-        queueMicrotask(() => cb(authToken as string)),
+      /**
+       * Hands out the cached token when there is one, interactive or not.
+       * Without one, only an interactive call can get a new token (the
+       * "prompt"), and a non-interactive call fails: Chrome's docs say it
+       * "will return failure any time a prompt would be required", and a stub
+       * that answered anyway let code that never asks the user look signed in.
+       *
+       * Chrome reports the failure through `runtime.lastError` in the callback
+       * form, which receives the token as a plain first argument, and by
+       * rejecting in the Promise form, which resolves with `{ token }` instead.
+       * `grantedScopes` is left out: Chrome supplies it only "when available",
+       * and nothing here reads it.
+       */
+      getAuthToken: (
+        options?: { interactive?: boolean },
+        cb?: (token?: string) => void,
+      ): Promise<{ token?: string }> | undefined => {
+        identityCalls.push({ interactive: options?.interactive === true });
+        const outcome = (): string | Error => {
+          if (cachedToken) return cachedToken;
+          if (options?.interactive && promptToken) {
+            cachedToken = promptToken;
+            issuedTokens.add(promptToken);
+            return cachedToken;
+          }
+          // Chromium's `kUserRejected`: the prompt was closed.
+          if (options?.interactive) return new Error('The user did not approve access.');
+          return new Error(nonInteractiveFailure);
+        };
+        if (!cb) {
+          return new Promise((resolve, reject) =>
+            queueMicrotask(() => {
+              const result = outcome();
+              if (result instanceof Error) reject(result);
+              else resolve({ token: result });
+            }),
+          );
+        }
+        queueMicrotask(() => {
+          const result = outcome();
+          if (result instanceof Error) {
+            failCallback(() => cb(), result.message);
+            return;
+          }
+          cb(result);
+        });
+        return undefined;
+      },
+      /**
+       * Drops the token from Chrome's cache, which is all it does: it does not
+       * revoke anything at Google. What the next `getAuthToken` returns is the
+       * replacement a test arranged with `expireCachedToken`, or nothing
+       * without a prompt after `revokeGrant`.
+       */
+      removeCachedAuthToken: (
+        details: { token: string },
+        cb?: () => void,
+      ): Promise<void> | undefined => {
+        removedTokenLog.push(details.token);
+        if (cachedToken === details.token) {
+          cachedToken = replacementToken;
+          if (replacementToken) issuedTokens.add(replacementToken);
+          replacementToken = null;
+        }
+        if (!cb) return new Promise((resolve) => queueMicrotask(resolve));
+        queueMicrotask(cb);
+        return undefined;
+      },
     },
     notifications: {
       /**
@@ -566,9 +678,26 @@ export const installChromeStub = (): ChromeStub => {
     fireInstalled: (reason) => installedListeners.forEach((l) => l({ reason })),
     fireStartup: () => startupListeners.forEach((l) => l()),
     setAuthToken: (token) => {
-      authToken = token;
-      chromeStub.runtime.lastError = token ? undefined : { message: 'not signed in' };
+      cachedToken = token;
+      replacementToken = null;
+      nonInteractiveFailure = NOT_SIGNED_IN;
+      if (token) issuedTokens.add(token);
     },
+    completePromptWith: (token) => {
+      promptToken = token;
+    },
+    expireCachedToken: (fresh) => {
+      if (cachedToken) issuedTokens.delete(cachedToken);
+      replacementToken = fresh;
+    },
+    revokeGrant: () => {
+      if (cachedToken) issuedTokens.delete(cachedToken);
+      replacementToken = null;
+      nonInteractiveFailure = GRANT_REVOKED;
+    },
+    acceptsToken: (token) => token !== null && issuedTokens.has(token),
+    removedTokens: () => [...removedTokenLog],
+    authTokenRequests: () => [...identityCalls],
     grantOrigins: (patterns) => {
       for (const pattern of patterns) grantedOrigins.add(pattern);
     },

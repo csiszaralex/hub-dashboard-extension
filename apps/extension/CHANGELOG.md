@@ -1,3 +1,9 @@
+## 2.8.10 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** keep the quick note's last keystrokes when the tab closes ([eaa2e98](https://github.com/csiszaralex/hub-dashboard-extension/commit/eaa2e98))
+
 ## 2.8.9 (2026-11-18)
 
 ### 🩹 Fixes

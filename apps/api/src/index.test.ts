@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
 import { HOURLY_UNSPLASH_BUDGET } from './background';
+import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
 import { DEFAULT_POOL_KEY } from './tags';
+import { hangingFetch } from './test/hangingFetch';
 import { createKvStub } from './test/kvStub';
 
 /** Workers hand the request an ExecutionContext; `waitUntil` keeps background work alive. */
@@ -139,6 +141,34 @@ describe('GET /api/background', () => {
     await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
 
     expect(downloadPings()).toHaveLength(1);
+  });
+
+  it('serves the default pool when Unsplash accepts the request and never answers', async () => {
+    // No error ever arrives from a hung upstream, so without a deadline the
+    // fallback below the fetch is unreachable and the new tab just waits.
+    vi.useFakeTimers();
+    try {
+      const { kv, seed } = createKvStub();
+      seed(DEFAULT_POOL_KEY, [
+        {
+          url: 'https://images.unsplash.com/cached',
+          location: null,
+          photographer: 'Cached',
+          photographerUrl: 'https://unsplash.com/@cached',
+        },
+      ]);
+      fetchMock.mockImplementation(hangingFetch);
+
+      const pending = app.request('/api/background?tags=unseen-tag', {}, env(kv), executionCtx());
+      await vi.advanceTimersByTimeAsync(UPSTREAM_TIMEOUT_MS);
+      const res = await pending;
+
+      expect(unsplashCalls()).toHaveLength(1);
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({ photographer: 'Cached' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('never leaks internal pool fields to the client', async () => {

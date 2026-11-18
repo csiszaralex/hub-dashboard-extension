@@ -142,6 +142,8 @@ Changes to permissions, scopes or external hosts must be reflected in `privacy-p
 
 `src/index.ts` (Hono app) mounts one route module per concern — `src/background.ts` (`GET /api/background`) and `src/quote.ts` (`GET /api/quote`) — with tag normalisation shared out of `src/tags.ts`. Configured via `wrangler.toml`. `apps/api/README.md` documents both endpoints in full and is kept accurate independently of this file; this section is a pointer, not a duplicate.
 
+Every outbound request in both apps goes through that app's `fetchWithTimeout` (`apps/api/src/fetchWithTimeout.ts`, `apps/extension/src/utils/fetchWithTimeout.ts`; the Memos client keeps its own), whose deadline also covers the body read, because a hung upstream raises no error and the fallbacks only run after one; the extension's `REQUEST_TIMEOUT_MS` must stay above the worker's `UPSTREAM_TIMEOUT_MS`, or the client gives up before the worker's fallback arrives.
+
 `GET /api/background?tags=...` fetches 30 photos from Unsplash, caches the pool in Cloudflare KV for 3 days (TTL), and returns one random photo's metadata. Two constraints it exists under, since it is public and unauthenticated:
 - Tags are normalised (lowercased, stripped, deduped, sorted, capped at 5) so the KV key space cannot be inflated by callers.
 - Unsplash calls are capped per hour by a KV counter. Past the cap the worker serves the default pool instead of calling Unsplash, so a burst degrades the variety rather than exhausting the account quota.

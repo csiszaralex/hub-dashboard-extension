@@ -2,6 +2,7 @@ import type { Language, QuoteData } from '@hub/shared';
 import { SUPPORTED_LANGUAGES } from '@hub/shared';
 import type { Bindings } from './bindings';
 import { claimCitatumCalls, citatumUrl, parseCitatumQuote } from './citatum';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import { STATIC_QUOTES, staticLanguages, type StaticSourceId } from './static_quotes';
 
 export interface ResolveContext {
@@ -44,10 +45,13 @@ const stoic: QuoteSource = {
   // batch parameter, so a pool would be one request per entry against a
   // one-person service with no SLA — refresh is worth less than that costs.
   resolve: async () => {
-    const res = await fetch(STOIC_UPSTREAM);
-    if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
-
-    const raw = (await res.json()) as { data?: { quote?: string; author?: string } };
+    const raw = await fetchWithTimeout(
+      STOIC_UPSTREAM,
+      async (res): Promise<{ data?: { quote?: string; author?: string } }> => {
+        if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
+        return res.json();
+      },
+    );
     const quote = { text: raw.data?.quote ?? '', author: raw.data?.author ?? 'Unknown' };
     if (!quote.text) throw new Error('Upstream response had no quote');
     return [quote];
@@ -118,11 +122,14 @@ const citatum: QuoteSource = {
     // In parallel: seven sequential round trips would make the first request
     // of the day visibly slow, and they do not depend on each other.
     const responses = await Promise.allSettled(
-      Array.from({ length: CITATUM_POOL_SIZE }, async () => {
-        const res = await fetch(citatumUrl(env, query));
-        if (!res.ok) throw new Error(`Citatum error: ${res.status}`);
-        return parseCitatumQuote(await res.text());
-      }),
+      // Each with its own deadline, so one that hangs costs its entry rather
+      // than the pool.
+      Array.from({ length: CITATUM_POOL_SIZE }, () =>
+        fetchWithTimeout(citatumUrl(env, query), async (res) => {
+          if (!res.ok) throw new Error(`Citatum error: ${res.status}`);
+          return parseCitatumQuote(await res.text());
+        }),
+      ),
     );
 
     // Random picks repeat and a request can fail; four usable quotes out of

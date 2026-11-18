@@ -37,7 +37,13 @@ export const useBackground = () => {
   const [bgData, setBgData] = useState<BackgroundData>(
     () => getStaleData<BackgroundData>(CACHE_KEY) ?? EMPTY_BG_DATA,
   );
-  const [cachedSrc, setCachedSrc] = useState<string | null>(null);
+  // The last cache lookup that answered: which key it was for, and the object
+  // URL it produced (null for a miss). Until the first answer there is nothing
+  // to show, rather than the remote URL, which would download the photo even
+  // when its bytes are already in the Cache API.
+  const [resolved, setResolved] = useState<{ key: string; objectUrl: string | null } | null>(
+    null,
+  );
 
   const fetchNewImage = useCallback(
     async (force = false, currentQuery = settings.unsplashQuery) => {
@@ -92,13 +98,21 @@ export const useBackground = () => {
             return body;
           },
         );
+        // Download before publishing. The lookup effect below resolves whatever
+        // `bgData` names the moment it changes; publishing first made that
+        // lookup miss, which put the remote URL on screen (blank until it
+        // loaded) and downloaded the photo a second time for display. When
+        // caching fails the photo is still published and shown from its remote
+        // URL, the same degraded path as before.
+        const cached = await cacheImage(data.url);
         setBgData(data);
 
         // Only metadata goes to localStorage; the pixels live in the Cache API.
+        // Written after the download so a tab closed halfway through it does not
+        // leave today's metadata pointing at bytes nobody stored.
         setDailyData(CACHE_KEY, data, currentQuery);
 
-        if (await cacheImage(data.url)) {
-          setCachedSrc(await getCachedImageSrc(data.url));
+        if (cached) {
           // A packet that is not for today is the worker's work for a later
           // day. Pruning it away would leave a pointer to an image nobody has,
           // which is exactly what the prefetch ordering exists to prevent.
@@ -124,45 +138,59 @@ export const useBackground = () => {
   }, [fetchNewImage, isLoaded, settings.backgroundSource, settings.unsplashQuery]);
 
   const custom = settings.backgroundSource === 'custom';
-  const cacheKey = custom ? CUSTOM_IMAGE_KEY : bgData.url;
+  // Nothing is looked up before the settings arrive: until then `custom` reads
+  // the default source, and the stale photo in `bgData` would flash up on the
+  // page of a user who has since picked their own image.
+  const cacheKey = !isLoaded ? '' : custom ? CUSTOM_IMAGE_KEY : bgData.url;
 
   // Resolve the locally cached copy of whatever image is currently selected.
+  // This is the only place that creates an object URL for the page.
   useEffect(() => {
     if (!cacheKey) return;
 
-    let revoked = false;
-    let objectUrl: string | null = null;
+    let cancelled = false;
 
-    getCachedImageSrc(cacheKey).then((src) => {
-      if (revoked) {
-        if (src) URL.revokeObjectURL(src);
+    getCachedImageSrc(cacheKey).then((objectUrl) => {
+      if (cancelled) {
+        // Superseded before it was ever shown, so nothing else will revoke it.
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         return;
       }
-      if (!src) {
-        // Resolution for this key genuinely failed — e.g. "custom" is selected
-        // but nothing has been uploaded. A src left over from a *different* key
-        // must not keep showing, so clear it here. This is deliberately not a
-        // pre-emptive clear at the top of the effect: an ordinary Unsplash
-        // rotation resolves successfully, and until it does, the outgoing image
-        // is still legitimate to display — clearing on every key change instead
-        // of only on failure would blank the background between every rotation.
-        setCachedSrc(null);
-        return;
-      }
-      objectUrl = src;
-      setCachedSrc(src);
+      // A miss replaces the outgoing image too: a src left over from a
+      // *different* key must not keep showing (e.g. "custom" is selected but
+      // nothing has been uploaded). What is deliberately not done is clearing
+      // it pre-emptively when the key changes: until this lookup answers, the
+      // outgoing image is still legitimate to display, and clearing on every
+      // key change would blank the background between every rotation.
+      setResolved({ key: cacheKey, objectUrl });
     });
 
     return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      cancelled = true;
     };
   }, [cacheKey]);
 
+  // An object URL lives exactly as long as it is the one on screen. The cleanup
+  // runs after the commit that shows its replacement, so the outgoing image is
+  // never revoked while it is still the background; unmount revokes the last
+  // one. StrictMode's mount-time re-run cannot revoke a live URL here, because
+  // on mount there is none yet.
+  const objectUrl = resolved?.objectUrl ?? null;
+  useEffect(() => {
+    if (!objectUrl) return;
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [objectUrl]);
+
+  // Prefer the local copy: it renders instantly and survives being offline. The
+  // remote URL is only a fallback for a lookup that answered with a miss, never
+  // a stand-in for a lookup still pending (the previous answer keeps showing
+  // instead), and never for a custom background, whose key is not a URL
+  // anything should be fetched from.
+  const remoteFallback = resolved && !custom && resolved.key !== CUSTOM_IMAGE_KEY ? resolved.key : '';
+
   return {
     bgData: custom ? EMPTY_BG_DATA : bgData,
-    // Prefer the local copy: it renders instantly and survives being offline.
-    imageSrc: cachedSrc ?? (custom ? '' : bgData.url) ?? '',
+    imageSrc: objectUrl ?? remoteFallback,
     refreshBackground: () => fetchNewImage(true, settings.unsplashQuery),
     loading,
     isSettingsLoaded: isLoaded,

@@ -94,6 +94,41 @@ const seedPrefetchedBytes = async (url = 'https://images.unsplash.com/prefetched
 const backgroundRequests = (fetchMock: ReturnType<typeof stubFetch>) =>
   fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/background'));
 
+const requestsFor = (fetchMock: ReturnType<typeof stubFetch>, url: string) =>
+  fetchMock.mock.calls.filter(([input]) => String(input) === url);
+
+/** An object URL from the Cache API, as opposed to a remote one or nothing. */
+const isLocal = (src: string) => src.startsWith('blob:');
+
+/**
+ * Like `stubRotatingFetch`, but an image download takes a few milliseconds, as
+ * a real one does. An instant fake would let the cache write win the race
+ * against the lookup that the published metadata triggers, and hide the order
+ * the hook actually performs them in.
+ */
+const stubSlowImageFetch = (imageStatus = 200) => {
+  let call = 0;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('/api/background')) {
+      call += 1;
+      return new Response(
+        JSON.stringify({
+          url: `https://images.unsplash.com/rotation-${call}`,
+          location: null,
+          photographer: `Fresh ${call}`,
+          photographerUrl: '',
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return new Response(new Blob(['image-bytes'], { type: 'image/jpeg' }), { status: imageStatus });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+};
+
 describe('useBackground when the worker never answers', () => {
   let restoreClock: () => void;
   beforeEach(() => {
@@ -172,9 +207,7 @@ describe('useBackground', () => {
     stubOfflineFetch();
     const { result } = renderHook(() => useBackground());
 
-    // The remote URL is truthy from the start, so wait for the local copy itself.
-    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
-    expect(result.current.imageSrc).toBeTruthy();
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
   });
 
   it.each([
@@ -260,8 +293,7 @@ describe('useBackground', () => {
 
     const { result } = renderHook(() => useBackground());
     await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
-    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
-    expect(result.current.imageSrc).toBeTruthy();
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
 
     // Switch to custom without ever calling putCustomImage — the popup is supposed
     // to block this, but the hook must not depend on that: a stale key resolving to
@@ -283,9 +315,8 @@ describe('useBackground', () => {
 
     const { result } = renderHook(() => useBackground());
     await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh 1'));
-    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
     const firstSrc = result.current.imageSrc;
-    expect(firstSrc).toBeTruthy();
 
     // Hold the underlying cache lookup open so the "key already changed but not
     // yet resolved" window can be asserted on directly, rather than guessing how
@@ -463,7 +494,7 @@ describe('useBackground', () => {
     expect(backgroundRequests(fetchMock)).toHaveLength(1);
     // The dead pointer is dropped rather than re-examined on every load.
     await waitFor(() => expect(chromeStub.readLocal('prefetched_bg')).toBeUndefined());
-    await waitFor(() => expect(result.current.imageSrc).not.toContain('unsplash.com'));
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
   });
 
   it('adopts a prefetch made with the default query when the settings were never saved', async () => {
@@ -526,5 +557,141 @@ describe('useBackground', () => {
     );
     expect(await cache.match('https://images.unsplash.com/tomorrow')).toBeDefined();
     expect(chromeStub.readLocal('prefetched_bg')).toBeTruthy();
+  });
+});
+
+describe('useBackground image source', () => {
+  /** Renders the hook and records every `imageSrc` it renders with, in order. */
+  const renderRecording = async (seen: string[] = []) => {
+    const useBackground = await loadUseBackground();
+    const hook = renderHook(() => {
+      const value = useBackground();
+      seen.push(value.imageSrc);
+      return value;
+    });
+    return { ...hook, seen };
+  };
+
+  it('never shows the remote URL across a refresh whose download succeeds', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    const fetchMock = stubSlowImageFetch();
+
+    const { result, seen } = await renderRecording();
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
+    const firstSrc = result.current.imageSrc;
+    seen.length = 0;
+
+    // Not awaited inside `act`: an async `act` would batch the whole refresh
+    // into one render and hide the frames in between, which are the point.
+    act(() => {
+      result.current.refreshBackground();
+    });
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh 2'));
+    await waitFor(() => expect(result.current.imageSrc).not.toBe(firstSrc));
+
+    // Every frame showed either the outgoing local copy or the incoming one:
+    // no remote URL (blank until it loads), and no empty frame either.
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every(isLocal)).toBe(true);
+    // Downloaded once, for the cache, rather than a second time for display.
+    expect(requestsFor(fetchMock, 'https://images.unsplash.com/rotation-2')).toHaveLength(1);
+  });
+
+  it('revokes every object URL exactly once, after its replacement is on screen, and on unmount', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    stubSlowImageFetch();
+    const seen: string[] = [];
+    const created: string[] = [];
+    const revoked: string[] = [];
+    // What was rendering at the moment each URL was revoked.
+    const onScreenAtRevoke = new Map<string, string | undefined>();
+    let counter = 0;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+      const url = `blob:hub-test/spy-${++counter}`;
+      created.push(url);
+      return url;
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => {
+      revoked.push(url);
+      onScreenAtRevoke.set(url, seen.at(-1));
+    });
+    const { result, unmount } = await renderRecording(seen);
+
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
+    for (const photographer of ['Fresh 2', 'Fresh 3']) {
+      const before = result.current.imageSrc;
+      // Not awaited inside `act`, so every intermediate frame really renders.
+      act(() => {
+        result.current.refreshBackground();
+      });
+      await waitFor(() => expect(result.current.bgData.photographer).toBe(photographer));
+      await waitFor(() => expect(result.current.imageSrc).not.toBe(before));
+    }
+
+    // Each replaced image was revoked while its successor was the one rendering.
+    expect(revoked).toHaveLength(created.length - 1);
+    for (const url of revoked) {
+      expect(onScreenAtRevoke.get(url)).not.toBe(url);
+      expect(isLocal(onScreenAtRevoke.get(url) ?? '')).toBe(true);
+    }
+
+    unmount();
+
+    expect(created.length).toBeGreaterThanOrEqual(3);
+    expect([...revoked].sort()).toEqual([...created].sort());
+  });
+
+  it('does not touch the remote URL while the cached copy is being looked up on a warm load', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'city,night' });
+    seedCache('city,night');
+    await seedPrefetchedBytes('https://images.unsplash.com/cached');
+    const fetchMock = stubFetch();
+
+    const { result, seen } = await renderRecording();
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
+
+    // Nothing until the lookup answers, then the local copy: the bytes were
+    // already here, so the remote image must not be requested at all.
+    expect(seen.filter((src) => !isLocal(src)).every((src) => src === '')).toBe(true);
+    expect(requestsFor(fetchMock, 'https://images.unsplash.com/cached')).toHaveLength(0);
+  });
+
+  it('shows the remote URL when the download into the cache fails', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    stubSlowImageFetch(503);
+
+    const { result } = await renderRecording();
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh 1'));
+    await waitFor(() =>
+      expect(result.current.imageSrc).toBe('https://images.unsplash.com/rotation-1'),
+    );
+  });
+
+  it.each([
+    ['an uploaded image', true],
+    ['nothing uploaded', false],
+  ])('never shows a remote URL for a custom background with %s', async (_label, uploaded) => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ backgroundSource: 'custom' });
+    // A remote photo in the daily cache, so `bgData` starts out naming one.
+    seedCache('anything');
+    stubFetch();
+    if (uploaded) {
+      const { putCustomImage } = await import('../utils/imageCache');
+      await putCustomImage(new Blob(['own-bytes'], { type: 'image/png' }));
+    }
+
+    const { result, seen } = await renderRecording();
+    await waitFor(() => expect(result.current.isSettingsLoaded).toBe(true));
+    if (uploaded) await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
+    // Let a miss for the custom key land as well.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(seen.every((src) => src === '' || isLocal(src))).toBe(true);
   });
 });

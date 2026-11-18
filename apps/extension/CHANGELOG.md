@@ -1,3 +1,9 @@
+## 2.9.0 (2026-11-18)
+
+### 🚀 Features
+
+- **extension:** open the settings from the new tab page ([2ef4eb7](https://github.com/csiszaralex/hub-dashboard-extension/commit/2ef4eb7))
+
 ## 2.8.14 (2026-11-18)
 
 ### 🩹 Fixes

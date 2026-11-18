@@ -11,13 +11,29 @@
  * Declared here so each consumer can be typed against it and a missing
  * translation becomes a build error naming the language.
  *
- * The one runtime value in this package. It is two short strings; anything
- * larger — quote text, locale bundles — belongs with whichever app consumes it,
- * so importing a type from here never drags data into another app's bundle.
+ * Runtime values in this package are kept to a few short strings like these;
+ * anything larger — quote text, locale bundles — belongs with whichever app
+ * consumes it, so importing a type from here never drags data into another
+ * app's bundle.
  */
 export const SUPPORTED_LANGUAGES = ['en', 'hu'] as const;
 
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+
+/**
+ * The background search tags used when a request names none.
+ *
+ * The API serves them for a request without `tags`, and the extension sends
+ * them until the user saves their own, so a fresh install draws from the pool
+ * the API keeps warm rather than a near-identical one under a second KV key.
+ */
+export const DEFAULT_BACKGROUND_TAGS = 'landscape,forest,mountain,fog,nature view';
+
+/**
+ * The quote source a request without a known `source` gets, and the one a
+ * fresh install asks for.
+ */
+export const DEFAULT_QUOTE_SOURCE_ID = 'stoic';
 
 /** Response shape of `GET /api/background`. */
 export interface BackgroundData {

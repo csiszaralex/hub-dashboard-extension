@@ -24,6 +24,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # A tag cut by release.yml sits on a tree Check has passed. A tag pushed
+      # by hand (a hotfix, a re-tag) has had no such run, and this workflow
+      # cannot tell the two apart.
+      - name: Check all projects
+        run: pnpm run check
+
       - name: Deploy to Cloudflare via Nx
         run: pnpm nx deploy api
         env:

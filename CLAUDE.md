@@ -61,12 +61,15 @@ compile runs outside the 20-second test timeout, which a busy machine
 otherwise exceeds.
 
 A test double must model what the real API *enforces*, not just its happy
-path — two bugs have shipped past a green suite here because a stub didn't:
+path — three bugs have shipped past a green suite here because a stub didn't:
 the Cache API's `put()` throws for any request scheme other than `http(s)`
 (a `hub://` cache key worked against the old stub and failed in every real
-browser), and `chrome.storage.local` fires `onChanged` exactly like `.sync`
+browser), `chrome.storage.local` fires `onChanged` exactly like `.sync`
 does (a stub that stayed silent on `.local` writes let a component that never
-subscribed to them look correct). When you add or touch a stub in
+subscribed to them look correct), and `chrome.storage.sync` refuses a whole
+`set` when one item is over its 8 KB per-item quota (a stub with no sync quota
+let an oversized custom quotes list sink a save the popup reported as
+successful). When you add or touch a stub in
 `src/test/`, check it against the constraint the real API imposes, not just
 against the code you're about to exercise with it.
 

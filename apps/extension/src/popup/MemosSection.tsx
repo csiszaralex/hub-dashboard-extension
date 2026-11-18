@@ -41,7 +41,8 @@ const CONNECT_ERROR_KEY = {
   version: 'popup.memosErrorVersion',
   network: 'popup.memosErrorNetwork',
   server: 'popup.memosErrorServer',
-} as const satisfies Record<MemosFailureReason | 'url', string>;
+  save: 'popup.memosErrorSave',
+} as const satisfies Record<MemosFailureReason | 'url' | 'save', string>;
 
 type ConnectState =
   | { kind: 'idle' }
@@ -200,7 +201,16 @@ export function MemosSection({
       await setConnectedServer(base);
       await setToken(token.trim());
       await setUser(result.value.user);
-      saveSettings({ memosUrl: base });
+      // Refused only when the rest of the synced settings fill the quota. The
+      // credentials stay as written: they pair with this server, and no tab
+      // sends anything while `memosUrl` still names another, so pressing
+      // Connect again once there is room completes the same setup.
+      try {
+        await saveSettings({ memosUrl: base });
+      } catch {
+        setState({ kind: 'error', reason: 'save' });
+        return;
+      }
       // The token just saved belongs to this server now, like a stored one.
       tokenOriginRef.current = originOf(base);
       setDraftUrl(base);
@@ -210,7 +220,7 @@ export function MemosSection({
       if (movedServer) await removeOriginPermission(`${previousOrigin}/*`);
       setState({ kind: 'ok', version: result.value.version });
     } finally {
-      // Cleared on every exit, including a thrown `setToken`/`saveSettings` —
+      // Cleared on every exit, including a thrown `setToken` —
       // otherwise a failed write would leave Connect permanently disabled,
       // worse than today's behaviour where editing a field re-enables it.
       connectingRef.current = false;
@@ -233,7 +243,13 @@ export function MemosSection({
     setState({ kind: 'busy' });
     try {
       const origin = originOf(url);
-      saveSettings({ memosUrl: '' });
+      // Started first, as before, but its outcome is read last: a refused URL
+      // write must not stop the token and the grant from being given up, which
+      // is the part of disconnecting that matters on this machine.
+      const urlCleared = saveSettings({ memosUrl: '' }).then(
+        () => true,
+        () => false,
+      );
       onUrlChange('');
       await clearAllMemosData();
       if (origin) await removeOriginPermission(`${origin}/*`);
@@ -241,7 +257,7 @@ export function MemosSection({
       setDraftUrl('');
       setTokenInput('');
       tokenOriginRef.current = null;
-      setState({ kind: 'disconnected' });
+      setState((await urlCleared) ? { kind: 'disconnected' } : { kind: 'error', reason: 'save' });
     } finally {
       connectingRef.current = false;
     }

@@ -900,7 +900,7 @@ describe('useMemos — writing', () => {
 
     // De-configure while the hook stays mounted, through the same live
     // storage-change path the popup or a revoked permission would trigger.
-    act(() => saveSettings({ memosUrl: '' }));
+    await act(() => saveSettings({ memosUrl: '' }));
     await waitFor(() => expect(result.current.status).toBe('off'));
 
     const freshFetch = respondWith(200, {});

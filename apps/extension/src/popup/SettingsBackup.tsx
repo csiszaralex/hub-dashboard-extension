@@ -9,7 +9,7 @@ const buttonCls =
 
 interface Props {
   settings: HubSettings;
-  onImport: (settings: Partial<HubSettings>) => void;
+  onImport: (settings: Partial<HubSettings>) => Promise<void>;
 }
 
 /**
@@ -51,7 +51,15 @@ export function SettingsBackup({ settings, onImport }: Props) {
       return;
     }
 
-    onImport(restored);
+    // A refused write is reported and the popup left as it is: reloading would
+    // show the old values with no word of why the import did not take.
+    try {
+      await onImport(restored);
+    } catch (importError) {
+      const message = importError instanceof Error ? importError.message : String(importError);
+      setError(t('popup.saveFailed', { message }));
+      return;
+    }
 
     // The form copies each setting into local state when it mounts, so the
     // fields would still show the old values with the new ones already saved —

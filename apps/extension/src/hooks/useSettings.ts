@@ -150,9 +150,23 @@ const subscribe = (listener: () => void) => {
 
 const getSnapshot = () => state;
 
-export const saveSettings = (newSettings: Partial<HubSettings>) => {
-  chrome.storage.sync.set(newSettings);
-};
+/**
+ * Writes settings to `chrome.storage.sync`, rejecting with Chrome's message
+ * when the write is refused.
+ *
+ * Refusal is not hypothetical: sync storage has a per-item and a total quota,
+ * and Chrome rejects the whole call when one item is over, so none of the
+ * settings in it are written. Callers must handle the rejection, because the
+ * page has already shown the values as if they were saved.
+ */
+export const saveSettings = (newSettings: Partial<HubSettings>): Promise<void> =>
+  new Promise((resolve, reject) => {
+    chrome.storage.sync.set(newSettings, () => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve();
+    });
+  });
 
 export const useSettings = () => {
   const { settings, isLoaded } = useSyncExternalStore(subscribe, getSnapshot);

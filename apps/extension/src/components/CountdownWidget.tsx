@@ -36,7 +36,11 @@ export const CountdownWidget = () => {
 
   useEffect(() => {
     if (settings.countdownTarget && timeLeft === null) {
-      saveSettings({ countdownTarget: null });
+      // Nowhere on the dashboard to show a failure, and none is needed: the
+      // widget already hides an expired target, and the next tab tries again.
+      saveSettings({ countdownTarget: null }).catch((error: unknown) =>
+        console.error('Countdown reset failed:', error),
+      );
     }
   }, [settings.countdownTarget, timeLeft, saveSettings]);
 

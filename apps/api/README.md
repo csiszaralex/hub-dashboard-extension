@@ -33,6 +33,20 @@ unique tags would otherwise drain the account's rate limit. A KV counter caps
 Unsplash calls per hour; once it is spent the worker serves the default pool
 instead of calling Unsplash, degrading variety rather than failing.
 
+### Upstream timeouts
+
+Every upstream request (Unsplash, the `download_location` ping, `stoic`,
+Citatum) gives up after 5 seconds (`UPSTREAM_TIMEOUT_MS` in
+[`src/fetchWithTimeout.ts`](src/fetchWithTimeout.ts)), and the deadline covers
+reading the body as well as the headers. An upstream that accepts the
+connection and never answers raises no error on its own, so without the
+deadline none of the fallbacks here would ever run. A timeout is handled as any
+other failed request: the background route serves the default pool, the quote
+route the stale quote, and a Citatum request that times out costs only its own
+entry in the pool. The extension's own deadline for the worker
+(`REQUEST_TIMEOUT_MS` in `apps/extension/src/utils/fetchWithTimeout.ts`) is
+longer than this, so the fallback reaches the client before the client gives up.
+
 ### Attribution
 
 Per the [Unsplash API guidelines](https://help.unsplash.com/en/articles/2511245-unsplash-api-guidelines),

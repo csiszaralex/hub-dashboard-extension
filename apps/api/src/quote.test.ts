@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
 import { quoteCacheKey, quoteLatestKey } from './quote';
+import { hangingFetch } from './test/hangingFetch';
 import { createKvStub } from './test/kvStub';
 
 const upstream = (text: string, author: string) =>
@@ -102,6 +104,24 @@ describe('GET /api/quote', () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ text: 'Old but present.', author: 'Seneca' });
+  });
+
+  it('serves the last good quote when the upstream accepts the request and never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const { kv, seed } = createKvStub();
+      seed(quoteLatestKey('stoic', 'en'), { text: 'Old but present.', author: 'Seneca' });
+      vi.stubGlobal('fetch', vi.fn(hangingFetch));
+
+      const pending = app.request('/api/quote', {}, env(kv));
+      await vi.advanceTimersByTimeAsync(UPSTREAM_TIMEOUT_MS);
+      const res = await pending;
+
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({ text: 'Old but present.', author: 'Seneca' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports unavailable when the upstream is down and nothing is cached', async () => {
@@ -430,6 +450,32 @@ describe('quote pool', () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ author: 'Valaki' });
+  });
+
+  it('builds a pool from what came back when some requests hang', async () => {
+    // Each request has its own deadline, so the ones that never answer cost
+    // their own entries rather than holding the whole pool hostage.
+    vi.useFakeTimers();
+    try {
+      const { kv, read } = createKvStub();
+      let call = 0;
+      fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        call += 1;
+        if (call % 2 === 0) return hangingFetch(input, init);
+        return citatumXml(`Idezet ${call}.`, 'Valaki');
+      });
+
+      const pending = app.request('/api/quote?source=citatum', {}, withCitatum(kv));
+      await vi.advanceTimersByTimeAsync(UPSTREAM_TIMEOUT_MS);
+      const res = await pending;
+
+      expect(res.status).toBe(200);
+      const date = new Date().toISOString().split('T')[0];
+      const pool = JSON.parse(read(quoteCacheKey('citatum', 'hu', date))!) as unknown[];
+      expect(pool).toHaveLength(4);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

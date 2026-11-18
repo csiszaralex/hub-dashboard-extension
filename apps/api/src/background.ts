@@ -1,6 +1,7 @@
 import { BackgroundData } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import { DEFAULT_POOL_KEY, poolKey, resolveTags } from './tags';
 import { Photo } from './types';
 
@@ -59,12 +60,14 @@ const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]
   unsplashUrl.searchParams.set('query', tags);
   unsplashUrl.searchParams.set('orientation', 'landscape');
 
-  const res = await fetch(unsplashUrl.toString(), {
-    headers: { Authorization: `Client-ID ${accessKey}` },
-  });
-  if (!res.ok) throw new Error(`Unsplash API error: ${res.status}`);
-
-  const rawData: Photo[] = await res.json();
+  const rawData = await fetchWithTimeout(
+    unsplashUrl.toString(),
+    async (res): Promise<Photo[]> => {
+      if (!res.ok) throw new Error(`Unsplash API error: ${res.status}`);
+      return res.json();
+    },
+    { headers: { Authorization: `Client-ID ${accessKey}` } },
+  );
   return rawData.map((img) => ({
     url: `${img.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`,
     location: img.location?.name || null,
@@ -113,7 +116,9 @@ backgroundRoutes.get('/api/background', async (c) => {
   // Unsplash requires a download event whenever a photo is actually used.
   if (downloadLocation) {
     c.executionCtx.waitUntil(
-      fetch(downloadLocation, {
+      // Bounded too: `waitUntil` would otherwise hold the invocation open for as
+      // long as Unsplash takes to answer a request whose reply nobody reads.
+      fetchWithTimeout(downloadLocation, async () => undefined, {
         headers: { Authorization: `Client-ID ${c.env.UNSPLASH_ACCESS_KEY}` },
       }).catch((error) => console.error('Download ping failed:', error)),
     );

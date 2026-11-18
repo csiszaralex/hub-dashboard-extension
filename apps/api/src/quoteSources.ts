@@ -1,5 +1,5 @@
 import type { Language, QuoteData } from '@hub/shared';
-import { SUPPORTED_LANGUAGES } from '@hub/shared';
+import { DEFAULT_QUOTE_SOURCE_ID, SUPPORTED_LANGUAGES } from '@hub/shared';
 import type { Bindings } from './bindings';
 import { claimCitatumCalls, citatumUrl, parseCitatumQuote } from './citatum';
 import { fetchWithTimeout } from './fetchWithTimeout';
@@ -155,7 +155,8 @@ const SOURCES: QuoteSource[] = [
   ...(Object.keys(STATIC_QUOTES) as StaticSourceId[]).map(staticSource),
 ];
 
-export const DEFAULT_SOURCE_ID = 'stoic';
+/** From `@hub/shared`, because the extension asks for the same source by default. */
+export const DEFAULT_SOURCE_ID = DEFAULT_QUOTE_SOURCE_ID;
 
 const BY_ID = new Map(SOURCES.map((source) => [source.id, source]));
 

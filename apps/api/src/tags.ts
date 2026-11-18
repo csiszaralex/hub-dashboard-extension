@@ -1,4 +1,7 @@
-export const DEFAULT_TAGS = 'landscape,forest,mountain,fog,nature view';
+import { DEFAULT_BACKGROUND_TAGS } from '@hub/shared';
+
+/** From `@hub/shared`, because the extension sends the same string by default. */
+export const DEFAULT_TAGS = DEFAULT_BACKGROUND_TAGS;
 
 /** Beyond a handful of tags the Unsplash query gets no better, but the cache key space grows. */
 const MAX_TAGS = 5;

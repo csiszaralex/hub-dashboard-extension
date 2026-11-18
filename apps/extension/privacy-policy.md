@@ -1,6 +1,6 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** September 16, 2026
+**Effective Date:** November 18, 2026
 
 This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
 
@@ -19,7 +19,7 @@ Hub uses Chrome's native `identity` API to authenticate with your Google account
 
 ### 2. Location and Weather (`geolocation` permission)
 
-To display local weather conditions, Hub needs an approximate location. It is resolved in this order, stopping at the first that succeeds:
+To display local weather conditions, Hub needs a location. It is resolved in this order, stopping at the first that succeeds:
 
 1. The city you entered in the settings, if any.
 2. Your device location via the browser's geolocation API.
@@ -27,21 +27,21 @@ To display local weather conditions, Hub needs an approximate location. It is re
 4. The last location successfully resolved, cached locally.
 5. A default location (Budapest).
 
-- **Usage:** The resulting coordinates are sent to Open-Meteo (weather) and, unless you set a city manually, to BigDataCloud (to turn the coordinates into a place name). If step 3 is reached, your IP address is exposed to GeoJS as part of that request.
+- **Usage:** The resulting coordinates are sent to Open-Meteo (weather) and, unless you set a city manually, to BigDataCloud (to turn the coordinates into a place name). They are sent as resolved, without rounding: when step 2 supplies them, that is your device's position as precisely as the browser reports it. If step 3 is reached, your IP address is exposed to GeoJS as part of that request.
 - **Storage:** The most recent coordinates and weather result are cached on your device for 30 minutes to avoid repeat requests. We do not track your location history and no location data leaves your device except in the API requests described above.
 
 ### 3. Local Storage (`storage` permission)
 
 Hub uses your browser's storage to save:
 
-- Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, language, and the Memos server address and default Memos tag — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
+- Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, language, the quote source and quote category you chose, any quotes of your own that you entered, and the Memos server address and default Memos tag — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
 - Your quick notes, in `localStorage` on the device only.
 - Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
 - If you connect the Memos widget, in `chrome.storage.local` on that device only: up to 200 of your own most recent memos, including their content, so the widget can show them when your Memos server cannot be reached; any memo you wrote that could not be sent, kept as a draft; the name of the Memos account you connected, the address of the server it is connected to, and a note of when that server was last contacted and whether the attempt failed. These sit alongside the access token described in section 6 and, like it, are never synchronised.
 
 Hub does not store any API keys of its own on your device; the only credential it keeps is the Memos access token you enter yourself, described in section 6. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
 
-The settings page can also export your preferences to a JSON file and read one back. The file is written to your own device by your browser's normal download mechanism and is never transmitted anywhere; importing one reads it locally. Only the preferences listed above are included, the Memos server address and default Memos tag among them — not your notes, not your memos or your Memos access token, and not a custom background image.
+The settings page can also export your preferences to a JSON file and read one back. The file is written to your own device by your browser's normal download mechanism and is never transmitted anywhere; importing one reads it locally. Only the preferences listed above are included, your own quotes, the Memos server address and the default Memos tag among them — not your notes, not your memos or your Memos access token, and not a custom background image.
 
 ### 4. Scheduled Background Prefetch (`alarms` permission)
 
@@ -65,20 +65,24 @@ The Memos widget is off until you configure it. When you do, you supply the addr
 
 ## Hub API
 
-Background images are requested from the Hub API, a Cloudflare Worker we operate at `hub-api.csiszaralex.workers.dev`. It exists so that the Unsplash API key stays on the server instead of being shipped inside the extension. Daily quotes are also fetched through this same Worker, which proxies and caches them from the upstream Stoic Quote API on Hub's behalf.
+Background images are requested from the Hub API, a Cloudflare Worker we operate at `hub-api.csiszaralex.workers.dev`. It exists so that the Unsplash API key stays on the server instead of being shipped inside the extension.
 
-- **What is sent:** only the background search tags you configured (for example `landscape,forest`) for background images; the quote request sends nothing. No account identifier, location, calendar data, or note content is included. As with any web request, your IP address and standard browser headers are visible to Cloudflare.
-- **What is stored:** the Worker caches pools of Unsplash image metadata, keyed by search tags, and caches the daily quote by date. Nothing user-identifying is written to that cache, and we keep no request logs beyond Cloudflare's standard, short-lived operational logging.
+Daily quotes come through the same Worker, unless you chose to show your own quotes: those are picked on your device and no request is made. For every other source the Worker either serves a list built into it, or fetches and caches the quote from an upstream service on Hub's behalf: the Stoic Quote API (`stoic.tekloon.net`), or Citatum (`api.citatum.hu`) for Hungarian quotes.
+
+- **What is sent:** for background images, only the background search tags you configured (for example `landscape,forest`). For quotes: which quote source you chose, your interface language, the quote category if you entered one, and, once you press the quote's refresh button, a number saying which of the day's quotes to show. The settings page also asks the Worker which quote sources it offers; that request carries no parameters. No account identifier, location, calendar data, or note content is included in any of these. As with any web request, your IP address and standard browser headers are visible to Cloudflare.
+- **What is passed on:** when the source is Citatum and you entered a category, the Worker includes that category in its own request to Citatum. The request comes from the Worker, so neither Citatum nor the Stoic Quote API sees your IP address or your browser. The Worker also tells Unsplash which photo it handed out, as Unsplash's API terms require; that notice names the photo and says nothing about you.
+- **What is stored:** the Worker caches pools of Unsplash image metadata for three days, keyed by search tags, and each day's quotes for up to seven days, keyed by source, language, date and, where one was sent, the category. The tags and the category are therefore kept on the server for that long, in a normalised form (lower-cased, reduced to plain letters, digits, spaces and hyphens, and shortened), so they are not the place for anything personal. Nothing user-identifying is written to that cache, and we keep no request logs beyond Cloudflare's standard, short-lived operational logging.
 
 ## Third-Party Services
 
-Hub interacts with the following third-party APIs to fetch content. When Hub makes requests to these services, your IP address and standard browser headers are exposed to them as part of normal web traffic:
+Hub interacts with the following third-party APIs to fetch content. When the extension itself makes a request to one of these services, your IP address and standard browser headers are exposed to it as part of normal web traffic:
 
 - **Unsplash:** Background images. The extension downloads the image files from `images.unsplash.com`; the search itself goes through the Hub API described above.
 - **Google Calendar API:** Used to fetch your schedule.
 - **Open-Meteo:** Weather forecasts, and city lookup when you type a city name in the settings.
 - **BigDataCloud:** Turns coordinates into a place name for the weather widget.
 - **GeoJS:** Approximate location from your IP address, used only as a fallback when the settings and browser geolocation do not provide one.
+- **Stoic Quote API and Citatum:** Quote sources. Only the Hub API contacts them, as described above; the extension never does. A quote from Citatum is shown with a link to its page there, which opens like any other link if you click it.
 
 These third-party services have their own privacy policies governing the data they process during API requests.
 

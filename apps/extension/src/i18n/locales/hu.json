@@ -148,6 +148,7 @@
   },
   "app": {
     "newBackground": "Új háttérkép kérése",
+    "openSettings": "Beállítások",
     "toggleHint": "A . elrejti — az Esc visszahozza"
   },
   "whatsNew": {

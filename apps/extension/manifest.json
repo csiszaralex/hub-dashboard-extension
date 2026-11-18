@@ -19,6 +19,10 @@
     "default_popup": "popup.html",
     "default_title": "Hub Settings"
   },
+  "options_ui": {
+    "page": "popup.html",
+    "open_in_tab": true
+  },
   "permissions": ["storage", "geolocation", "identity", "alarms", "notifications"],
   "host_permissions": [
     "https://api.open-meteo.com/*",

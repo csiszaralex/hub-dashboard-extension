@@ -147,6 +147,8 @@ export interface ChromeStub {
   readLocal: (key: string) => unknown;
   /** Number of `storage.sync.get` calls — used to assert we read settings once, not once per hook. */
   syncGetCount: () => number;
+  /** Number of `runtime.openOptionsPage` calls. */
+  optionsPageOpens: () => number;
   /** Number of registered `storage.onChanged` listeners. */
   changeListenerCount: () => number;
   /** Every `alarms.create` call in order — a replacement shows up as a second entry. */
@@ -227,6 +229,7 @@ export const installChromeStub = (): ChromeStub => {
   const notifications: NotificationOptions[] = [];
   const messageLog: unknown[] = [];
   let getCount = 0;
+  let optionsOpens = 0;
   /** What Chrome's in-memory token cache holds: handed out without a prompt. */
   let cachedToken: string | null = null;
   /** Takes the cached token's place once it is removed; see `expireCachedToken`. */
@@ -648,6 +651,10 @@ export const installChromeStub = (): ChromeStub => {
     runtime: {
       id: EXTENSION_ID,
       lastError: undefined as { message: string } | undefined,
+      // Resolves once the page is open, as Chrome's promise form does.
+      openOptionsPage: async () => {
+        optionsOpens++;
+      },
       onInstalled: {
         addListener: (l: InstalledListener) => installedListeners.add(l),
       },
@@ -682,6 +689,7 @@ export const installChromeStub = (): ChromeStub => {
     },
     readLocal: (key) => localStore.get(key),
     syncGetCount: () => getCount,
+    optionsPageOpens: () => optionsOpens,
     changeListenerCount: () => listeners.size,
     createdAlarms: () => [...alarmLog],
     scheduledAlarms: () => [...alarmRegistry.values()],

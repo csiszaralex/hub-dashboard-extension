@@ -1,3 +1,10 @@
+## 2.8.8 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** use tabular digits in the clock and timers ([a023b63](https://github.com/csiszaralex/hub-dashboard-extension/commit/a023b63))
+- **extension:** show the snow icon for snow ([2b090e0](https://github.com/csiszaralex/hub-dashboard-extension/commit/2b090e0))
+
 ## 2.8.7 (2026-11-18)
 
 ### 🩹 Fixes

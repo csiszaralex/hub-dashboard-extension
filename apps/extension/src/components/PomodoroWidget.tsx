@@ -41,7 +41,7 @@ export const PomodoroWidget = () => {
       className={`flex items-center justify-center gap-6 text-white/90 bg-black/20 backdrop-blur-md px-10 py-5 rounded-3xl border ${PHASE_BORDER[phase]} shadow-2xl`}
     >
       <div className='flex flex-col items-center'>
-        <span className='text-5xl font-bold font-variant-numeric'>{formatRemaining(remainingMs)}</span>
+        <span className='text-5xl font-bold tabular-nums'>{formatRemaining(remainingMs)}</span>
         <span className={`text-xs uppercase tracking-widest ${PHASE_LABEL[phase]} mt-1`}>
           {t(phase === 'work' ? 'pomodoro.work' : 'pomodoro.break')}
         </span>

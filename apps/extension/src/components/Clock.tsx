@@ -31,7 +31,7 @@ export const Clock = () => {
       </div>
 
       {/* Clock - symmetric layout */}
-      <div className='flex items-end leading-none font-variant-numeric drop-shadow-2xl'>
+      <div className='flex items-end leading-none tabular-nums drop-shadow-2xl'>
         <span className='text-8xl md:text-9xl font-bold tracking-tighter text-white'>
           {format(time, 'HH')}
         </span>

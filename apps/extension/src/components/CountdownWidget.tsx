@@ -49,26 +49,26 @@ export const CountdownWidget = () => {
   return (
     <div className='flex items-center justify-center gap-6 text-white/90 bg-black/20 backdrop-blur-md px-10 py-5 rounded-3xl border border-white/10 shadow-2xl'>
       <div className='flex flex-col items-center min-w-16'>
-        <span className='text-5xl font-bold font-variant-numeric'>{timeLeft.days}</span>
+        <span className='text-5xl font-bold tabular-nums'>{timeLeft.days}</span>
         <span className='text-xs uppercase tracking-widest text-white/50 mt-1'>{t('countdown.days')}</span>
       </div>
       <span className='text-4xl font-light text-white/30 pb-4'>:</span>
       <div className='flex flex-col items-center min-w-16'>
-        <span className='text-5xl font-bold font-variant-numeric'>
+        <span className='text-5xl font-bold tabular-nums'>
           {timeLeft.hours.toString().padStart(2, '0')}
         </span>
         <span className='text-xs uppercase tracking-widest text-white/50 mt-1'>{t('countdown.hours')}</span>
       </div>
       <span className='text-4xl font-light text-white/30 pb-4'>:</span>
       <div className='flex flex-col items-center min-w-16'>
-        <span className='text-5xl font-bold font-variant-numeric'>
+        <span className='text-5xl font-bold tabular-nums'>
           {timeLeft.minutes.toString().padStart(2, '0')}
         </span>
         <span className='text-xs uppercase tracking-widest text-white/50 mt-1'>{t('countdown.minutes')}</span>
       </div>
       <span className='text-4xl font-light text-white/30 pb-4'>:</span>
       <div className='flex flex-col items-center min-w-16'>
-        <span className='text-5xl font-bold font-variant-numeric'>
+        <span className='text-5xl font-bold tabular-nums'>
           {timeLeft.seconds.toString().padStart(2, '0')}
         </span>
         <span className='text-xs uppercase tracking-widest text-white/50 mt-1'>{t('countdown.seconds')}</span>

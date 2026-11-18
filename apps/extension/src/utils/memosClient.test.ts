@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { memosConnectRoutes, memosListRoute, reply, routeFetch } from '../test/memosFetch';
+import {
+  memosConnectRoutes,
+  memosListRoute,
+  redirectTo,
+  reply,
+  routeFetch,
+} from '../test/memosFetch';
 import type * as Client from './memosClient';
 
 // Imported per test: the client remembers each server's API prefix for the
@@ -44,10 +50,12 @@ describe('probe', () => {
     await probe(credentials);
     expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/instance/profile', {
       headers: { Authorization: 'Bearer memos_pat_x' },
+      redirect: 'error',
       signal: expect.any(AbortSignal),
     });
     expect(fetchMock).toHaveBeenCalledWith('https://memo.example.com/api/v1/auth/me', {
       headers: { Authorization: 'Bearer memos_pat_x' },
+      redirect: 'error',
       signal: expect.any(AbortSignal),
     });
   });
@@ -124,6 +132,29 @@ describe('probe', () => {
   it('reports a thrown fetch as network', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
+  });
+
+  // Every request carries the token, so a redirect would carry it on to a host
+  // the server names. The browser would strip `Authorization` from this
+  // cross-origin hop (the fake does too), so the target must see no request at
+  // all — not merely one without the header.
+  it('refuses a redirect instead of following it, so the target never sees the token', async () => {
+    const seenAtTarget: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      routeFetch({
+        ...memosConnectRoutes({ tokens: { memos_pat_x: 'users/1' } }),
+        'GET /api/v1/instance/profile': () =>
+          redirectTo('https://elsewhere.example.test/elsewhere/instance/profile'),
+        'GET /elsewhere/instance/profile': ({ token }) => {
+          seenAtTarget.push(token);
+          return reply(200, { version: '0.30.0' });
+        },
+      }),
+    );
+
+    await expect(probe(credentials)).resolves.toEqual({ ok: false, reason: 'network' });
+    expect(seenAtTarget).toEqual([]);
   });
 });
 
@@ -228,6 +259,7 @@ describe('createMemo', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content: 'a #todo', visibility: 'PRIVATE' }),
+      redirect: 'error',
       signal: expect.any(AbortSignal),
     });
     expect(result).toMatchObject({ ok: true, value: { name: 'memos/new' } });
@@ -267,6 +299,7 @@ describe('archiveMemo', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ state: 'ARCHIVED' }),
+        redirect: 'error',
         signal: expect.any(AbortSignal),
       },
     );

@@ -50,6 +50,15 @@ type RequestResult =
  * rejection it causes lands in the same catch. Per-status overrides (e.g., 404
  * → `version`) are applied before the generic non-ok branch. On success, the
  * Response is returned so the caller can decide whether to parse JSON.
+ *
+ * Redirects are refused rather than followed: every request carries the token,
+ * and a redirect would send it on to whatever host the server names. Browsers
+ * drop `Authorization` on a cross-origin hop, but that is the browser's rule,
+ * not one this client should rest a credential on — and the Memos API has no
+ * reason to redirect at all. Under `redirect: 'error'` the Fetch standard turns
+ * any redirect status (301, 302, 303, 307, 308) into a network error before the
+ * Location is read, and fetch rejects with a TypeError, which the catch below
+ * reports as `network`.
  */
 const request = async (
   url: string,
@@ -58,7 +67,11 @@ const request = async (
 ): Promise<RequestResult> => {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(MEMOS_TIMEOUT_MS) });
+    response = await fetch(url, {
+      ...init,
+      redirect: 'error',
+      signal: AbortSignal.timeout(MEMOS_TIMEOUT_MS),
+    });
   } catch {
     return { ok: false, reason: 'network' };
   }

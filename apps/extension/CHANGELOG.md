@@ -1,3 +1,9 @@
+## 2.8.7 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** tell a calendar that failed to load from an empty one ([0464b76](https://github.com/csiszaralex/hub-dashboard-extension/commit/0464b76))
+
 ## 2.8.6 (2026-11-18)
 
 ### 🧱 Updated Dependencies

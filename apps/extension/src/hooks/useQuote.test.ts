@@ -1,6 +1,7 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { hangingFetch, installFakeClock } from '../test/hangingFetch';
 import { FALLBACK_QUOTES } from '../utils/quoteFallback';
 
 const loadUseQuote = async () => (await import('./useQuote')).useQuote;
@@ -34,6 +35,26 @@ describe('useQuote', () => {
     const { result } = renderHook(() => useQuote());
 
     await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current.quote));
+  });
+
+  it('settles on the bundled quote once a request that never answers times out', async () => {
+    const restoreClock = installFakeClock();
+    try {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.stubGlobal('fetch', vi.fn(hangingFetch));
+      const { REQUEST_TIMEOUT_MS } = await import('../utils/fetchWithTimeout');
+      const useQuote = await loadUseQuote();
+
+      const { result } = renderHook(() => useQuote());
+      await waitFor(() => expect(result.current.loading).toBe(true));
+
+      await act(() => vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS));
+
+      expect(result.current.loading).toBe(false);
+      expect(FALLBACK_QUOTES).toContainEqual(result.current.quote);
+    } finally {
+      restoreClock();
+    }
   });
 
   it('falls back when the worker replies with an error status', async () => {

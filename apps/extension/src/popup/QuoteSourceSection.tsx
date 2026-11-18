@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, QUOTE_SOURCES_ENDPOINT } from '../utils/api';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
   CUSTOM_QUOTE_SOURCE,
   fitCustomQuotes,
@@ -49,8 +50,9 @@ export function QuoteSourceSection({
 
   useEffect(() => {
     let live = true;
-    fetch(QUOTE_SOURCES_ENDPOINT)
-      .then((res) => (res.ok ? (res.json() as Promise<ApiSource[]>) : Promise.reject(res.status)))
+    fetchWithTimeout(QUOTE_SOURCES_ENDPOINT, (res) =>
+      res.ok ? (res.json() as Promise<ApiSource[]>) : Promise.reject(res.status),
+    )
       .then((list) => live && setSources(list))
       // The saved source keeps working regardless; only the picker needs the
       // list, so a failure here leaves the current setting alone rather than

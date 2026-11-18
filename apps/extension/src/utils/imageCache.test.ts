@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { hangingFetch } from '../test/hangingFetch';
+import { IMAGE_TIMEOUT_MS } from './fetchWithTimeout';
 import {
   CUSTOM_IMAGE_KEY,
   IMAGE_CACHE_NAME,
@@ -57,6 +59,21 @@ describe('imageCache', () => {
     );
 
     expect(await cacheImage(REMOTE)).toBe(false);
+  });
+
+  it('gives up on a download that never finishes, and stores nothing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(hangingFetch));
+    vi.useFakeTimers();
+    try {
+      const result = cacheImage(REMOTE);
+      await vi.advanceTimersByTimeAsync(IMAGE_TIMEOUT_MS);
+
+      expect(await result).toBe(false);
+      expect(await getCachedImageSrc(REMOTE)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('removes background caches left behind by earlier versions', async () => {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { quoteRequestUrl } from '../utils/api';
 import { CUSTOM_QUOTE_SOURCE, pickCustomQuote } from '../utils/customQuotes';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { pickFallbackQuote } from '../utils/quoteFallback';
 import { useSettings } from './useSettings';
 import { useTranslation } from 'react-i18next';
@@ -86,12 +87,13 @@ export const useQuote = () => {
     const fetchQuote = async () => {
       try {
         setLoading(true);
-        const res = await fetch(
+        const data = await fetchWithTimeout(
           quoteRequestUrl(settings.quoteSource, language, settings.quoteQuery, index),
+          async (res): Promise<QuoteData> => {
+            if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
+            return res.json();
+          },
         );
-        if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
-
-        const data = (await res.json()) as QuoteData;
         if (!data.text) throw new Error('Quote API returned no text');
 
         if (index === 0) setDailyData(CACHE_KEY, data, selection);

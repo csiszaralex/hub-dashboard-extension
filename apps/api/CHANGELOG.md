@@ -1,3 +1,9 @@
+## 1.3.3 (2026-11-18)
+
+### 🩹 Fixes
+
+- **api:** give up on an upstream that does not answer ([03420ba](https://github.com/csiszaralex/hub-dashboard-extension/commit/03420ba))
+
 ## 1.3.2 (2026-11-04)
 
 ### 🧱 Updated Dependencies

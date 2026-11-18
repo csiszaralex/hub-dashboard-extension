@@ -1,3 +1,9 @@
+## 2.8.4 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** put a deadline on every request ([42c8692](https://github.com/csiszaralex/hub-dashboard-extension/commit/42c8692))
+
 ## 2.8.3 (2026-11-18)
 
 ### 🩹 Fixes

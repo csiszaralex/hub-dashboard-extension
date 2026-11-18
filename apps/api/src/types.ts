@@ -1,3 +1,15 @@
+import { BackgroundData } from '@hub/shared';
+
+/**
+ * Photo as stored in a KV pool and in `BUNDLED_POOL`. `downloadLocation` is
+ * needed to report usage back to Unsplash but is not part of the public
+ * response.
+ */
+export interface PooledPhoto extends BackgroundData {
+  downloadLocation?: string;
+}
+
+/** One photo as `GET https://api.unsplash.com/photos/random` returns it. */
 export interface Photo {
   id: string;
   slug: string;

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
-import { DEFAULT_POOL_KEY } from './tags';
+import { DEFAULT_POOL_KEY, LAST_GOOD_DEFAULT_POOL_KEY } from './tags';
 import { createKvStub } from './test/kvStub';
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
 const env = (kv: KVNamespace) => ({ UNSPLASH_CACHE: kv, UNSPLASH_ACCESS_KEY: 'test-key' });
 
-/** A KV whose reads fail, as during an outage; the kvStub itself never rejects. */
+/** A KV whose every call fails, as during an outage, with spies on both methods. */
 const failingKv = (): KVNamespace =>
   ({
     get: vi.fn(async () => {
@@ -70,6 +70,32 @@ describe('GET /api/health', () => {
     expect(res.status).toBe(503);
   });
 
+  it('is healthy on the last good default pool alone', async () => {
+    // The state a deployment reaches when the default pool's TTL runs out
+    // with nothing refilling it; the next background request still gets 200.
+    const { kv, seed } = createKvStub();
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [cachedPhoto]);
+
+    const res = await app.request('/api/health', {}, env(kv));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ ok: true, backgrounds: true });
+  });
+
+  it('is healthy on the bundled pool alone, even during a KV outage', async () => {
+    vi.resetModules();
+    vi.doMock('./bundledPool', () => ({ BUNDLED_POOL: [cachedPhoto] }));
+    try {
+      const withBundle = (await import('./index')).default;
+
+      const res = await withBundle.request('/api/health', {}, env(failingKv()));
+
+      expect(res.status).toBe(200);
+    } finally {
+      vi.doUnmock('./bundledPool');
+    }
+  });
+
   it('reports a KV outage as unhealthy instead of throwing', async () => {
     const res = await app.request('/api/health', {}, env(failingKv()));
 
@@ -92,13 +118,15 @@ describe('error responses', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
   });
 
+  // Every real route now handles its own failures, so a route that throws is
+  // registered here for the test alone. This file gets its own module graph,
+  // so the extra route does not reach any other test file.
+  app.get('/api/test-throws', () => {
+    throw new Error('Simulated failure');
+  });
+
   it('answers an unhandled exception with a JSON 500 that still carries CORS', async () => {
-    // The background route has no guard around its first KV read, so an outage
-    // there is a real way to reach `onError`.
-    const res = await app.request('/api/background', fromExtension, env(failingKv()), {
-      waitUntil: () => {},
-      passThroughOnException: () => {},
-    } as unknown as ExecutionContext);
+    const res = await app.request('/api/test-throws', fromExtension, env(createKvStub().kv));
 
     expect(res.status).toBe(500);
     expect(res.headers.get('Content-Type')).toContain('application/json');
@@ -107,16 +135,21 @@ describe('error responses', () => {
   });
 
   it('logs the error without the request URL', async () => {
-    const res = await app.request(
-      '/api/background?tags=private-tag',
-      {},
-      env(failingKv()),
-      { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext,
-    );
+    const res = await app.request('/api/test-throws?tags=private-tag', {}, env(createKvStub().kv));
 
     expect(res.status).toBe(500);
     const logged = vi.mocked(console.error).mock.calls.flat().map(String).join(' ');
-    expect(logged).toContain('KV unavailable');
+    expect(logged).toContain('Simulated failure');
     expect(logged).not.toContain('private-tag');
+  });
+
+  it('answers a background request during a KV outage without reaching onError', async () => {
+    const res = await app.request('/api/background', fromExtension, env(failingKv()), {
+      waitUntil: () => {},
+      passThroughOnException: () => {},
+    } as unknown as ExecutionContext);
+
+    expect(res.status).not.toBe(500);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

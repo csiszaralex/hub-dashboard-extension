@@ -42,3 +42,12 @@ export const resolveTags = (raw: string | undefined): string =>
 export const poolKey = (tags: string): string => `pool:${tags}`;
 
 export const DEFAULT_POOL_KEY = poolKey(DEFAULT_NORMALIZED);
+
+/**
+ * Copy of the newest good default pool, written without a TTL so it outlives
+ * `DEFAULT_POOL_KEY` when nothing refills that in time. Outside the `pool:`
+ * prefix, so no caller-supplied tag list can map onto it, and not derived from
+ * `DEFAULT_TAGS`, so changing those overwrites this entry rather than leaving
+ * a never-expiring one behind.
+ */
+export const LAST_GOOD_DEFAULT_POOL_KEY = 'last_good:default';

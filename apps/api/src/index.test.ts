@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './index';
 import { HOURLY_UNSPLASH_BUDGET } from './background';
 import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
-import { DEFAULT_POOL_KEY } from './tags';
+import { DEFAULT_POOL_KEY, LAST_GOOD_DEFAULT_POOL_KEY } from './tags';
 import { hangingFetch } from './test/hangingFetch';
 import { createKvStub } from './test/kvStub';
 
@@ -182,6 +182,195 @@ describe('GET /api/background', () => {
       'photographerUrl',
       'url',
     ]);
+  });
+});
+
+describe('GET /api/background fallback layers', () => {
+  const lastGoodPhoto = {
+    url: 'https://images.unsplash.com/last-good',
+    location: null,
+    photographer: 'Last good',
+    photographerUrl: 'https://unsplash.com/@last-good',
+  };
+
+  const bundledPhoto = {
+    url: 'https://images.unsplash.com/bundled',
+    location: null,
+    photographer: 'Bundled',
+    photographerUrl: 'https://unsplash.com/@bundled',
+  };
+
+  const unsplashDown = () => new Response('unavailable', { status: 503 });
+
+  /**
+   * `BUNDLED_POOL` ships empty until real attribution data is supplied, so the
+   * tests that need that layer give it one entry through a module mock.
+   */
+  const appWithBundledPool = async (pool: unknown[]) => {
+    vi.resetModules();
+    vi.doMock('./bundledPool', () => ({ BUNDLED_POOL: pool }));
+    try {
+      return (await import('./index')).default;
+    } finally {
+      vi.doUnmock('./bundledPool');
+    }
+  };
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('serves the bundled pool instead of a 500 when every KV read fails', async () => {
+    const { kv, failGets } = createKvStub();
+    failGets();
+    const withBundle = await appWithBundledPool([bundledPhoto]);
+
+    const res = await withBundle.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ photographer: 'Bundled' });
+  });
+
+  it('does not call Unsplash when the budget counter cannot be read', async () => {
+    const { kv, seed, failGets } = createKvStub();
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [lastGoodPhoto]);
+    failGets((key) => key.startsWith('budget:'));
+
+    const res = await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(unsplashCalls()).toHaveLength(0);
+    expect(res.status).toBe(200);
+  });
+
+  it('does not call Unsplash when the budget counter cannot be written', async () => {
+    // Real KV allows one write per key per second and answers a second with a
+    // 429, so a burst on the hour's counter is a realistic way to get here.
+    const { kv, seed, failPuts } = createKvStub();
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [lastGoodPhoto]);
+    failPuts((key) => key.startsWith('budget:'));
+
+    await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(unsplashCalls()).toHaveLength(0);
+  });
+
+  it('still serves a freshly fetched pool when caching it fails', async () => {
+    const { kv, failPuts } = createKvStub();
+    failPuts((key) => key.startsWith('pool:'));
+
+    const res = await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(unsplashCalls()).toHaveLength(1);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ photographer: expect.stringMatching(/^Photographer /) });
+  });
+
+  it('keeps a copy of the default pool that does not expire', async () => {
+    const { kv, read, ttlOf } = createKvStub();
+
+    await app.request('/api/background', {}, env(kv), executionCtx());
+
+    expect(read(LAST_GOOD_DEFAULT_POOL_KEY)).toBe(read(DEFAULT_POOL_KEY));
+    expect(ttlOf(LAST_GOOD_DEFAULT_POOL_KEY)).toBeUndefined();
+    expect(ttlOf(DEFAULT_POOL_KEY)).toBeGreaterThan(0);
+  });
+
+  it('does not copy a pool for other tags into the last good default', async () => {
+    const { kv, read } = createKvStub();
+
+    await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(read(LAST_GOOD_DEFAULT_POOL_KEY)).toBeUndefined();
+  });
+
+  it('serves the last good default pool when the default pool expired and Unsplash is down', async () => {
+    const { kv, seed } = createKvStub();
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [lastGoodPhoto]);
+    fetchMock.mockImplementation(async () => unsplashDown());
+
+    const res = await app.request('/api/background', {}, env(kv), executionCtx());
+
+    expect(unsplashCalls()).toHaveLength(1);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ photographer: 'Last good' });
+  });
+
+  it('prefers the default pool over the last good copy', async () => {
+    const { kv, seed } = createKvStub();
+    seed(DEFAULT_POOL_KEY, [
+      { url: 'https://images.unsplash.com/cached', location: null, photographer: 'Cached', photographerUrl: 'https://unsplash.com/@cached' },
+    ]);
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [lastGoodPhoto]);
+    fetchMock.mockImplementation(async () => unsplashDown());
+
+    const res = await app.request('/api/background?tags=unseen', {}, env(kv), executionCtx());
+
+    await expect(res.json()).resolves.toMatchObject({ photographer: 'Cached' });
+  });
+
+  it('serves the bundled pool when both default layers are missing and Unsplash is down', async () => {
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => unsplashDown());
+    const withBundle = await appWithBundledPool([bundledPhoto]);
+
+    const res = await withBundle.request('/api/background', {}, env(kv), executionCtx());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ photographer: 'Bundled' });
+  });
+
+  it('answers 503 when every layer is empty', async () => {
+    const { kv } = createKvStub();
+    fetchMock.mockImplementation(async () => unsplashDown());
+    const withoutBundle = await appWithBundledPool([]);
+
+    const res = await withoutBundle.request('/api/background', {}, env(kv), executionCtx());
+    const health = await withoutBundle.request('/api/health', {}, env(kv));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ error: 'No background available' });
+    expect(health.status).toBe(503);
+  });
+
+  it('logs a KV failure without the request tags', async () => {
+    const { kv, failGets } = createKvStub();
+    failGets();
+
+    await app.request('/api/background?tags=private-tag', {}, env(kv), executionCtx());
+
+    const logged = vi.mocked(console.error).mock.calls.flat().map(String).join(' ');
+    expect(logged).toContain('KV unavailable');
+    expect(logged).not.toContain('private-tag');
+  });
+
+  it.each([
+    ['an object instead of a list', { errors: ['Rate Limit Exceeded'] }],
+    ['an empty list', []],
+    ['photos without an https image URL', [{ ...photo('1'), urls: { raw: 'http://images.unsplash.com/x' } }, { ...photo('2'), urls: {} }]],
+    ['photos without a photographer', [{ ...photo('1'), user: { links: { html: 'https://unsplash.com/@x' } } }]],
+    ['photos without a profile link', [{ ...photo('1'), user: { name: 'Someone', links: {} }, links: {} }]],
+  ])('does not cache a 200 from Unsplash carrying %s', async (_label, body) => {
+    const { kv, keys, seed } = createKvStub();
+    seed(LAST_GOOD_DEFAULT_POOL_KEY, [lastGoodPhoto]);
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify(body)));
+
+    const res = await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    expect(keys().filter((k) => k.startsWith('pool:'))).toEqual([]);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ photographer: 'Last good' });
+  });
+
+  it('drops only the unusable photos from an otherwise good response', async () => {
+    const { kv, read } = createKvStub();
+    fetchMock.mockImplementation(
+      async () => new Response(JSON.stringify([photo('good'), { ...photo('bad'), urls: { raw: 'javascript:alert(1)' } }])),
+    );
+
+    await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
+
+    const cached = JSON.parse(read('pool:forest')!) as { url: string }[];
+    expect(cached.map((p) => p.url)).toEqual([expect.stringContaining('photo-good')]);
   });
 });
 

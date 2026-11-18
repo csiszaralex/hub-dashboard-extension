@@ -1,5 +1,5 @@
 import type { QuoteData } from '@hub/shared';
-import type { HubSettings } from '../hooks/useSettings';
+import type { HubSettings } from './settingsSchema';
 
 /**
  * Source id for the user's own list.

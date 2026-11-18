@@ -25,8 +25,8 @@ export const phaseDurationMs = (
 
 /**
  * Same clamp `phaseDurationMs` applies internally, exposed so a length can be
- * normalised once at the point it is stored (settings merge, live storage
- * change, and the popup's save) instead of only at the point it is consumed.
+ * normalised once where it is read or stored (`settingsSchema`'s decoder and
+ * the popup's save) instead of only at the point it is consumed.
  * `fallback` is used only when `value` is not a finite number at all (e.g.
  * `NaN` from a hand-edited sync value) — an in-range or out-of-range number
  * is rounded and clamped, not replaced.

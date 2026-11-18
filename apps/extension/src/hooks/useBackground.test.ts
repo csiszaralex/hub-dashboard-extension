@@ -501,11 +501,11 @@ describe('useBackground', () => {
     // No `seedSync`: the hook falls back to its merged default, and the worker
     // must have prefetched under that exact string for the packet to be usable.
     const chromeStub = installChromeStub();
-    const { DEFAULT_UNSPLASH_QUERY } = await import('../utils/api');
+    const { DEFAULT_SETTINGS } = await import('../utils/settingsSchema');
     chromeStub.seedLocal({
       prefetched_bg: {
         date: today(),
-        query: DEFAULT_UNSPLASH_QUERY,
+        query: DEFAULT_SETTINGS.unsplashQuery,
         data: {
           url: 'https://images.unsplash.com/prefetched',
           location: null,

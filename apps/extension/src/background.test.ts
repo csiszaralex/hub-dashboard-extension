@@ -146,7 +146,7 @@ describe('background service worker', () => {
     // the packet unadoptable and the whole download wasted.
     const chromeStub = installChromeStub();
     const fetchMock = stubFetch();
-    const { DEFAULT_UNSPLASH_QUERY } = await import('./utils/api');
+    const { DEFAULT_SETTINGS } = await import('./utils/settingsSchema');
     await loadBackground();
     chromeStub.fireInstalled('install');
     await settle();
@@ -155,8 +155,29 @@ describe('background service worker', () => {
     await settle();
 
     const requested = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(requested.searchParams.get('tags')).toBe(DEFAULT_UNSPLASH_QUERY);
-    expect(chromeStub.readLocal(PREFETCH_KEY)).toMatchObject({ query: DEFAULT_UNSPLASH_QUERY });
+    expect(requested.searchParams.get('tags')).toBe(DEFAULT_SETTINGS.unsplashQuery);
+    expect(chromeStub.readLocal(PREFETCH_KEY)).toMatchObject({
+      query: DEFAULT_SETTINGS.unsplashQuery,
+    });
+  });
+
+  it('decodes the stored settings rather than trusting them', async () => {
+    // Sync storage is not only written by the popup. A query that is not a
+    // string, or a source the page does not know, must reach the prefetch as
+    // the page's own default, which is what the page will then ask for.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 42, backgroundSource: 'bing' });
+    const fetchMock = stubFetch();
+    const { DEFAULT_SETTINGS } = await import('./utils/settingsSchema');
+    await loadBackground();
+    chromeStub.fireInstalled('install');
+    await settle();
+
+    chromeStub.fireAlarm(PREFETCH_ALARM);
+    await settle();
+
+    const requested = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(requested.searchParams.get('tags')).toBe(DEFAULT_SETTINGS.unsplashQuery);
   });
 
   it('makes no request when the user supplied their own background', async () => {
@@ -230,7 +251,7 @@ describe('background service worker — Pomodoro', () => {
   it('clamps a corrupt phase length rather than scheduling a zero-length phase', async () => {
     const chromeStub = installChromeStub();
     // Sync storage is not only written by the popup, so the worker cannot
-    // assume the value it reads has already been through `useSettings.merge`.
+    // assume the value it reads has already been through `useSettings`.
     chromeStub.seedSync({ pomodoroWorkMinutes: 0 });
     await loadBackground();
     const before = Date.now();
@@ -239,6 +260,22 @@ describe('background service worker — Pomodoro', () => {
     await settle();
 
     expect(readState(chromeStub)?.endsAt).toBeGreaterThanOrEqual(before + MINUTE);
+  });
+
+  it('uses the default length when the stored one is not a number at all', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ pomodoroWorkMinutes: 'abc' });
+    const { DEFAULT_WORK_MINUTES } = await import('./utils/pomodoro');
+    await loadBackground();
+    const before = Date.now();
+
+    send({ type: 'pomodoro/start' });
+    await settle();
+    const after = Date.now();
+
+    const endsAt = readState(chromeStub)?.endsAt ?? 0;
+    expect(endsAt).toBeGreaterThanOrEqual(before + DEFAULT_WORK_MINUTES * MINUTE);
+    expect(endsAt).toBeLessThanOrEqual(after + DEFAULT_WORK_MINUTES * MINUTE);
   });
 
   it('writes the state before it schedules the alarm', async () => {

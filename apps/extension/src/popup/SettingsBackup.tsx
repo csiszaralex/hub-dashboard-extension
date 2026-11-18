@@ -45,16 +45,16 @@ export function SettingsBackup({ settings, onImport }: Props) {
     setError(null);
     if (!file) return;
 
-    const restored = parseBackup(await file.text());
-    if (!restored) {
-      setError(t('popup.backupInvalid'));
+    const result = parseBackup(await file.text());
+    if (!result.ok) {
+      setError(t(result.reason === 'newer' ? 'popup.backupTooNew' : 'popup.backupInvalid'));
       return;
     }
 
     // A refused write is reported and the popup left as it is: reloading would
     // show the old values with no word of why the import did not take.
     try {
-      await onImport(restored);
+      await onImport(result.settings);
     } catch (importError) {
       const message = importError instanceof Error ? importError.message : String(importError);
       setError(t('popup.saveFailed', { message }));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { QuoteData } from '@hub/shared';
-import { DEFAULT_QUOTE_SOURCE, QUOTE_SOURCES_ENDPOINT } from '../utils/api';
+import { DEFAULT_QUOTE_SOURCE_ID, type QuoteData } from '@hub/shared';
+import { QUOTE_SOURCES_ENDPOINT } from '../utils/api';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
   CUSTOM_QUOTE_SOURCE,
@@ -100,7 +100,7 @@ export function QuoteSourceSection({
             whatever happens to be first and silently save that on the next
             submit — changing a preference the user never touched.
           */}
-          {!selected && <option value={source}>{source || DEFAULT_QUOTE_SOURCE}</option>}
+          {!selected && <option value={source}>{source || DEFAULT_QUOTE_SOURCE_ID}</option>}
           {usable.map((entry) => (
             <option key={entry.id} value={entry.id}>
               {entry.id}

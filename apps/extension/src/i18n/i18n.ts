@@ -3,6 +3,13 @@ import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
 import hu from './locales/hu.json';
 import { SUPPORTED_LANGUAGES } from '@hub/shared';
+import { readSettings, type SettingKey } from '../utils/settingsSchema';
+
+/**
+ * Not read through `useSettings`, whose store is reachable only from a React
+ * hook, but typed and decoded by the same schema, so a rename fails the build.
+ */
+const LANGUAGE_KEY = 'language' satisfies SettingKey;
 
 /**
  * Re-exported under the name the popup already uses, but sourced from the
@@ -31,15 +38,15 @@ i18n.use(initReactI18next).init({
     escapeValue: false,
   },
 }).then(() => {
-  chrome.storage.sync.get('language', (res: { language?: string }) => {
-    void i18n.changeLanguage(res.language || autoDetectLanguage());
+  chrome.storage.sync.get(LANGUAGE_KEY, (stored) => {
+    void i18n.changeLanguage(readSettings(stored).language || autoDetectLanguage());
   });
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && changes.language) {
-    const lang = (changes.language.newValue as string | undefined) || autoDetectLanguage();
-    void i18n.changeLanguage(lang);
+  if (area === 'sync' && LANGUAGE_KEY in changes) {
+    const { language } = readSettings({ [LANGUAGE_KEY]: changes[LANGUAGE_KEY].newValue });
+    void i18n.changeLanguage(language || autoDetectLanguage());
   }
 });
 

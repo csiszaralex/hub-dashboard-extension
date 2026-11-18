@@ -5,7 +5,7 @@ import type { MemosFailureReason } from './memosClient';
  * Everything the widget keeps on this machine only.
  *
  * The access token is here rather than in `HubSettings` on purpose:
- * `settingsBackup.RULES` is a mapped type over `keyof HubSettings` and
+ * `settingsSchema`'s `DECODERS` is a mapped type over `keyof HubSettings` and
  * `buildBackup` serialises that whole object into a file the user may share, so
  * a token living there would have to be excluded by hand. Out here, exporting
  * it is impossible at the type level.

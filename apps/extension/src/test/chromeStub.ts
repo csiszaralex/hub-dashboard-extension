@@ -297,9 +297,12 @@ export const installChromeStub = (): ChromeStub => {
   const chromeStub = {
     storage: {
       sync: {
-        get: (keys: string[] | string, cb: (items: Record<string, unknown>) => void) => {
+        // `null` asks for the whole area, as in Chrome — the settings store
+        // reads everything so a migration can see keys that are no longer
+        // settings.
+        get: (keys: string[] | string | null, cb: (items: Record<string, unknown>) => void) => {
           getCount++;
-          const wanted = Array.isArray(keys) ? keys : [keys];
+          const wanted = keys === null ? [...store.keys()] : Array.isArray(keys) ? keys : [keys];
           const result: Record<string, unknown> = {};
           for (const key of wanted) {
             if (store.has(key)) result[key] = store.get(key);
@@ -359,6 +362,21 @@ export const installChromeStub = (): ChromeStub => {
             chromeStub.runtime.lastError = undefined;
           });
           return undefined;
+        },
+        // Same reporting as `local.remove` below: nothing for a key that was
+        // never there, and `oldValue` with no `newValue` for one that was.
+        remove: (keys: string[] | string, cb?: () => void) => {
+          const unwanted = Array.isArray(keys) ? keys : [keys];
+          const changes: Record<string, StorageChange> = {};
+          for (const key of unwanted) {
+            if (!store.has(key)) continue;
+            changes[key] = { oldValue: store.get(key) };
+            store.delete(key);
+          }
+          queueMicrotask(() => {
+            if (Object.keys(changes).length > 0) listeners.forEach((l) => l(changes, 'sync'));
+            cb?.();
+          });
         },
       },
       local: {

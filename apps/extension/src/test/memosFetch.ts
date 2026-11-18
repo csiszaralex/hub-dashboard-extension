@@ -3,9 +3,24 @@ import { vi } from 'vitest';
 export interface FakeReply {
   status: number;
   body: unknown;
+  /** The `Location` header, for a redirect. */
+  location?: string;
 }
 
 export const reply = (status: number, body: unknown = {}): FakeReply => ({ status, body });
+
+/** A redirect to `location` — 302 unless the test names another redirect status. */
+export const redirectTo = (location: string, status = 302): FakeReply => ({
+  status,
+  body: {},
+  location,
+});
+
+/** The Fetch standard's redirect statuses. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/** The standard's cap on redirects in one fetch, past which it is a network error. */
+const MAX_REDIRECTS = 20;
 
 /**
  * What Memos answers for a missing, expired, revoked or unknown token on an
@@ -56,10 +71,20 @@ type Handler = (request: FakeRequest) => FakeReply;
  * network failure and so hide a request to the wrong URL. A table with routes
  * on the new `/api` prefix is a 26.10+ server, so an unrouted `/api/v1` path
  * gets that release's 410 instead.
+ *
+ * Routes match on the path alone, so a handler that cares which host it was
+ * asked on reads `url.host`.
+ *
+ * A reply carrying a `location` is a redirect, handled the way the Fetch
+ * standard's `redirect` modes do: `'error'` rejects with the TypeError a
+ * network error becomes, `'manual'` resolves to the opaque-redirect response
+ * (status 0, not ok), and `'follow'` (the default) asks the routes again at the
+ * new URL — without `Authorization` once the hop leaves the origin, which the
+ * standard's HTTP-redirect fetch removes. Followed hops reach the handlers, not
+ * this mock's call log, since a real redirect is not a second `fetch` call.
  */
-export const routeFetch = (routes: Record<string, Handler>) =>
-  vi.fn((input: string, init?: RequestInit) => {
-    const url = new URL(input);
+export const routeFetch = (routes: Record<string, Handler>) => {
+  const answer = (url: URL, init: RequestInit | undefined, hops: number): Promise<unknown> => {
     const method = init?.method ?? 'GET';
     const handler = routes[`${method} ${url.pathname}`];
     const authorization = new Headers(init?.headers).get('Authorization') ?? '';
@@ -67,13 +92,31 @@ export const routeFetch = (routes: Record<string, Handler>) =>
 
     const unrouted =
       servesNewApi(routes) && url.pathname.startsWith('/api/v1/') ? V1_GONE : NOT_FOUND;
-    const { status, body } = handler ? handler({ url, init, token }) : unrouted;
+    const { status, body, location } = handler ? handler({ url, init, token }) : unrouted;
+
+    if (REDIRECT_STATUSES.has(status) && location !== undefined) {
+      const mode = init?.redirect ?? 'follow';
+      if (mode === 'error' || hops >= MAX_REDIRECTS) {
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
+      if (mode === 'manual') {
+        return Promise.resolve({ ok: false, status: 0, type: 'opaqueredirect' });
+      }
+      const next = new URL(location, url);
+      const headers = new Headers(init?.headers);
+      if (next.origin !== url.origin) headers.delete('Authorization');
+      return answer(next, { ...init, headers }, hops + 1);
+    }
+
     return Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
       json: () => Promise.resolve(body),
     });
-  });
+  };
+
+  return vi.fn((input: string, init?: RequestInit) => answer(new URL(input), init, 0));
+};
 
 /**
  * The two endpoints Connect calls, as Memos serves them on `api` — v0.30's

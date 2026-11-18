@@ -231,7 +231,7 @@ describe('MemosSection', () => {
   // or Connect hands the old server's secret to a host the user just typed.
   it('does not send the stored token to a server at a different origin', async () => {
     const stub = installChromeStub();
-    stub.seedLocal({ memos_token: 'memos_pat_old' });
+    stub.seedLocal({ memos_server: 'https://a.example.com', memos_token: 'memos_pat_old' });
     // b is a real v0.30 server, but it never issued `memos_pat_old`.
     const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_b: 'users/7' } }));
     vi.stubGlobal('fetch', fetchMock);
@@ -263,10 +263,6 @@ describe('MemosSection', () => {
     vi.stubGlobal('fetch', connectable());
 
     await renderSection('https://memo.example.com');
-    // Let the mount-time read of the (empty) stored token land first, or it
-    // blanks the field after the typing below and the last assertion would
-    // pass for that reason alone.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     typeToken('memos_pat_x');
     fireEvent.click(screen.getByText('Connect'));
     await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
@@ -274,6 +270,104 @@ describe('MemosSection', () => {
 
     typeUrl('https://other.example.com');
     expect(tokenField().value).toBe('');
+  });
+});
+
+// The `url` prop is the synced `memosUrl`, which a settings import or another
+// machine can change while this machine's token stays where it was. The token
+// belongs to the server stored beside it, `memos_server`, and to nothing else.
+describe('MemosSection — the stored token and its server', () => {
+  const seedToken = (server: string) => {
+    const stub = installChromeStub();
+    stub.seedLocal({ memos_server: server, memos_token: 'memos_pat_old', memos_user: 'users/1' });
+    return stub;
+  };
+
+  /** Lets the mount-time read of the stored token land. */
+  const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+  /** Holds every `storage.local.get` until the returned release is called. */
+  const holdLocalReads = () => {
+    const held: (() => void)[] = [];
+    const original = chrome.storage.local.get.bind(chrome.storage.local);
+    vi.spyOn(chrome.storage.local, 'get').mockImplementation(((
+      keys: string[],
+      cb: (items: Record<string, unknown>) => void,
+    ) => {
+      held.push(() => original(keys, cb));
+    }) as typeof chrome.storage.local.get);
+    return () => act(async () => {
+      for (const release of held.splice(0)) release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  };
+
+  const bearers = (fetchMock: ReturnType<typeof routeFetch>) =>
+    fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers).get('Authorization'));
+
+  it('does not pre-fill or send a token stored for another server than the synced url', async () => {
+    seedToken('https://old.example.test');
+    // The new server is a real v0.30 one; it never issued `memos_pat_old`.
+    const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_new: 'users/7' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderSection('https://new.example.test');
+    await settle();
+    expect(tokenField().value).toBe('');
+
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(bearers(fetchMock)).not.toContain('Bearer memos_pat_old');
+  });
+
+  // Another path on the same origin is still the server the token was issued by.
+  it('pre-fills the token when the synced url is on the stored server’s origin', async () => {
+    seedToken('https://memo.example.test/memos');
+
+    await renderSection('https://memo.example.test');
+    await waitFor(() => expect(tokenField().value).toBe('memos_pat_old'));
+  });
+
+  it('clears a pre-filled token once a url on another origin is typed', async () => {
+    seedToken('https://memo.example.test');
+
+    await renderSection('https://memo.example.test');
+    await waitFor(() => expect(tokenField().value).toBe('memos_pat_old'));
+
+    typeUrl('https://other.example.test');
+    expect(tokenField().value).toBe('');
+  });
+
+  // The read is asynchronous, and the form is live before it lands. What it
+  // finds is compared with the URL on screen when it lands, not at mount.
+  it('does not pre-fill once a url on another origin was typed before the read landed', async () => {
+    seedToken('https://memo.example.test');
+    const release = holdLocalReads();
+    const fetchMock = routeFetch(memosConnectRoutes({ tokens: { memos_pat_new: 'users/7' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await renderSection('https://memo.example.test');
+    typeUrl('https://other.example.test');
+    await release();
+    expect(tokenField().value).toBe('');
+
+    vi.mocked(chrome.storage.local.get).mockRestore();
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
+    expect(bearers(fetchMock)).not.toContain('Bearer memos_pat_old');
+  });
+
+  // A keystroke is newer than anything storage held at mount.
+  it('keeps a token typed before the read landed', async () => {
+    seedToken('https://memo.example.test');
+    const release = holdLocalReads();
+
+    await renderSection('https://memo.example.test');
+    typeToken('memos_pat_typed');
+    await release();
+    expect(tokenField().value).toBe('memos_pat_typed');
   });
 });
 

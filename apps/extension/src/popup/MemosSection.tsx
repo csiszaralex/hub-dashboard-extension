@@ -7,6 +7,7 @@ import { removeOriginPermission, requestOriginPermission } from '../utils/memosP
 import {
   clearAllMemosData,
   clearServerData,
+  getConnectedServer,
   getToken,
   setConnectedServer,
   setToken,
@@ -109,20 +110,38 @@ export function MemosSection({
   // server: pre-filling it and then letting Connect send it to whatever host is
   // typed next would hand one server's secret to another.
   const tokenOriginRef = useRef<string | null>(null);
-  // The `url` prop as it was when the stored token was read — the server that
-  // token was saved for. Read once, from inside the effect below.
-  const urlAtLoadRef = useRef(url);
+  // What the URL field shows right now, for the stored-token read below to
+  // compare against when it lands — the user may have typed by then, and the
+  // effect's closure would only see the first render's value.
+  const draftUrlRef = useRef(url);
+  // Set once the token field holds something newer than the stored token: a
+  // keystroke in it, a Connect, a Disconnect. The read below then has nothing
+  // left to fill in, and landing late must not overwrite that.
+  const tokenSettledRef = useRef(false);
 
-  // The token is not a setting, so it is not on this component's props.
+  const showUrl = (value: string) => {
+    draftUrlRef.current = value;
+    setDraftUrl(value);
+  };
+
+  // The token is not a setting, so it is not on this component's props. It is
+  // read with the server it was saved for (`getConnectedServer`), not paired
+  // with the `url` prop: that is the synced `memosUrl`, which a settings import
+  // or another machine can point elsewhere while this machine's token stays.
+  // Only a field already showing the token's own server gets it; anywhere else,
+  // Connect can send only a token the user typed for the server on screen.
   useEffect(() => {
-    void getToken().then((stored) => {
+    void Promise.all([getToken(), getConnectedServer()]).then(([stored, server]) => {
+      if (tokenSettledRef.current || !stored) return;
+      const origin = originOf(server);
+      if (origin === null || origin !== originOf(draftUrlRef.current)) return;
       setTokenInput(stored);
-      tokenOriginRef.current = stored ? originOf(urlAtLoadRef.current) : null;
+      tokenOriginRef.current = origin;
     });
   }, []);
 
   const changeUrl = (value: string) => {
-    setDraftUrl(value);
+    showUrl(value);
     setState({ kind: 'idle' });
 
     // Only a URL that resolves to a different origin counts: a half-typed one
@@ -212,8 +231,9 @@ export function MemosSection({
         return;
       }
       // The token just saved belongs to this server now, like a stored one.
+      tokenSettledRef.current = true;
       tokenOriginRef.current = originOf(base);
-      setDraftUrl(base);
+      showUrl(base);
       // Keeps the form's own state coherent, so a later Save does not write back
       // the value the field held before Connect normalised it.
       onUrlChange(base);
@@ -254,8 +274,9 @@ export function MemosSection({
       await clearAllMemosData();
       if (origin) await removeOriginPermission(`${origin}/*`);
 
-      setDraftUrl('');
+      showUrl('');
       setTokenInput('');
+      tokenSettledRef.current = true;
       tokenOriginRef.current = null;
       setState((await urlCleared) ? { kind: 'disconnected' } : { kind: 'error', reason: 'save' });
     } finally {
@@ -282,6 +303,7 @@ export function MemosSection({
           type='password'
           value={token}
           onChange={(e) => {
+            tokenSettledRef.current = true;
             setTokenInput(e.target.value);
             setState({ kind: 'idle' });
           }}

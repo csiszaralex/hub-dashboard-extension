@@ -10,9 +10,7 @@ const connectable = () => routeFetch(memosConnectRoutes({ tokens: { memos_pat_x:
 const renderSection = async (url = '') => {
   await import('../i18n/i18n');
   const { MemosSection } = await import('./MemosSection');
-  const onUrlChange = vi.fn();
-  render(<MemosSection url={url} tag='' onUrlChange={onUrlChange} onTagChange={vi.fn()} />);
-  return { onUrlChange };
+  render(<MemosSection url={url} tag='' />);
 };
 
 const typeToken = (value: string) =>
@@ -29,16 +27,17 @@ describe('MemosSection', () => {
     const fetchMock = connectable();
     vi.stubGlobal('fetch', fetchMock);
     // The claim in this test's name is "without asking Chrome for anything" —
-    // only `fetchMock`/`onUrlChange` proved that before; this spy is what
-    // actually observes that `chrome.permissions.request` was never reached.
+    // only `fetchMock` proved that before; this spy is what actually observes
+    // that `chrome.permissions.request` was never reached.
     const requestSpy = vi.spyOn(chrome.permissions, 'request');
+    const setSpy = vi.spyOn(chrome.storage.sync, 'set');
 
-    const { onUrlChange } = await renderSection('http://memo.example.com');
+    await renderSection('http://memo.example.com');
     fireEvent.click(screen.getByText('Connect'));
 
     await waitFor(() => expect(screen.getByText('That is not an https URL')).toBeTruthy());
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(onUrlChange).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
     expect(requestSpy).not.toHaveBeenCalled();
   });
 
@@ -113,12 +112,11 @@ describe('MemosSection', () => {
     const stub = installChromeStub();
     vi.stubGlobal('fetch', connectable());
 
-    const { onUrlChange } = await renderSection('https://memo.example.com');
+    await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
     fireEvent.click(screen.getByText('Connect'));
 
     await waitFor(() => expect(screen.getByText('Connected to Memos 0.30.0')).toBeTruthy());
-    expect(onUrlChange).toHaveBeenCalledWith('https://memo.example.com');
     expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
     expect(stub.readLocal('memos_user')).toBe('users/1');
     // Connect persists the URL itself. Leaving it to the form's Save would let
@@ -133,7 +131,7 @@ describe('MemosSection', () => {
     const fetchMock = connectable();
     vi.stubGlobal('fetch', fetchMock);
 
-    const { onUrlChange } = await renderSection('https://memo.example.com');
+    await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
     fireEvent.click(screen.getByText('Connect'));
 
@@ -141,7 +139,6 @@ describe('MemosSection', () => {
       expect(screen.getByText('Chrome was not given access to that server')).toBeTruthy(),
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
     expect(stub.readLocal('memos_user')).toBeUndefined();
     expect(stub.readSync('memosUrl')).toBeUndefined();
@@ -152,12 +149,11 @@ describe('MemosSection', () => {
     // A pre-0.30 server has none of the v0.30 routes, so every one of them 404s.
     vi.stubGlobal('fetch', routeFetch({}));
 
-    const { onUrlChange } = await renderSection('https://memo.example.com');
+    await renderSection('https://memo.example.com');
     typeToken('memos_pat_x');
     fireEvent.click(screen.getByText('Connect'));
 
     await waitFor(() => expect(screen.getByText('Memos 0.30.0 or newer is required')).toBeTruthy());
-    expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
     expect(stub.readLocal('memos_user')).toBeUndefined();
     expect(stub.readSync('memosUrl')).toBeUndefined();
@@ -170,13 +166,12 @@ describe('MemosSection', () => {
     const stub = installChromeStub();
     vi.stubGlobal('fetch', routeFetch(memosConnectRoutes({ tokens: { memos_pat_real: 'users/1' } })));
 
-    const { onUrlChange } = await renderSection('https://memo.example.com');
+    await renderSection('https://memo.example.com');
     typeToken('memos_pat_typo');
     fireEvent.click(screen.getByText('Connect'));
 
     await waitFor(() => expect(screen.getByText('The server rejected that token')).toBeTruthy());
     expect(screen.queryByText(/Connected to Memos/)).toBeNull();
-    expect(onUrlChange).not.toHaveBeenCalled();
     expect(stub.readLocal('memos_token')).toBeUndefined();
     expect(stub.readLocal('memos_user')).toBeUndefined();
     expect(stub.readSync('memosUrl')).toBeUndefined();
@@ -430,7 +425,7 @@ describe('MemosSection — disconnecting', () => {
   it('removes everything this machine stored, and the server URL', async () => {
     const stub = seedConnected();
 
-    const { onUrlChange } = await renderSection('https://memo.example.com');
+    await renderSection('https://memo.example.com');
     fireEvent.click(screen.getByText('Disconnect'));
 
     await waitFor(() => expect(stub.readLocal('memos_token')).toBeUndefined());
@@ -438,7 +433,6 @@ describe('MemosSection — disconnecting', () => {
       expect(stub.readLocal(key)).toBeUndefined();
     }
     expect(stub.readSync('memosUrl')).toBe('');
-    expect(onUrlChange).toHaveBeenCalledWith('');
   });
 
   // Keeping access to a server the user has left is exactly what the optional,

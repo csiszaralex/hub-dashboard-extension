@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CalendarEvent } from '../types/calendar';
 import type { ICalendarList } from '../types/calendarList';
-import { fetchWithTimeout } from '../utils/fetchWithTimeout';
-
-const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
+import {
+  ask,
+  CALENDAR_API,
+  withCalendarToken,
+  type NoToken,
+  type Unauthorized,
+} from '../utils/googleCalendar';
 
 /** How often an open tab asks Google again. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -26,30 +30,7 @@ const DEFAULT_COLOR = '#3b82f6';
  */
 export type CalendarStatus = 'loading' | 'signed-out' | 'needs-sign-in' | 'failed' | 'ready';
 
-type Round =
-  | { kind: 'ok'; events: CalendarEvent[] }
-  | { kind: 'unauthorized' }
-  | { kind: 'failed' };
-
-/** A request's HTTP status and body; status `0` is one that never got an answer. */
-interface Answer<T> {
-  status: number;
-  body: T | null;
-}
-
-const ask = async <T>(url: string, token: string): Promise<Answer<T>> => {
-  try {
-    return await fetchWithTimeout(
-      url,
-      async (res) => ({ status: res.status, body: res.ok ? ((await res.json()) as T) : null }),
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-  } catch (error) {
-    // Offline, or out of time (`FetchTimeoutError`): no answer, not an empty one.
-    console.error('Calendar fetch failed:', error);
-    return { status: 0, body: null };
-  }
-};
+type Round = { kind: 'ok'; events: CalendarEvent[] } | Unauthorized | { kind: 'failed' };
 
 /**
  * The calendar list (for colours) and one events feed per selected calendar.
@@ -94,46 +75,16 @@ const loadRound = async (token: string, calendars: string[]): Promise<Round> => 
 };
 
 /**
- * The Promise form, which rejects on failure. The callback form reports it
- * through `runtime.lastError` instead, and hands the token over as a bare first
- * argument, where `@types/chrome` claims a result object.
+ * A round under `withCalendarToken`'s token and 401 handling. With no calendars
+ * selected there is nothing to ask, but the token is still fetched: it is what
+ * tells a signed-in user with nothing selected from one who never connected.
  */
-const getToken = async (interactive: boolean): Promise<string | null> => {
-  try {
-    const { token } = await chrome.identity.getAuthToken({ interactive });
-    return token || null;
-  } catch {
-    return null;
-  }
-};
-
-/**
- * A token, then a round with it. Chrome keeps handing out a cached token
- * Google no longer accepts, so a 401 means telling Chrome to drop it and
- * trying once more without a prompt — once, never a loop. A second rejected
- * token is dropped too, so the next sign-in starts clean.
- */
-const fetchCalendar = async (
-  interactive: boolean,
-  calendars: string[],
-): Promise<Round | { kind: 'no-token' }> => {
-  let token = await getToken(interactive);
-  if (!token) return { kind: 'no-token' };
-  if (calendars.length === 0) return { kind: 'ok', events: [] };
-
-  const round = await loadRound(token, calendars);
-  if (round.kind !== 'unauthorized') return round;
-
-  await chrome.identity.removeCachedAuthToken({ token }).catch(() => undefined);
-  token = await getToken(false);
-  if (!token) return round;
-
-  const retried = await loadRound(token, calendars);
-  if (retried.kind === 'unauthorized') {
-    await chrome.identity.removeCachedAuthToken({ token }).catch(() => undefined);
-  }
-  return retried;
-};
+const fetchCalendar = (interactive: boolean, calendars: string[]): Promise<Round | NoToken> =>
+  withCalendarToken<Round>(interactive, (token) =>
+    calendars.length === 0
+      ? Promise.resolve({ kind: 'ok', events: [] })
+      : loadRound(token, calendars),
+  );
 
 /**
  * The calendar widget's data, held in memory only: the privacy policy promises
@@ -153,7 +104,7 @@ export const useCalendar = (
   const roundId = useRef(0);
 
   /** Puts a finished round on screen; the only place that touches this hook's state. */
-  const commit = useCallback((round: Round | { kind: 'no-token' }, interactive: boolean) => {
+  const commit = useCallback((round: Round | NoToken, interactive: boolean) => {
     if (round.kind === 'ok') {
       hasLoaded.current = true;
       setEvents(round.events);

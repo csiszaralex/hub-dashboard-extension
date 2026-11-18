@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { saveSettings } from '../hooks/useSettings';
-import { normalizeBaseUrl, originPattern } from '../utils/memos';
+import { normalizeBaseUrl, originPattern, sanitizeMemosTag } from '../utils/memos';
 import { probe, type MemosFailureReason } from '../utils/memosClient';
 import { removeOriginPermission, requestOriginPermission } from '../utils/memosPermissions';
 import {
@@ -14,6 +14,7 @@ import {
   setUser,
 } from '../utils/memosStorage';
 import { Field, inputCls } from './Field';
+import { useDraftSetting } from './useDraftSetting';
 
 /**
  * Which translation key explains a given Connect failure.
@@ -52,7 +53,7 @@ type ConnectState =
   | { kind: 'disconnected' }
   | { kind: 'error'; reason: keyof typeof CONNECT_ERROR_KEY };
 
-// Module scope, like TabNav's TABS and PopupForm's BACKGROUND_SOURCES:
+// Module scope, like TabNav's TABS and AppearanceSection's BACKGROUND_SOURCES:
 // i18next/no-literal-string's `jsx-attributes.exclude` list does not cover
 // `placeholder` or `autoComplete`, and these are example values and an
 // attribute token, not prose that belongs in a locale file.
@@ -69,33 +70,32 @@ const originOf = (value: string): string | null => {
 /**
  * The Memos tab.
  *
- * Connect is its own button rather than part of the form's Save for a concrete
- * reason: `chrome.permissions.request` needs a user gesture, and the gesture
- * does not survive an `await` — `PopupForm.handleSubmit` awaits before it does
- * anything, so a request routed through it would fail silently.
+ * The URL is the one setting not written as it is typed: it is written by
+ * Connect, a button of its own, because `chrome.permissions.request` needs a
+ * user gesture, and the gesture does not survive an `await` — a request made
+ * after a debounce or a blur would fail silently.
  *
  * Nothing is saved until the permission, the version and the token have all
  * been proved, so a wrong URL or a mistyped token surfaces here instead of as
  * an empty widget on the new tab page.
  *
- * On success everything is persisted here — the token and its account to local
- * storage, then the URL through `saveSettings` — rather than leaving the URL to
- * the form's Save button. Splitting them would let someone press Connect, close
- * the popup, and end up with a token on disk, no URL, and a widget that
- * silently says it is not configured.
+ * On success everything is persisted together — the token and its account to
+ * local storage, then the URL through `saveSettings`. Splitting them would let
+ * someone press Connect, close the popup, and end up with a token on disk, no
+ * URL, and a widget that silently says it is not configured. The tag is an
+ * ordinary setting and is written as it is typed.
  */
 export function MemosSection({
   url,
-  tag,
-  onUrlChange,
-  onTagChange,
+  tag: storedTag,
 }: {
+  /** The stored `memosUrl`, which changes as Connect and Disconnect write it. */
   url: string;
+  /** The stored `memosTag`, read once when the section mounts. */
   tag: string;
-  onUrlChange: (url: string) => void;
-  onTagChange: (tag: string) => void;
 }) {
   const { t } = useTranslation();
+  const tag = useDraftSetting(storedTag, (value) => ({ memosTag: value }));
   const [draftUrl, setDraftUrl] = useState(url);
   const [token, setTokenInput] = useState('');
   const [state, setState] = useState<ConnectState>({ kind: 'idle' });
@@ -234,9 +234,6 @@ export function MemosSection({
       tokenSettledRef.current = true;
       tokenOriginRef.current = originOf(base);
       showUrl(base);
-      // Keeps the form's own state coherent, so a later Save does not write back
-      // the value the field held before Connect normalised it.
-      onUrlChange(base);
       if (movedServer) await removeOriginPermission(`${previousOrigin}/*`);
       setState({ kind: 'ok', version: result.value.version });
     } finally {
@@ -270,7 +267,6 @@ export function MemosSection({
         () => true,
         () => false,
       );
-      onUrlChange('');
       await clearAllMemosData();
       if (origin) await removeOriginPermission(`${origin}/*`);
 
@@ -349,8 +345,9 @@ export function MemosSection({
         <input
           id='memosTag'
           type='text'
-          value={tag}
-          onChange={(e) => onTagChange(e.target.value.trim().replace(/^#/, ''))}
+          value={tag.draft}
+          onChange={(e) => tag.change(sanitizeMemosTag(e.target.value))}
+          onBlur={tag.flush}
           className={inputCls}
           placeholder={TAG_PLACEHOLDER}
         />

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import { type HubSettings } from '../hooks/useSettings';
 import { clampDim, MAX_DIM } from '../utils/dim';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
   clampPomodoroMinutes,
   DEFAULT_BREAK_MINUTES,
@@ -100,18 +101,20 @@ export function PopupForm({
           return;
         }
         try {
-          const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
+          // A timeout rejects into the catch below, reported as a network error.
+          const { status, data } = await fetchWithTimeout(
+            'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+            async (res) => ({ status: res.status, data: res.ok ? await res.json() : null }),
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (data) {
             setAvailableCals(
               (data.items || []).map((cal: CalendarListEntry & { primary: boolean }) =>
                 cal.primary ? { ...cal, id: 'primary' } : cal,
               ),
             );
           } else {
-            setCalError(t('popup.apiError', { status: res.status }));
+            setCalError(t('popup.apiError', { status }));
           }
         } catch {
           setCalError(t('popup.networkError'));
@@ -172,10 +175,10 @@ export function PopupForm({
 
     if (validCity && validCity !== initialSettings.locationCity) {
       try {
-        const res = await fetch(
+        const data = await fetchWithTimeout(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(validCity)}&count=1&language=en&format=json`,
+          (res) => res.json(),
         );
-        const data = await res.json();
         if (data.results?.length > 0) {
           lat = data.results[0].latitude;
           lon = data.results[0].longitude;

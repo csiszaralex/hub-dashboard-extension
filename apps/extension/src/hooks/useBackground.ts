@@ -2,6 +2,7 @@ import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { backgroundRequestUrl } from '../utils/api';
 import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
   CUSTOM_IMAGE_KEY,
   cacheImage,
@@ -80,10 +81,13 @@ export const useBackground = () => {
 
       setLoading(true);
       try {
-        const res = await fetch(backgroundRequestUrl(currentQuery));
-        if (!res.ok) throw new Error('Worker API error');
-
-        const data: BackgroundData = await res.json();
+        const data = await fetchWithTimeout(
+          backgroundRequestUrl(currentQuery),
+          async (res): Promise<BackgroundData> => {
+            if (!res.ok) throw new Error('Worker API error');
+            return res.json();
+          },
+        );
         setBgData(data);
 
         // Only metadata goes to localStorage; the pixels live in the Cache API.

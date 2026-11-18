@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { hangingFetch } from '../test/hangingFetch';
+import { IMAGE_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from './fetchWithTimeout';
 
 const load = async () => await import('./prefetch');
 
@@ -79,6 +81,53 @@ describe('prefetchBackground', () => {
 
     expect(await prefetchBackground('forest', '2026-08-01')).toBe(false);
     expect(await readPrefetch()).toBeNull();
+  });
+
+  it('gives up and stores nothing when the worker never answers', async () => {
+    installChromeStub();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(hangingFetch));
+    const { prefetchBackground, readPrefetch } = await load();
+    vi.useFakeTimers();
+    try {
+      const result = prefetchBackground('forest', '2026-08-01');
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+
+      expect(await result).toBe(false);
+      expect(await readPrefetch()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves no pointer behind when the image download never finishes', async () => {
+    // The metadata arrives and the bytes do not. The pointer is the last step,
+    // so a download that times out must leave nothing for the page to adopt.
+    installChromeStub();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).includes('/api/background')
+          ? Promise.resolve(
+              new Response(JSON.stringify(metadata), {
+                headers: { 'Content-Type': 'application/json' },
+              }),
+            )
+          : hangingFetch(input, init),
+      ),
+    );
+    const { prefetchBackground, readPrefetch } = await load();
+    vi.useFakeTimers();
+    try {
+      const result = prefetchBackground('forest', '2026-08-01');
+      await vi.advanceTimersByTimeAsync(IMAGE_TIMEOUT_MS);
+
+      expect(await result).toBe(false);
+      expect(await readPrefetch()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns null when nothing has been prefetched', async () => {

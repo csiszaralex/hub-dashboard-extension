@@ -1,5 +1,6 @@
 import type { BackgroundData } from '@hub/shared';
 import { backgroundRequestUrl } from './api';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import { cacheImage } from './imageCache';
 
 /**
@@ -49,10 +50,11 @@ export const clearPrefetch = (): Promise<void> =>
  */
 export const prefetchBackground = async (query: string, date: string): Promise<boolean> => {
   try {
-    const res = await fetch(backgroundRequestUrl(query));
-    if (!res.ok) return false;
-
-    const data: BackgroundData = await res.json();
+    const data = await fetchWithTimeout(
+      backgroundRequestUrl(query),
+      async (res): Promise<BackgroundData | null> => (res.ok ? res.json() : null),
+    );
+    if (!data) return false;
     if (!(await cacheImage(data.url))) return false;
 
     await savePrefetch({ date, query, data });

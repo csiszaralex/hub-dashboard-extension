@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
+import { hangingFetch, installFakeClock } from '../test/hangingFetch';
 
 const CACHE_KEY = 'daily_bg_data';
 
@@ -92,6 +93,34 @@ const seedPrefetchedBytes = async (url = 'https://images.unsplash.com/prefetched
 
 const backgroundRequests = (fetchMock: ReturnType<typeof stubFetch>) =>
   fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/background'));
+
+describe('useBackground when the worker never answers', () => {
+  let restoreClock: () => void;
+  beforeEach(() => {
+    restoreClock = installFakeClock();
+  });
+  afterEach(() => restoreClock());
+
+  it('shows the fallback background once the request times out', async () => {
+    // A hung request raises no error by itself, so without a deadline the
+    // fallback in the catch is never reached and the page stays blank.
+    installChromeStub();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(hangingFetch));
+    const { REQUEST_TIMEOUT_MS } = await import('../utils/fetchWithTimeout');
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+    await waitFor(() => expect(result.current.loading).toBe(true));
+    expect(result.current.bgData.url).toBe('');
+
+    await act(() => vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS));
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.bgData.url).toContain('images.unsplash.com');
+    expect(result.current.bgData.photographer).toBe('');
+  });
+});
 
 describe('useBackground', () => {
   it('serves the cached image without a network request when the saved query matches the cache', async () => {

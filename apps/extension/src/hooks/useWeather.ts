@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '../i18n/i18n';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { summarizeDaily, type DailyForecast } from '../utils/forecast';
 import { summarizePrecipitation, type RainData } from '../utils/precipitation';
 import { useSettings } from './useSettings';
@@ -101,9 +102,10 @@ export const useWeather = () => {
           }
           // 3. IP
           try {
-            const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
-            if (res.ok) {
-              const geoData = await res.json();
+            const geoData = await fetchWithTimeout('https://get.geojs.io/v1/ip/geo.json', (res) =>
+              res.ok ? res.json() : Promise.resolve(null),
+            );
+            if (geoData) {
               if (geoData.latitude && geoData.longitude) {
                 return {
                   lat: parseFloat(geoData.latitude),
@@ -127,8 +129,11 @@ export const useWeather = () => {
 
         const { lat, lon, source } = await resolveLocation();
 
-        const weatherPromise = fetch(
+        // A timeout rejects into the catch below, which keeps the cached
+        // forecast on screen, the same as any other failed request.
+        const weatherPromise = fetchWithTimeout(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,precipitation&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`,
+          (res) => res.json(),
         );
 
         let city = i18n.t('weather.localWeather');
@@ -137,16 +142,14 @@ export const useWeather = () => {
         if (source === 'settings' && settings.locationCity) {
           city = settings.locationCity;
         } else {
-          cityPromise = fetch(
+          cityPromise = fetchWithTimeout(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=hu`,
-          )
-            .then((res) => res.json())
-            .catch(() => null);
+            (res) => res.json(),
+          ).catch(() => null);
         }
 
-        const [weatherRes, cityData] = await Promise.all([weatherPromise, cityPromise]);
+        const [wData, cityData] = await Promise.all([weatherPromise, cityPromise]);
 
-        const wData = await weatherRes.json();
         if (cityData) {
           if (cityData.city) city = cityData.city;
           if (cityData.locality) city = cityData.locality;

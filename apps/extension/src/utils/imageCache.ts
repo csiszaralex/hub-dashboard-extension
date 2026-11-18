@@ -1,3 +1,5 @@
+import { IMAGE_TIMEOUT_MS, fetchWithTimeout } from './fetchWithTimeout';
+
 /**
  * Background images live in the Cache API, not in localStorage.
  *
@@ -38,10 +40,17 @@ export const cacheImage = async (url: string): Promise<boolean> => {
   if (!cache) return false;
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) return false;
-    await cache.put(url, response);
-    return true;
+    // `put` inside the deadline: it is what reads the megabytes, so a download
+    // that stalls halfway is caught as well as one that never starts.
+    return await fetchWithTimeout(
+      url,
+      async (response) => {
+        if (!response.ok) return false;
+        await cache.put(url, response);
+        return true;
+      },
+      { timeoutMs: IMAGE_TIMEOUT_MS },
+    );
   } catch (error) {
     console.error('Failed to cache background image:', error);
     return false;

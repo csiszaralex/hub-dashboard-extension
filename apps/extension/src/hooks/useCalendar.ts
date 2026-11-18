@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CalendarEvent } from '../types/calendar';
 import type { ICalendarList } from '../types/calendarList';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 declare const chrome: {
   identity: {
@@ -30,13 +31,20 @@ export const useCalendar = (
         const now = new Date().toISOString();
 
         // Párhuzamosan kérjük le a színeket (calendarList) és az eseményeket
-        const [colorRes, ...eventResponses] = await Promise.all([
-          fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+        // A non-ok answer reads as null, as before; a timeout rejects into the
+        // catch below, which leaves the events already on screen.
+        const readOk = <T,>(res: Response): Promise<T | null> =>
+          res.ok ? res.json() : Promise.resolve(null);
+        const [colorData, ...eventPayloads] = await Promise.all([
+          fetchWithTimeout(
+            'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+            readOk<{ items: ICalendarList[] }>,
+            { headers: { Authorization: `Bearer ${token}` } },
+          ),
           ...selectedCalendars.map((calendarId) =>
-            fetch(
+            fetchWithTimeout(
               `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${now}&maxResults=13&singleEvents=true&orderBy=startTime`,
+              readOk<{ items?: CalendarEvent[] }>,
               { headers: { Authorization: `Bearer ${token}` } },
             ),
           ),
@@ -44,17 +52,16 @@ export const useCalendar = (
 
         // Szín Map építése
         const colorMap = new Map<string, string>();
-        if (colorRes.ok) {
-          const colorData: { items: ICalendarList[] } = await colorRes.json();
+        if (colorData) {
           (colorData.items || []).forEach((cal) => {
             const id = cal.primary ? 'primary' : cal.id;
             if (cal.backgroundColor) colorMap.set(id, cal.backgroundColor);
           });
         }
 
-        const fetchPromises = eventResponses.map(async (response, index) => {
-          if (!response.ok) return [];
-          const data = await response.json();
+        const fetchPromises = eventPayloads.map(async (payload, index) => {
+          const data = payload as { items?: CalendarEvent[] } | null;
+          if (!data) return [];
           const calendarId = selectedCalendars[index];
           const color = colorMap.get(calendarId) || '#3b82f6';
 

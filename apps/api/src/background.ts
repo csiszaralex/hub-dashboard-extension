@@ -1,17 +1,10 @@
 import { BackgroundData } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
+import { BUNDLED_POOL } from './bundledPool';
 import { fetchWithTimeout } from './fetchWithTimeout';
-import { DEFAULT_POOL_KEY, poolKey, resolveTags } from './tags';
-import { Photo } from './types';
-
-/**
- * Photo as stored in KV. `downloadLocation` is needed to report usage back to
- * Unsplash but is not part of the public response.
- */
-interface PooledPhoto extends BackgroundData {
-  downloadLocation?: string;
-}
+import { DEFAULT_POOL_KEY, LAST_GOOD_DEFAULT_POOL_KEY, poolKey, resolveTags } from './tags';
+import { Photo, PooledPhoto } from './types';
 
 const POOL_TTL_SECONDS = 3 * 24 * 60 * 60;
 const POOL_SIZE = 30;
@@ -44,14 +37,65 @@ const withUtm = (url: string): string => {
 
 const budgetKey = () => `budget:${new Date().toISOString().slice(0, 13)}`;
 
-/** Claims one Unsplash call from this hour's budget. Returns false when spent. */
+/**
+ * Claims one Unsplash call from this hour's budget. Returns false when spent.
+ *
+ * The cap is approximate, not exact. The counter is a read followed by a write
+ * on KV, which is eventually consistent: concurrent requests, or requests in
+ * different Cloudflare locations, can read the same count and each spend a
+ * call, so a burst can overshoot the number. Unsplash's own per-hour rate limit
+ * on the account is the hard backstop; this only keeps ordinary abuse well
+ * below it.
+ *
+ * Fails closed: if KV cannot be read or written, the answer is "do not call
+ * Unsplash this time". The request still gets a photo from a fallback layer,
+ * and an outage must not turn into uncounted spending.
+ */
 const claimUnsplashCall = async (kv: KVNamespace): Promise<boolean> => {
-  const key = budgetKey();
-  const used = Number((await kv.get(key)) ?? '0');
-  if (!Number.isFinite(used) || used >= HOURLY_UNSPLASH_BUDGET) return false;
+  try {
+    const key = budgetKey();
+    const used = Number((await kv.get(key)) ?? '0');
+    if (!Number.isFinite(used) || used >= HOURLY_UNSPLASH_BUDGET) return false;
 
-  await kv.put(key, String(used + 1), { expirationTtl: 3600 });
-  return true;
+    await kv.put(key, String(used + 1), { expirationTtl: 3600 });
+    return true;
+  } catch (error) {
+    console.error('Unsplash budget check failed:', error);
+    return false;
+  }
+};
+
+const isHttpsUrl = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Turns one Unsplash photo into a pool entry, or `null` when it lacks what the
+ * response needs: an https image URL and the photographer's name and profile,
+ * which the Unsplash guidelines require us to show. A pool is cached for three
+ * days, so an entry that cannot be rendered or attributed would be handed out
+ * for that long.
+ */
+const toPooledPhoto = (img: Photo): PooledPhoto | null => {
+  const raw = img?.urls?.raw;
+  const photographer = img?.user?.name;
+  const profile = img?.user?.links?.html || img?.links?.html;
+  if (!isHttpsUrl(raw) || typeof photographer !== 'string' || !photographer.trim()) return null;
+  if (!isHttpsUrl(profile)) return null;
+
+  const downloadLocation = img.links?.download_location;
+  return {
+    url: `${raw}&w=3840&q=90&fm=jpg&fit=crop`,
+    location: img.location?.name || null,
+    photographer,
+    photographerUrl: withUtm(profile),
+    downloadLocation: isHttpsUrl(downloadLocation) ? downloadLocation : undefined,
+  };
 };
 
 const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]> => {
@@ -62,52 +106,107 @@ const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]
 
   const rawData = await fetchWithTimeout(
     unsplashUrl.toString(),
-    async (res): Promise<Photo[]> => {
+    async (res): Promise<unknown> => {
       if (!res.ok) throw new Error(`Unsplash API error: ${res.status}`);
       return res.json();
     },
     { headers: { Authorization: `Client-ID ${accessKey}` } },
   );
-  return rawData.map((img) => ({
-    url: `${img.urls.raw}&w=3840&q=90&fm=jpg&fit=crop`,
-    location: img.location?.name || null,
-    photographer: img.user?.name || 'Unknown',
-    photographerUrl: withUtm(img.user?.links?.html || img.links?.html || ''),
-    downloadLocation: img.links?.download_location,
-  }));
+  if (!Array.isArray(rawData)) throw new Error('Unsplash response is not a list');
+
+  const pool = (rawData as Photo[])
+    .map(toPooledPhoto)
+    .filter((photo): photo is PooledPhoto => photo !== null);
+  // An empty pool is a failed fetch: caching it would mean three days of
+  // fallbacks for this tag set without another attempt.
+  if (pool.length === 0) throw new Error('No usable photo in Unsplash response');
+  return pool;
 };
+
+/**
+ * Reads one pool from KV. A failed read is a miss, as in `quote.ts`, so the
+ * caller moves on to the next layer instead of reaching `app.onError`.
+ */
+const readPool = async (kv: KVNamespace, key: string): Promise<PooledPhoto[] | null> => {
+  try {
+    const pool = await kv.get<PooledPhoto[]>(key, 'json');
+    return Array.isArray(pool) && pool.length > 0 ? pool : null;
+  } catch (error) {
+    console.error('Background pool read failed:', error);
+    return null;
+  }
+};
+
+/** Best-effort write: a pool that was fetched is served even if KV refuses it. */
+const writePool = async (
+  kv: KVNamespace,
+  key: string,
+  pool: PooledPhoto[],
+  options?: KVNamespacePutOptions,
+): Promise<void> => {
+  try {
+    await kv.put(key, JSON.stringify(pool), options);
+  } catch (error) {
+    console.error('Background pool write failed:', error);
+  }
+};
+
+/** Fetches and caches a missing pool, or `null` when the budget or Unsplash says no. */
+const refillPool = async (
+  kv: KVNamespace,
+  tags: string,
+  key: string,
+  accessKey: string,
+): Promise<PooledPhoto[] | null> => {
+  // Claimed only here, on a miss for this exact tag set: a cached pool costs
+  // nothing from the budget.
+  if (!(await claimUnsplashCall(kv))) return null;
+
+  let pool: PooledPhoto[];
+  try {
+    pool = await fetchPool(tags, accessKey);
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+
+  await writePool(kv, key, pool, { expirationTtl: POOL_TTL_SECONDS });
+  if (key === DEFAULT_POOL_KEY) {
+    // No TTL: this copy is what keeps the route answering when the default
+    // pool expires at a moment nothing can refill it.
+    await writePool(kv, LAST_GOOD_DEFAULT_POOL_KEY, pool);
+  }
+  return pool;
+};
+
+/**
+ * The pool served when a request's own pool is missing and cannot be fetched:
+ * the default pool, then the last good copy of it, then `BUNDLED_POOL`.
+ * `null` only when all three are empty, which is the one case the route
+ * answers 503 — and so the one case `GET /api/health` reports as unhealthy.
+ */
+export const readFallbackPool = async (
+  kv: KVNamespace,
+): Promise<readonly PooledPhoto[] | null> =>
+  (await readPool(kv, DEFAULT_POOL_KEY)) ??
+  (await readPool(kv, LAST_GOOD_DEFAULT_POOL_KEY)) ??
+  (BUNDLED_POOL.length > 0 ? BUNDLED_POOL : null);
 
 export const backgroundRoutes = new Hono<{ Bindings: Bindings }>();
 
 backgroundRoutes.get('/api/background', async (c) => {
+  const kv = c.env.UNSPLASH_CACHE;
   const tags = resolveTags(c.req.query('tags'));
   const cacheKey = poolKey(tags);
 
-  let pool = await c.env.UNSPLASH_CACHE.get<PooledPhoto[]>(cacheKey, 'json');
+  // Budget spent, Unsplash unavailable or KV down: degrade along the fallback
+  // layers rather than failing the new tab page.
+  const pool: readonly PooledPhoto[] | null =
+    (await readPool(kv, cacheKey)) ??
+    (await refillPool(kv, tags, cacheKey, c.env.UNSPLASH_ACCESS_KEY)) ??
+    (await readFallbackPool(kv));
 
-  if (!pool || pool.length === 0) {
-    if (await claimUnsplashCall(c.env.UNSPLASH_CACHE)) {
-      try {
-        pool = await fetchPool(tags, c.env.UNSPLASH_ACCESS_KEY);
-      } catch (error) {
-        console.error(error);
-        pool = null;
-      }
-      if (pool?.length) {
-        await c.env.UNSPLASH_CACHE.put(cacheKey, JSON.stringify(pool), {
-          expirationTtl: POOL_TTL_SECONDS,
-        });
-      }
-    }
-
-    // Budget spent or Unsplash unavailable — degrade to the default pool
-    // rather than failing the new tab page.
-    if (!pool || pool.length === 0) {
-      pool = await c.env.UNSPLASH_CACHE.get<PooledPhoto[]>(DEFAULT_POOL_KEY, 'json');
-    }
-  }
-
-  if (!pool || pool.length === 0) {
+  if (!pool) {
     return c.json({ error: 'No background available' }, 503);
   }
 

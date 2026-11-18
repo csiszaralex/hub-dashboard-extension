@@ -30,8 +30,44 @@ Unsplash calls. Normalisation lives in [`src/tags.ts`](src/tags.ts).
 
 The endpoint is public and the tag list comes from the caller, so a stream of
 unique tags would otherwise drain the account's rate limit. A KV counter caps
-Unsplash calls per hour; once it is spent the worker serves the default pool
-instead of calling Unsplash, degrading variety rather than failing.
+Unsplash calls per hour (`HOURLY_UNSPLASH_BUDGET` in
+[`src/background.ts`](src/background.ts)); once it is spent the worker serves
+the fallback layers below instead of calling Unsplash, degrading variety rather
+than failing. A call is claimed only when the request's own pool is missing, so
+cached tag sets cost nothing.
+
+The cap is approximate. The counter is a read followed by a write on KV, which
+is eventually consistent, so concurrent requests (or requests in different
+Cloudflare locations) can read the same count and each spend a call. Unsplash's
+own per-hour rate limit on the account is the hard backstop. If the counter
+cannot be read or written, the worker does not call Unsplash: it fails closed on
+spending and open on serving.
+
+There is no per-client limit. Every caller shares the one hourly budget.
+
+### Fallback order
+
+A request is answered from the first of these that has photos:
+
+1. the pool for its own normalised tags (`pool:<tags>`, 3-day TTL);
+2. a fresh Unsplash fetch for those tags, if the hourly budget allows;
+3. the default pool (`pool:<default tags>`, 3-day TTL);
+4. the last good default pool (`last_good:default`), a copy written with no
+   TTL whenever the default pool is fetched successfully, so it outlives an
+   expired default pool;
+5. the bundled pool (`BUNDLED_POOL` in [`src/bundledPool.ts`](src/bundledPool.ts)),
+   shipped inside the worker. It is empty until real attribution data is added
+   for it.
+
+Only when all of them are empty does the endpoint answer `503`. A KV read
+failure counts as a missing layer and a KV write failure is logged and ignored,
+so a KV outage never surfaces as a `500`, and a pool that was fetched is served
+even when it cannot be cached.
+
+A `200` from Unsplash is checked before it is cached: photos without an
+`https://` image URL, a photographer name or a photographer profile link are
+dropped, and a response with nothing left (or one that is not a list) counts as
+a failed fetch and is not cached.
 
 ### Upstream timeouts
 
@@ -41,7 +77,7 @@ Citatum) gives up after 5 seconds (`UPSTREAM_TIMEOUT_MS` in
 reading the body as well as the headers. An upstream that accepts the
 connection and never answers raises no error on its own, so without the
 deadline none of the fallbacks here would ever run. A timeout is handled as any
-other failed request: the background route serves the default pool, the quote
+other failed request: the background route serves its fallback layers, the quote
 route the stale quote, and a Citatum request that times out costs only its own
 entry in the pool. The extension's own deadline for the worker
 (`REQUEST_TIMEOUT_MS` in `apps/extension/src/utils/fetchWithTimeout.ts`) is
@@ -152,7 +188,7 @@ which is disproportionate to that blast radius.
 
 ## GET /api/health
 
-For an external uptime monitor. It costs one KV read and never calls an
+For an external uptime monitor. It costs at most two KV reads and never calls an
 upstream, so polling it spends neither the Unsplash nor the Citatum allowance.
 The response carries `Cache-Control: no-store`.
 
@@ -160,13 +196,16 @@ The response carries `Cache-Control: no-store`.
 { "ok": true, "backgrounds": true }
 ```
 
-`backgrounds` is whether the default pool is present and non-empty in KV. That
-pool is what `/api/background` falls back on when Unsplash fails or the hourly
-budget is spent, so without it those cases answer `503`. The status is `200`
-when `ok` is true and `503` with the same body when it is false; a KV error
-counts as unhealthy rather than surfacing as a `500`. The default pool expires
-three days after it was last fetched, so an unused deployment reports
-unhealthy until a request for the default tags refills it.
+`backgrounds` is whether any of the fallback layers (the default pool, the last
+good default pool, the bundled pool; see [Fallback order](#fallback-order)) has
+photos. Those are what `/api/background` serves when a request's own pool is
+missing and Unsplash fails or the hourly budget is spent, so without them those
+cases answer `503`. The status is `200` when `ok` is true and `503` with the
+same body when it is false; a KV error counts as a missing layer rather than
+surfacing as a `500`. The last good copy has no TTL, so once a deployment has
+fetched the default pool successfully it stays healthy after the default pool
+itself expires. A fresh deployment with an empty bundled pool reports unhealthy
+until a request for the default tags fills it.
 
 Quotes are deliberately not reported: the built-in sources answer from the
 bundle with no upstream and no KV, so the worker can always serve a quote while

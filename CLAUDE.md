@@ -146,7 +146,9 @@ Every outbound request in both apps goes through that app's `fetchWithTimeout` (
 
 `GET /api/background?tags=...` fetches 30 photos from Unsplash, caches the pool in Cloudflare KV for 3 days (TTL), and returns one random photo's metadata. Two constraints it exists under, since it is public and unauthenticated:
 - Tags are normalised (lowercased, stripped, deduped, sorted, capped at 5) so the KV key space cannot be inflated by callers.
-- Unsplash calls are capped per hour by a KV counter. Past the cap the worker serves the default pool instead of calling Unsplash, so a burst degrades the variety rather than exhausting the account quota.
+- Unsplash calls are capped per hour by a KV counter. Past the cap the worker serves the default pool instead of calling Unsplash, so a burst degrades the variety rather than exhausting the account quota. The cap is approximate (KV is eventually consistent); Unsplash's own rate limit is the hard backstop.
+
+Fallback order: own pool → Unsplash fetch → default pool → `last_good:default` (no TTL) → `BUNDLED_POOL` → 503. Every KV call there is fallible, as in `quote.ts`: a failed read is a miss, a failed write is ignored, a failed budget read or write means no Unsplash call. `GET /api/health` reads the same layers.
 
 Unsplash's API guidelines are load-bearing here: the worker pings each photo's `download_location` when it hands the photo out, and attribution links carry `utm_source=hub&utm_medium=referral`.
 

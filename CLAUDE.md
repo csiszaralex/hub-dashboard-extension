@@ -152,6 +152,8 @@ Unsplash's API guidelines are load-bearing here: the worker pings each photo's `
 
 `GET /api/quote` proxies `stoic.tekloon.net` behind a KV cache keyed by the current UTC date, so upstream is hit roughly once per day in total rather than once per request, and falls back to the last successfully cached quote (`quote:latest`) when upstream is down or errors. The extension talks only to this endpoint for quotes — see the External APIs note in the Extension section above.
 
+`GET /api/health` (`src/health.ts`) is for an uptime monitor: one KV read of the default pool, never an upstream call. Workers Logs keeps the worker's `console.*` output, but `invocation_logs` stays off in `wrangler.toml`: those would record each request URL, which carries the user's tags and quote category, and `privacy-policy.md` promises no request logs. So no log line may include the request either.
+
 ### Release Flow
 
 1. Push to `main` → `check.yml` runs → on its success `release.yml` (a `workflow_run` trigger, not a push trigger) runs `pnpm nx release` → creates git tags using conventional commits. A failed or cancelled Check releases nothing; re-running the Check is how a release is retried

@@ -177,6 +177,28 @@ describe('useBackground', () => {
     expect(result.current.imageSrc).toBeTruthy();
   });
 
+  it.each([
+    ['no url', { location: null, photographer: 'Broken', photographerUrl: '' }],
+    ['an empty url', { url: '', location: null, photographer: 'Broken', photographerUrl: '' }],
+    ['a non-https url', { url: 'http://images.unsplash.com/x', location: null, photographer: 'Broken', photographerUrl: '' }],
+  ])('treats a 200 with %s as a failed fetch and stores nothing', async (_label, body) => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })),
+    );
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    // The existing failure path: the built-in fallback image, no attribution.
+    await waitFor(() => expect(result.current.bgData.url).toContain('images.unsplash.com/photo-'));
+    expect(result.current.bgData.photographer).toBe('');
+    expect(localStorage.getItem(CACHE_KEY)).toBeNull();
+  });
+
   it('fetches a new image when the saved query no longer matches the cache', async () => {
     const chromeStub = installChromeStub();
     chromeStub.seedSync({ unsplashQuery: 'desert,dunes' });

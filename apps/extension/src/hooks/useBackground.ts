@@ -1,6 +1,6 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { backgroundRequestUrl } from '../utils/api';
+import { backgroundRequestUrl, isUsableBackground } from '../utils/api';
 import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
@@ -85,7 +85,11 @@ export const useBackground = () => {
           backgroundRequestUrl(currentQuery),
           async (res): Promise<BackgroundData> => {
             if (!res.ok) throw new Error('Worker API error');
-            return res.json();
+            const body: unknown = await res.json();
+            // Thrown into the failure path below rather than stored: the daily
+            // cache would otherwise hold an image-less entry until midnight.
+            if (!isUsableBackground(body)) throw new Error('Worker answered without an image URL');
+            return body;
           },
         );
         setBgData(data);

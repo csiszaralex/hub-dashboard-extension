@@ -47,6 +47,25 @@ describe('prefetchBackground', () => {
     expect(fetchMock.mock.calls.some(([i]) => String(i) === metadata.url)).toBe(true);
   });
 
+  it.each([
+    ['no url', { location: null, photographer: 'Broken', photographerUrl: '' }],
+    ['an empty url', { ...metadata, url: '' }],
+    ['a non-https url', { ...metadata, url: 'http://images.unsplash.com/tomorrow' }],
+    ['a null body', null],
+  ])('reports failure and stores nothing when a 200 carries %s', async (_label, body) => {
+    installChromeStub();
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { prefetchBackground, readPrefetch } = await load();
+
+    expect(await prefetchBackground('forest', '2026-08-01')).toBe(false);
+    expect(await readPrefetch()).toBeNull();
+    // Nothing to download either: the metadata request is the only one.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('reports failure and stores nothing when the worker is unreachable', async () => {
     installChromeStub();
     vi.stubGlobal(

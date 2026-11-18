@@ -1,5 +1,5 @@
 import type { BackgroundData } from '@hub/shared';
-import { backgroundRequestUrl } from './api';
+import { backgroundRequestUrl, isUsableBackground } from './api';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { cacheImage } from './imageCache';
 
@@ -52,9 +52,11 @@ export const prefetchBackground = async (query: string, date: string): Promise<b
   try {
     const data = await fetchWithTimeout(
       backgroundRequestUrl(query),
-      async (res): Promise<BackgroundData | null> => (res.ok ? res.json() : null),
+      async (res): Promise<unknown> => (res.ok ? res.json() : null),
     );
-    if (!data) return false;
+    // A packet without a usable URL would be adopted by the page as the day's
+    // background and suppress its own fetch until midnight.
+    if (!isUsableBackground(data)) return false;
     if (!(await cacheImage(data.url))) return false;
 
     await savePrefetch({ date, query, data });

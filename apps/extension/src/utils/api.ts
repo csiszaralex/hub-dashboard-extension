@@ -1,3 +1,5 @@
+import type { BackgroundData } from '@hub/shared';
+
 const BASE = 'https://hub-api.csiszaralex.workers.dev';
 
 export const BACKGROUND_ENDPOINT = `${BASE}/api/background`;
@@ -26,6 +28,24 @@ export const backgroundRequestUrl = (query: string): string => {
   const url = new URL(BACKGROUND_ENDPOINT);
   if (query) url.searchParams.set('tags', query);
   return url.toString();
+};
+
+/**
+ * Whether a `GET /api/background` body has an image to show: a non-empty
+ * `https://` `url`. Both the page (`useBackground`) and the service worker
+ * (`prefetchBackground`) check this before storing anything, because what they
+ * store suppresses the next fetch until the day ends — a 200 without a usable
+ * URL would leave a day with no background. Plain `URL` parsing only, so the
+ * service worker can import it.
+ */
+export const isUsableBackground = (data: unknown): data is BackgroundData => {
+  const url = (data as Partial<BackgroundData> | null)?.url;
+  if (typeof url !== 'string' || !url) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
 };
 
 /**

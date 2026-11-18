@@ -4,6 +4,7 @@ import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
 import { Clock } from './components/Clock';
 import { CountdownWidget } from './components/CountdownWidget';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { MemosWidget } from './components/MemosWidget';
 import { PomodoroWidget } from './components/PomodoroWidget';
 import { QuickNote } from './components/QuickNote';
@@ -71,16 +72,33 @@ function App() {
           the countdown and focus timer live here too.
         */}
         <div className='absolute top-10 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-start justify-center gap-4 max-w-[calc(100vw-40rem)]'>
+          {/*
+            Every widget sits in its own boundary, inside its `showWidget`
+            condition, so one that throws vanishes and the rest stay. A failed
+            release-notes modal also dismisses itself: left showing, an empty
+            slot would keep the countdown, the timer and, for a long release,
+            the clock and quote off the page.
+          */}
           {shouldShow ? (
-            <WhatsNewModal
-              version={currentVersion}
-              lastSeenVersion={lastSeenVersion}
-              onClose={dismiss}
-            />
+            <ErrorBoundary name='WhatsNewModal' onError={dismiss}>
+              <WhatsNewModal
+                version={currentVersion}
+                lastSeenVersion={lastSeenVersion}
+                onClose={dismiss}
+              />
+            </ErrorBoundary>
           ) : (
             <>
-              {showWidget('countdown') && <CountdownWidget />}
-              {showWidget('pomodoro') && <PomodoroWidget />}
+              {showWidget('countdown') && (
+                <ErrorBoundary name='CountdownWidget'>
+                  <CountdownWidget />
+                </ErrorBoundary>
+              )}
+              {showWidget('pomodoro') && (
+                <ErrorBoundary name='PomodoroWidget'>
+                  <PomodoroWidget />
+                </ErrorBoundary>
+              )}
             </>
           )}
         </div>
@@ -100,19 +118,41 @@ function App() {
         */}
         {!hidesBackdrop && (
           <div className='flex flex-col items-center gap-6 mb-10'>
-            {showWidget('clock') && <Clock />}
+            {showWidget('clock') && (
+              <ErrorBoundary name='Clock'>
+                <Clock />
+              </ErrorBoundary>
+            )}
             {showWidget('quote') && (
-              <QuoteWidget quote={quote} loading={quoteLoading} onRefresh={refreshQuote} />
+              <ErrorBoundary name='QuoteWidget'>
+                <QuoteWidget quote={quote} loading={quoteLoading} onRefresh={refreshQuote} />
+              </ErrorBoundary>
             )}
           </div>
         )}
 
-        {showWidget('calendar') && <CalendarWidget />}
-        {showWidget('weather') && <WeatherWidget />}
+        {showWidget('calendar') && (
+          <ErrorBoundary name='CalendarWidget'>
+            <CalendarWidget />
+          </ErrorBoundary>
+        )}
+        {showWidget('weather') && (
+          <ErrorBoundary name='WeatherWidget'>
+            <WeatherWidget />
+          </ErrorBoundary>
+        )}
         {/* If uncomment add topSites to manifest.json */}
         {/* <TopSitesWidget /> */}
-        {showWidget('note') && <QuickNote />}
-        {showWidget('memos') && <MemosWidget />}
+        {showWidget('note') && (
+          <ErrorBoundary name='QuickNote'>
+            <QuickNote />
+          </ErrorBoundary>
+        )}
+        {showWidget('memos') && (
+          <ErrorBoundary name='MemosWidget'>
+            <MemosWidget />
+          </ErrorBoundary>
+        )}
 
         {/* ALSÓ SÁV */}
         <div className='absolute bottom-4 left-4 flex items-end gap-3'>
@@ -129,7 +169,11 @@ function App() {
               />
             </button>
           )}
-          {showWidget('backgroundInfo') && <BackgroundInfo data={bgData} />}
+          {showWidget('backgroundInfo') && (
+            <ErrorBoundary name='BackgroundInfo'>
+              <BackgroundInfo data={bgData} />
+            </ErrorBoundary>
+          )}
           {/*
             The quote's credit joins the photo's in this corner, so both
             attributions read as one thing rather than one of them floating

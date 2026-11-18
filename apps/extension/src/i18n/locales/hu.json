@@ -204,5 +204,12 @@
     "errorServer": "A Memos szerver hibát adott vissza",
     "writeFailedSubmit": "Nem ment el — piszkozatként megmaradt",
     "writeFailedArchive": "Nem sikerült késznek jelölni"
+  },
+  "recovery": {
+    "title": "Valami hiba történt",
+    "message": "Az oldalt nem sikerült megjeleníteni. Általában egy újratöltés megoldja. Ha a hiba visszatér, töröld a gyorsítótárazott adatokat: a beállításaid, a jegyzeteid és a feltöltött háttérképed megmaradnak.",
+    "reload": "Újratöltés",
+    "clearAndReload": "Gyorsítótár törlése és újratöltés",
+    "clearing": "Törlés…"
   }
 }

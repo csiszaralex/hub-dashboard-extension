@@ -1,3 +1,9 @@
+## 2.10.0 (2026-11-18)
+
+### 🚀 Features
+
+- **extension:** save each setting as it changes ([abe68f3](https://github.com/csiszaralex/hub-dashboard-extension/commit/abe68f3))
+
 ## 2.9.0 (2026-11-18)
 
 ### 🚀 Features

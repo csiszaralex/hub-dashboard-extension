@@ -1,3 +1,9 @@
+## 1.4.0 (2026-11-18)
+
+### 🚀 Features
+
+- **api:** keep the worker's error logs and add a health check ([ae142e9](https://github.com/csiszaralex/hub-dashboard-extension/commit/ae142e9))
+
 ## 1.3.3 (2026-11-18)
 
 ### 🩹 Fixes

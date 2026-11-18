@@ -1,3 +1,9 @@
+## 2.8.3 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** keep the page alive when a widget fails to render ([da4878c](https://github.com/csiszaralex/hub-dashboard-extension/commit/da4878c))
+
 ## 2.8.2 (2026-11-18)
 
 ### 🩹 Fixes

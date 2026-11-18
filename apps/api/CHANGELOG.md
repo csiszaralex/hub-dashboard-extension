@@ -1,3 +1,13 @@
+## 1.4.1 (2026-11-18)
+
+### 🩹 Fixes
+
+- **api:** upgrade hono to 4.13.19 ([4253963](https://github.com/csiszaralex/hub-dashboard-extension/commit/4253963))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.7
+
 ## 1.4.0 (2026-11-18)
 
 ### 🚀 Features

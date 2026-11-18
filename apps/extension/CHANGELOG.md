@@ -1,3 +1,9 @@
+## 2.8.6 (2026-11-18)
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.7
+
 ## 2.8.5 (2026-11-18)
 
 ### 🚀 Features

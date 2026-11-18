@@ -1,3 +1,9 @@
+## 1.4.2 (2026-11-18)
+
+### 🩹 Fixes
+
+- **api:** serve backgrounds through KV errors and an expired default pool ([80d2a3a](https://github.com/csiszaralex/hub-dashboard-extension/commit/80d2a3a))
+
 ## 1.4.1 (2026-11-18)
 
 ### 🩹 Fixes

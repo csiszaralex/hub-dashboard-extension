@@ -1,3 +1,9 @@
+## 2.8.12 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** store a background only when it has a usable image ([7c8b6fd](https://github.com/csiszaralex/hub-dashboard-extension/commit/7c8b6fd))
+
 ## 2.8.11 (2026-11-18)
 
 ### 🩹 Fixes

@@ -150,6 +150,57 @@ handful of requests around UTC day rollover, not a whole day's traffic —
 building true coalescing would need a Durable Object to serialise callers,
 which is disproportionate to that blast radius.
 
+## GET /api/health
+
+For an external uptime monitor. It costs one KV read and never calls an
+upstream, so polling it spends neither the Unsplash nor the Citatum allowance.
+The response carries `Cache-Control: no-store`.
+
+```json
+{ "ok": true, "backgrounds": true }
+```
+
+`backgrounds` is whether the default pool is present and non-empty in KV. That
+pool is what `/api/background` falls back on when Unsplash fails or the hourly
+budget is spent, so without it those cases answer `503`. The status is `200`
+when `ok` is true and `503` with the same body when it is false; a KV error
+counts as unhealthy rather than surfacing as a `500`. The default pool expires
+three days after it was last fetched, so an unused deployment reports
+unhealthy until a request for the default tags refills it.
+
+Quotes are deliberately not reported: the built-in sources answer from the
+bundle with no upstream and no KV, so the worker can always serve a quote while
+it runs at all, and checking the real upstreams would mean calling them.
+
+## Errors
+
+Every error is JSON with one field, the same shape as the routes' own `503`s:
+
+```json
+{ "error": "Not found" }
+```
+
+An unknown path answers `404` with `Not found`; an unhandled exception answers
+`500` with `Internal error` and logs the error. CORS headers are present on both
+under `/api/*`, so the extension can read the body cross-origin.
+
+## Logging
+
+`[observability]` in `wrangler.toml` turns on
+[Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/),
+which keeps the worker's own `console.*` output: 3 days on the Workers Free
+plan, 7 on Paid. `head_sampling_rate = 1` keeps every one of them, which costs
+little because the worker only writes on a failure.
+
+Invocation logs are switched off (`invocation_logs = false`). Cloudflare would
+otherwise record each request with its URL, and the URL carries the user's
+background tags and quote category, which `apps/extension/privacy-policy.md`
+promises are not logged. For the same reason, no log line includes the
+request. The Citatum request URL carries the credentials in its query string,
+so nothing logs it either: a timeout names only the host
+(`FetchTimeoutError`), and the per-request errors of a Citatum pool are
+dropped rather than logged (`citatum.resolve` in `src/quoteSources.ts`).
+
 ## Local development
 
 ### 1. Install dependencies

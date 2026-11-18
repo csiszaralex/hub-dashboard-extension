@@ -10,6 +10,10 @@ concurrency:
   group: check-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+# Nothing here writes to the repository, so the job's token is read-only.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -19,6 +23,9 @@ jobs:
         with:
           # Nx affected diffs against the base branch, which needs its history.
           fetch-depth: 0
+          # No later step talks to the remote, so the token is not kept on the
+          # runner for the dependency scripts that run next.
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

@@ -5,12 +5,19 @@ on:
     tags:
       - 'extension@*'
 
+# The upload goes to the Chrome Web Store with its own credentials; nothing
+# writes to the repository, so the job's token is read-only.
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

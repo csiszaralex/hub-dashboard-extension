@@ -14,6 +14,12 @@ concurrency:
   group: release-main
   cancel-in-progress: false
 
+# The push and the GitHub releases are made with ACTION_PAT, which the checkout
+# and the release step are handed explicitly. The workflow's own token is not
+# used for either, so it stays read-only.
+permissions:
+  contents: read
+
 jobs:
   release:
     # `workflow_run` fires for every finished Check: the failed and cancelled

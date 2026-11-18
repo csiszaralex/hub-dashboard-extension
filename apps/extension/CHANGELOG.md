@@ -1,3 +1,9 @@
+## 2.8.13 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** swap the background without a blank frame or a leaked blob ([aab9774](https://github.com/csiszaralex/hub-dashboard-extension/commit/aab9774))
+
 ## 2.8.12 (2026-11-18)
 
 ### 🩹 Fixes

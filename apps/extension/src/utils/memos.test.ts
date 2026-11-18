@@ -41,7 +41,7 @@ describe('normalizeBaseUrl', () => {
   // at the boundary — a hand-edited or corrupt stored value is not guaranteed
   // to be a string. Every other sanitiser in this codebase guards internally
   // rather than trusting the caller; this one must too, or a non-string value
-  // throws inside merge()/applyChanges() and the whole settings store hangs.
+  // throws inside the settings store's read and the whole store hangs.
   it('rejects non-string input instead of throwing', () => {
     expect(normalizeBaseUrl(42)).toBeNull();
     expect(normalizeBaseUrl(null)).toBeNull();

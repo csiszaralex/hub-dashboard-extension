@@ -103,6 +103,7 @@
     "backupExport": "Export",
     "backupImport": "Import",
     "backupInvalid": "That file is not a Hub settings backup.",
+    "backupTooNew": "That backup was made by a newer version of Hub. Update the extension, then import it again.",
     "quoteSource": "Quote source",
     "quoteSourceHint": "Only sources that have quotes in your language are listed.",
     "quoteQuery": "Quote category",

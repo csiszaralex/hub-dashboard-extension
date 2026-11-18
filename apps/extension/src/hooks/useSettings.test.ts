@@ -190,6 +190,58 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current.settings.memosTag).toBe(''));
   });
 
+  // These two used to reach the widgets as stored: only seven fields were
+  // sanitised on read. A string `selectedCalendars` reaches `.map` in
+  // `useCalendar` and takes the dashboard down.
+  it('falls back to the default for a calendar list stored as a string and an unknown background source', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ selectedCalendars: 'primary', backgroundSource: 'bing' });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.selectedCalendars).toEqual(['primary']);
+    expect(result.current.settings.backgroundSource).toBe('unsplash');
+  });
+
+  it('falls back to the default for an invalid value written through a live storage change', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ selectedCalendars: ['work@example.com'], backgroundSource: 'custom' });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings.backgroundSource).toBe('custom');
+
+    await act(async () => {
+      result.current.saveSettings({
+        selectedCalendars: 'primary',
+        backgroundSource: 'bing',
+      } as unknown as Partial<HubSettings>);
+      await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+    });
+
+    await waitFor(() => expect(result.current.settings.backgroundSource).toBe('unsplash'));
+    expect(result.current.settings.selectedCalendars).toEqual(['primary']);
+  });
+
+  it('keeps settings that are not part of a live change', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ locationCity: 'Szeged' });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    await act(async () => {
+      await result.current.saveSettings({ memosTag: 'todo' });
+    });
+
+    await waitFor(() => expect(result.current.settings.memosTag).toBe('todo'));
+    expect(result.current.settings.locationCity).toBe('Szeged');
+  });
+
   it('keeps a stable saveSettings reference across renders', async () => {
     installChromeStub();
     const useSettings = await loadUseSettings();
@@ -201,6 +253,48 @@ describe('useSettings', () => {
     rerender();
 
     expect(result.current.saveSettings).toBe(first);
+  });
+});
+
+describe('useSettings — settings version', () => {
+  const VERSION_KEY = 'settingsVersion';
+
+  it('records the current version for settings stored before versioning', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ locationCity: 'Szeged' });
+    const { CURRENT_SETTINGS_VERSION } = await import('../utils/settingsSchema');
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(chromeStub.readSync(VERSION_KEY)).toBe(CURRENT_SETTINGS_VERSION));
+    // Recording the version changes nothing the user set.
+    expect(chromeStub.readSync('locationCity')).toBe('Szeged');
+    expect(result.current.settings.locationCity).toBe('Szeged');
+  });
+
+  it('does not count the version as a setting', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ [VERSION_KEY]: 1 });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.settings).not.toHaveProperty(VERSION_KEY);
+  });
+
+  it('leaves a version written by a newer build alone', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ [VERSION_KEY]: 99, locationCity: 'Szeged' });
+    const useSettings = await loadUseSettings();
+
+    const { result } = renderHook(() => useSettings());
+
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(chromeStub.readSync(VERSION_KEY)).toBe(99);
+    expect(result.current.settings.locationCity).toBe('Szeged');
   });
 });
 

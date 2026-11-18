@@ -1,16 +1,8 @@
 import { SUPPORTED_LANGUAGES, type Language } from '@hub/shared';
 import en from './i18n/locales/en.json';
 import hu from './i18n/locales/hu.json';
-import { DEFAULT_UNSPLASH_QUERY } from './utils/api';
 import { deleteObsoleteImageCaches } from './utils/imageCache';
-import {
-  clampPomodoroMinutes,
-  DEFAULT_BREAK_MINUTES,
-  DEFAULT_WORK_MINUTES,
-  nextPhase,
-  phaseDurationMs,
-  type PomodoroPhase,
-} from './utils/pomodoro';
+import { nextPhase, phaseDurationMs, type PomodoroPhase } from './utils/pomodoro';
 import {
   IDLE_POMODORO,
   POMODORO_ALARM,
@@ -19,6 +11,7 @@ import {
   type PomodoroMessage,
 } from './utils/pomodoroState';
 import { prefetchBackground } from './utils/prefetch';
+import { readSettings, type SettingKey } from './utils/settingsSchema';
 
 /**
  * The dashboard needs little background processing, so the service worker has
@@ -58,18 +51,24 @@ const tomorrowIso = (): string => {
   return d.toISOString().split('T')[0];
 };
 
+/**
+ * Settings the worker reads, typed as settings keys so renaming a field fails
+ * the build here instead of silently breaking the prefetch or the timer.
+ */
+const PREFETCH_SETTINGS: SettingKey[] = ['unsplashQuery', 'backgroundSource'];
+const POMODORO_SETTINGS: SettingKey[] = ['pomodoroWorkMinutes', 'pomodoroBreakMinutes', 'language'];
+
 const runPrefetch = () => {
   // No React out here, so settings come straight from storage rather than
-  // through `useSettings`.
-  chrome.storage.sync.get(['unsplashQuery', 'backgroundSource'], (settings) => {
+  // through `useSettings` — but decoded by the same schema, with the same
+  // defaults. That matters most for `unsplashQuery`, absent until the popup is
+  // saved: a packet built with any query other than the page's own is one the
+  // page refuses to adopt.
+  chrome.storage.sync.get(PREFETCH_SETTINGS, (stored) => {
+    const settings = readSettings(stored);
     // A custom background needs no prefetching.
     if (settings.backgroundSource === 'custom') return;
-    // `unsplashQuery` is absent until the popup is saved, so the fallback has to
-    // be the page's own default — shared from `utils/api`, since a packet built
-    // with any other query is one the page will refuse to adopt. `??` and not
-    // `||`, to mirror how `useSettings.merge` treats a deliberately empty query.
-    const query = (settings.unsplashQuery as string) ?? DEFAULT_UNSPLASH_QUERY;
-    void prefetchBackground(query, tomorrowIso());
+    void prefetchBackground(settings.unsplashQuery, tomorrowIso());
   });
 };
 
@@ -87,19 +86,17 @@ const readPomodoroSettings = (): Promise<PomodoroSettings> =>
   new Promise((resolve) => {
     // One read for everything the transition needs, including the language, so
     // the notification below cannot be raised with a stale one.
-    chrome.storage.sync.get(
-      ['pomodoroWorkMinutes', 'pomodoroBreakMinutes', 'language'],
-      (settings) => {
-        resolve({
-          // Clamped here for the same reason `useSettings.merge` clamps: the
-          // popup is not the only way a value reaches sync storage, and a zero
-          // or NaN length would schedule an alarm that never usefully fires.
-          work: clampPomodoroMinutes(settings.pomodoroWorkMinutes, DEFAULT_WORK_MINUTES),
-          break: clampPomodoroMinutes(settings.pomodoroBreakMinutes, DEFAULT_BREAK_MINUTES),
-          language: typeof settings.language === 'string' ? settings.language : '',
-        });
-      },
-    );
+    chrome.storage.sync.get(POMODORO_SETTINGS, (stored) => {
+      // Decoded for the same reason the page decodes: the popup is not the only
+      // way a value reaches sync storage, and a zero or NaN length would
+      // schedule an alarm that never usefully fires.
+      const settings = readSettings(stored);
+      resolve({
+        work: settings.pomodoroWorkMinutes,
+        break: settings.pomodoroBreakMinutes,
+        language: settings.language,
+      });
+    });
   });
 
 /**

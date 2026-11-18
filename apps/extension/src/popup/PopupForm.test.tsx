@@ -444,6 +444,24 @@ describe('PopupForm — settings backup', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('refuses a backup from a newer version and says why', async () => {
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const { BACKUP_VERSION } = await import('../utils/settingsBackup');
+    const onSave = vi.fn();
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+
+    const input = await screen.findByLabelText('Import');
+    const newer = JSON.stringify({ version: BACKUP_VERSION + 1, settings: { language: 'hu' } });
+    fireEvent.change(input, {
+      target: { files: [new File([newer], 'hub-settings.json', { type: 'application/json' })] },
+    });
+
+    expect(await screen.findByText(/made by a newer version of Hub/i)).not.toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('strips keys that are not settings before they reach storage', async () => {
     await import('../i18n/i18n');
     const { PopupForm } = await import('./PopupForm');

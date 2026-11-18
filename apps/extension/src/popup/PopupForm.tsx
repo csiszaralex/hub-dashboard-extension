@@ -216,7 +216,7 @@ export function PopupForm({
       memosUrl,
       memosTag,
       // Clamped here too, not just where settings are read back
-      // (`useSettings.merge`/`applyChanges`): the numeric inputs unmount
+      // (`settingsSchema`'s `applyStoredSettings`): the numeric inputs unmount
       // when another tab is selected, so a value left cleared or corrupt
       // would otherwise reach `chrome.storage.sync.set` verbatim and only
       // get caught on the next read. Passed as the raw string (not

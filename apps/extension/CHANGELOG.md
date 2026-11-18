@@ -1,3 +1,9 @@
+## 2.8.9 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** toggle the UI only on a double-click on the background ([7057b3f](https://github.com/csiszaralex/hub-dashboard-extension/commit/7057b3f))
+
 ## 2.8.8 (2026-11-18)
 
 ### 🩹 Fixes

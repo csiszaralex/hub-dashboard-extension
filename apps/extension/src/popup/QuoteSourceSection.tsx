@@ -4,9 +4,9 @@ import type { QuoteData } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE, QUOTE_SOURCES_ENDPOINT } from '../utils/api';
 import {
   CUSTOM_QUOTE_SOURCE,
+  fitCustomQuotes,
   MAX_CUSTOM_QUOTES,
   parseCustomQuotes,
-  sanitizeCustomQuotes,
   serializeCustomQuotes,
 } from '../utils/customQuotes';
 import { Field, inputCls } from './Field';
@@ -75,6 +75,12 @@ export function QuoteSourceSection({
    * mounts.
    */
   const [draft, setDraft] = useState(() => serializeCustomQuotes(customQuotes));
+  /**
+   * How many typed quotes the list cannot hold, said under the textarea as the
+   * user types: the draft keeps every line, so without this the ones past the
+   * budget would vanish only on the next open of the popup.
+   */
+  const [dropped, setDropped] = useState(0);
 
   return (
     <>
@@ -120,12 +126,19 @@ export function QuoteSourceSection({
             placeholder={t('popup.customQuotesPlaceholder')}
             onChange={(e) => {
               setDraft(e.target.value);
-              onCustomQuotesChange(sanitizeCustomQuotes(parseCustomQuotes(e.target.value)));
+              const fitted = fitCustomQuotes(parseCustomQuotes(e.target.value));
+              setDropped(fitted.dropped);
+              onCustomQuotesChange(fitted.kept);
             }}
             className={inputCls}
           />
           <p className='text-[10px] text-white/40'>
             {t('popup.customQuotesCount', { count: customQuotes.length })}
+            {dropped > 0 && (
+              <span className='ml-1 text-amber-300/80'>
+                {t('popup.customQuotesDropped', { count: dropped })}
+              </span>
+            )}
           </p>
         </Field>
       )}

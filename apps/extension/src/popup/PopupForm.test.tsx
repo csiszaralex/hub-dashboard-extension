@@ -35,7 +35,7 @@ describe('PopupForm', () => {
     render(
       <PopupForm
         initialSettings={{ ...baseSettings, backgroundDim: Number.NaN }}
-        onSave={() => {}}
+        onSave={async () => {}}
       />,
     );
 
@@ -50,7 +50,7 @@ describe('PopupForm', () => {
     localStorage.setItem('popup_tab', 'appearance');
     const { PopupForm } = await import('./PopupForm');
 
-    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+    render(<PopupForm initialSettings={baseSettings} onSave={async () => {}} />);
 
     expect(screen.queryByLabelText('Appearance & Background')).not.toBeNull();
     expect(screen.queryByLabelText('Choose an image')).toBeNull();
@@ -73,7 +73,7 @@ describe('PopupForm', () => {
     // JSX attribute expressions too, not just rendered text.
     const customSettings: HubSettings = { ...baseSettings, backgroundSource: 'custom' };
 
-    render(<PopupForm initialSettings={customSettings} onSave={() => {}} />);
+    render(<PopupForm initialSettings={customSettings} onSave={async () => {}} />);
 
     const fileInput = screen.getByLabelText('Choose an image');
     const notAnImage = new File(['plain text'], 'notes.txt', { type: 'text/plain' });
@@ -249,7 +249,7 @@ describe('PopupForm — Focus session controls', () => {
     chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('break', 5 * 60_000) });
     const { PopupForm } = await import('./PopupForm');
 
-    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+    render(<PopupForm initialSettings={baseSettings} onSave={async () => {}} />);
 
     expect(await screen.findByText('Break')).not.toBeNull();
     expect(await screen.findByText(/^0[45]:\d\d$/)).not.toBeNull();
@@ -269,7 +269,7 @@ describe('PopupForm — Focus session controls', () => {
     const { PopupForm } = await import('./PopupForm');
     const hidden: HubSettings = { ...baseSettings, hiddenWidgets: ['pomodoro'] };
 
-    render(<PopupForm initialSettings={hidden} onSave={() => {}} />);
+    render(<PopupForm initialSettings={hidden} onSave={async () => {}} />);
 
     expect(await screen.findByRole('button', { name: 'Reset' })).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Start' })).not.toBeNull();
@@ -282,7 +282,7 @@ describe('PopupForm — Focus session controls', () => {
     chromeStub.seedLocal({ [POMODORO_STATE_KEY]: runningPomodoro('work', 60_000) });
     const { PopupForm } = await import('./PopupForm');
 
-    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+    render(<PopupForm initialSettings={baseSettings} onSave={async () => {}} />);
     // The language select, named rather than "the only combobox" — the General
     // tab grew a second one when the quote source picker landed there.
     await screen.findByLabelText('Language');
@@ -308,7 +308,7 @@ describe('PopupForm — custom background durability', () => {
     const { PopupForm } = await import('./PopupForm');
     const custom: HubSettings = { ...baseSettings, backgroundSource: 'custom' };
 
-    render(<PopupForm initialSettings={custom} onSave={() => {}} />);
+    render(<PopupForm initialSettings={custom} onSave={async () => {}} />);
 
     expect(await screen.findByText(/cannot be recovered/i)).not.toBeNull();
   });
@@ -319,12 +319,78 @@ describe('PopupForm — custom background durability', () => {
     await import('../i18n/i18n');
     const { PopupForm } = await import('./PopupForm');
 
-    render(<PopupForm initialSettings={baseSettings} onSave={() => {}} />);
+    render(<PopupForm initialSettings={baseSettings} onSave={async () => {}} />);
 
     // Wait for the Unsplash branch of the tab to actually render, so a missing
     // warning below cannot simply mean nothing was rendered yet.
     await screen.findByLabelText('Appearance & Background');
     expect(screen.queryByText(/cannot be recovered/i)).toBeNull();
+  });
+});
+
+describe('PopupForm — a save Chrome refuses', () => {
+  /** Sync storage already holding more than `QUOTA_BYTES`, so any further write is refused. */
+  const fillSyncStorage = (stub: ChromeStub) =>
+    stub.seedSync(
+      Object.fromEntries(Array.from({ length: 13 }, (_, i) => [`filler${i}`, 'x'.repeat(8000)])),
+    );
+
+  it('shows the error and not the saved state', async () => {
+    fillSyncStorage(installChromeStub());
+    localStorage.setItem('popup_tab', 'general');
+    await import('../i18n/i18n');
+    const { saveSettings } = await import('../hooks/useSettings');
+    const { PopupForm } = await import('./PopupForm');
+
+    render(<PopupForm initialSettings={baseSettings} onSave={saveSettings} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply settings' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/QUOTA_BYTES quota exceeded/);
+    expect(screen.queryByText(/Saved successfully/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply settings' })).not.toBeNull();
+  });
+
+  it('clears the error once a later save goes through', async () => {
+    localStorage.setItem('popup_tab', 'general');
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi
+      .fn<(settings: Partial<HubSettings>) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'))
+      .mockResolvedValue(undefined);
+
+    render(<PopupForm initialSettings={baseSettings} onSave={onSave} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply settings' }));
+    await screen.findByRole('alert');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply settings' }));
+
+    expect(await screen.findByText(/Saved successfully/)).not.toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('reports a refused import in place of reloading', async () => {
+    fillSyncStorage(installChromeStub());
+    localStorage.setItem('popup_tab', 'general');
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload });
+    await import('../i18n/i18n');
+    const { saveSettings } = await import('../hooks/useSettings');
+    const { PopupForm } = await import('./PopupForm');
+
+    render(<PopupForm initialSettings={baseSettings} onSave={saveSettings} />);
+    fireEvent.change(await screen.findByLabelText('Import'), {
+      target: {
+        files: [
+          new File([JSON.stringify({ version: 1, settings: { locationCity: 'Pécs' } })], 'b.json', {
+            type: 'application/json',
+          }),
+        ],
+      },
+    });
+
+    expect(await screen.findByText(/QUOTA_BYTES quota exceeded/)).not.toBeNull();
+    expect(reload).not.toHaveBeenCalled();
   });
 });
 

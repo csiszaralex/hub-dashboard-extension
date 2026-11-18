@@ -44,7 +44,7 @@ export function PopupForm({
   onSave,
 }: {
   initialSettings: HubSettings;
-  onSave: (settings: Partial<HubSettings>) => void;
+  onSave: (settings: Partial<HubSettings>) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -73,6 +73,7 @@ export function PopupForm({
   const [loading, setLoading] = useState(false);
   const [cityError, setCityError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [calError, setCalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -149,6 +150,7 @@ export function PopupForm({
     e.preventDefault();
     setCityError(null);
     setUploadError(null);
+    setSaveError(null);
     setLoading(true);
 
     if (backgroundSource === 'custom') {
@@ -194,7 +196,7 @@ export function PopupForm({
       lon = null;
     }
 
-    onSave({
+    const saving = onSave({
       unsplashQuery: query.trim(),
       backgroundSource,
       backgroundDim: clampDim(dim),
@@ -220,6 +222,17 @@ export function PopupForm({
       pomodoroWorkMinutes: clampPomodoroMinutes(workMinutes, DEFAULT_WORK_MINUTES),
       pomodoroBreakMinutes: clampPomodoroMinutes(breakMinutes, DEFAULT_BREAK_MINUTES),
     });
+
+    // "Saved" only once Chrome has accepted the write. It refuses the whole
+    // call when one setting is over the sync quota, so claiming success up
+    // front would tell the user every field was kept when none was.
+    try {
+      await saving;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
+      setLoading(false);
+      return;
+    }
     setLoading(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -425,6 +438,11 @@ export function PopupForm({
       >
         {loading ? t('popup.saving') : saved ? t('popup.saved') : t('popup.save')}
       </button>
+      {saveError && (
+        <p role='alert' className='text-[10px] text-red-300/80'>
+          {t('popup.saveFailed', { message: saveError })}
+        </p>
+      )}
     </form>
   );
 }

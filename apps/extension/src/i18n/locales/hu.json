@@ -84,6 +84,7 @@
     "saving": "Mentés...",
     "saved": "✓ Sikeresen mentve!",
     "save": "Beállítások alkalmazása",
+    "saveFailed": "Nem sikerült menteni: {{message}}",
     "cityNotFound": "A megadott város nem található.",
     "cityError": "Hiba a város azonosítása során.",
     "networkError": "Hálózati hiba a naptárak lekérésekor.",
@@ -106,6 +107,7 @@
     "customQuotesHint": "Soronként egy, a szerző gondolatjel után. Legfeljebb {{max}}; naponta egy jelenik meg.",
     "customQuotesPlaceholder": "Ne vitatkozz tovább azon, milyen a jó ember. Legyél az. - Marcus Aurelius",
     "customQuotesCount": "{{count}} mentve",
+    "customQuotesDropped": "További {{count}} idézet már nem fér el, ezért nem lesz elmentve.",
     "tabGeneral": "Általános",
     "tabAppearance": "Háttér",
     "tabWeather": "Időjárás",
@@ -135,7 +137,8 @@
     "memosErrorAuth": "A szerver elutasította ezt a tokent",
     "memosErrorVersion": "Memos 0.30.0 vagy újabb szükséges",
     "memosErrorNetwork": "A szerver nem érhető el",
-    "memosErrorServer": "A szerver hibát adott vissza"
+    "memosErrorServer": "A szerver hibát adott vissza",
+    "memosErrorSave": "A Chrome nem tudta elmenteni a szerver címét a szinkronizált beállítások közé"
   },
   "app": {
     "newBackground": "Új háttérkép kérése",

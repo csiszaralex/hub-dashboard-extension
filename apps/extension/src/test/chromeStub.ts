@@ -35,6 +35,16 @@ type NotificationOptions = {
 const LOCAL_QUOTA_BYTES = 10_485_760;
 
 /**
+ * `chrome.storage.sync`'s limits: `QUOTA_BYTES`, `QUOTA_BYTES_PER_ITEM` and
+ * `MAX_ITEMS`. The write-rate limits (`MAX_WRITE_OPERATIONS_PER_MINUTE` and
+ * `_PER_HOUR`) are not modelled: nothing here writes in a loop, and a test
+ * would have to make over a hundred calls to reach one.
+ */
+const SYNC_QUOTA_BYTES = 102_400;
+const SYNC_QUOTA_BYTES_PER_ITEM = 8_192;
+const SYNC_MAX_ITEMS = 512;
+
+/**
  * Mirrors `optional_host_permissions` in `manifest.json`. Chrome refuses to
  * request anything outside it, so the stub must too — otherwise a forgotten
  * manifest entry passes here and fails in every real browser.
@@ -70,10 +80,54 @@ const serialize = (value: unknown): unknown => {
   return JSON.parse(json) as unknown;
 };
 
+const utf8 = new TextEncoder();
+
+/**
+ * Chromium's JSON writer escapes `<`, U+2028 and U+2029 as six-byte unicode
+ * escapes, which `JSON.stringify` leaves as one, three and three bytes.
+ */
+const CHROME_ONLY_ESCAPES = new RegExp(
+  `[<${String.fromCharCode(0x2028)}${String.fromCharCode(0x2029)}]`,
+  'g',
+);
+
+/**
+ * What Chrome counts for one item against a storage quota: the byte length of
+ * the key plus that of the value's JSON as Chromium writes it
+ * (`SettingsStorageQuotaEnforcer` in Chromium). Bytes, not UTF-16 code units,
+ * so accented text weighs what it really does.
+ *
+ * Written out here rather than imported from `utils/customQuotes`'s
+ * `syncItemBytes`: a stub that measured with the code under test would agree
+ * with any mistake in it.
+ */
+const itemBytes = (key: string, value: unknown): number => {
+  const json = JSON.stringify(value) ?? '';
+  let extra = 0;
+  for (const [char] of json.matchAll(CHROME_ONLY_ESCAPES)) extra += char === '<' ? 5 : 3;
+  return utf8.encode(key).length + utf8.encode(json).length + extra;
+};
+
 const storedBytes = (store: Map<string, unknown>): number => {
   let total = 0;
-  for (const [key, value] of store) total += key.length + JSON.stringify(value).length;
+  for (const [key, value] of store) total += itemBytes(key, value);
   return total;
+};
+
+/**
+ * Why Chrome would refuse a `storage.sync.set` that leaves the area as
+ * `pending`, in the order Chrome checks: each written item's size, then the
+ * total and the item count. `null` when it fits.
+ */
+const syncQuotaError = (items: Record<string, unknown>, pending: Map<string, unknown>) => {
+  for (const [key, value] of Object.entries(items)) {
+    if (itemBytes(key, value) > SYNC_QUOTA_BYTES_PER_ITEM) {
+      return 'QUOTA_BYTES_PER_ITEM quota exceeded';
+    }
+  }
+  if (storedBytes(pending) > SYNC_QUOTA_BYTES) return 'QUOTA_BYTES quota exceeded';
+  if (pending.size > SYNC_MAX_ITEMS) return 'MAX_ITEMS quota exceeded';
+  return null;
 };
 
 export interface ChromeStub {
@@ -206,7 +260,19 @@ export const installChromeStub = (): ChromeStub => {
           }
           queueMicrotask(() => cb(result));
         },
-        set: (items: Record<string, unknown>, cb?: () => void) => {
+        /**
+         * Over any of sync's quotas the whole call is refused — every item in
+         * it, not just the one that is too big — and nothing is written or
+         * announced. This store is small enough (8 KB an item) that a user's
+         * own data reaches the limit, and a stub without it let a save that
+         * Chrome rejects look like one that worked.
+         *
+         * Called with a callback, the failure arrives as `runtime.lastError`
+         * inside it; called without one, Chrome returns a Promise instead and
+         * rejects it.
+         */
+        set: (items: Record<string, unknown>, cb?: () => void): Promise<void> | undefined => {
+          const pending = new Map(store);
           const changes: Record<string, StorageChange> = {};
           for (const [key, value] of Object.entries(items)) {
             // Chrome omits `oldValue` entirely for a key that did not exist,
@@ -216,12 +282,37 @@ export const installChromeStub = (): ChromeStub => {
             changes[key] = store.has(key)
               ? { oldValue: store.get(key), newValue: value }
               : { newValue: value };
-            store.set(key, value);
+            pending.set(key, value);
+          }
+
+          const error = syncQuotaError(items, pending);
+          if (!error) {
+            for (const [key, value] of pending) store.set(key, value);
+          }
+
+          const announce = () => {
+            if (!error) listeners.forEach((l) => l(changes, 'sync'));
+          };
+          if (!cb) {
+            return new Promise<void>((resolve, reject) =>
+              queueMicrotask(() => {
+                announce();
+                if (error) reject(new Error(error));
+                else resolve();
+              }),
+            );
           }
           queueMicrotask(() => {
-            listeners.forEach((l) => l(changes, 'sync'));
-            cb?.();
+            announce();
+            if (!error) {
+              cb();
+              return;
+            }
+            chromeStub.runtime.lastError = { message: error };
+            cb();
+            chromeStub.runtime.lastError = undefined;
           });
+          return undefined;
         },
       },
       local: {

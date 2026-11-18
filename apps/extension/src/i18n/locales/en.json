@@ -84,6 +84,7 @@
     "saving": "Saving...",
     "saved": "✓ Saved successfully!",
     "save": "Apply settings",
+    "saveFailed": "Not saved: {{message}}",
     "cityNotFound": "The specified city was not found.",
     "cityError": "Error identifying the city.",
     "networkError": "Network error fetching calendars.",
@@ -106,6 +107,7 @@
     "customQuotesHint": "One per line, author after a dash. Up to {{max}}; shown one per day.",
     "customQuotesPlaceholder": "Waste no more time arguing. - Marcus Aurelius",
     "customQuotesCount": "{{count}} saved",
+    "customQuotesDropped": "{{count}} more did not fit and will not be saved.",
     "tabGeneral": "General",
     "tabAppearance": "Background",
     "tabWeather": "Weather",
@@ -135,7 +137,8 @@
     "memosErrorAuth": "The server rejected that token",
     "memosErrorVersion": "Memos 0.30.0 or newer is required",
     "memosErrorNetwork": "Could not reach that server",
-    "memosErrorServer": "The server returned an error"
+    "memosErrorServer": "The server returned an error",
+    "memosErrorSave": "Chrome could not save the server address to your synced settings"
   },
   "app": {
     "newBackground": "Request new background",

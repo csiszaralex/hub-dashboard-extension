@@ -203,3 +203,29 @@ describe('useSettings', () => {
     expect(result.current.saveSettings).toBe(first);
   });
 });
+
+describe('saveSettings', () => {
+  it('resolves once Chrome has written the settings', async () => {
+    const chromeStub = installChromeStub();
+    const { saveSettings } = await import('./useSettings');
+
+    await expect(saveSettings({ locationCity: 'Pécs' })).resolves.toBeUndefined();
+    expect(chromeStub.readSync('locationCity')).toBe('Pécs');
+  });
+
+  it("rejects with Chrome's message when the write is refused", async () => {
+    // Chrome refuses the whole call when one item is over the per-item quota,
+    // so the valid setting alongside it is not written either — the caller has
+    // to hear about it, because nothing on the page will show it otherwise.
+    const chromeStub = installChromeStub();
+    const { saveSettings } = await import('./useSettings');
+
+    await expect(
+      saveSettings({
+        locationCity: 'Pécs',
+        customQuotes: [{ text: 'x'.repeat(9000), author: '' }],
+      }),
+    ).rejects.toThrow('QUOTA_BYTES_PER_ITEM quota exceeded');
+    expect(chromeStub.readSync('locationCity')).toBeUndefined();
+  });
+});

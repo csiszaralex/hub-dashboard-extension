@@ -147,7 +147,7 @@ Unsplash's API guidelines are load-bearing here: the worker pings each photo's `
 
 ### Release Flow
 
-1. Push to `main` → `release.yml` runs `pnpm nx release` → creates git tags using conventional commits
+1. Push to `main` → `check.yml` runs → on its success `release.yml` (a `workflow_run` trigger, not a push trigger) runs `pnpm nx release` → creates git tags using conventional commits. A failed or cancelled Check releases nothing; re-running the Check is how a release is retried
 2. Tag matching `extension@*` triggers `deploy.yml` → builds and uploads to Chrome Web Store
 3. Tag matching `api@*` triggers `deploy-api.yml` → deploys via Wrangler to Cloudflare
 

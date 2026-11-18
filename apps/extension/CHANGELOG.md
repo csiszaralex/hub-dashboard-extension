@@ -1,3 +1,10 @@
+## 2.8.11 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** refuse redirects on Memos requests ([c18cb38](https://github.com/csiszaralex/hub-dashboard-extension/commit/c18cb38))
+- **extension:** pre-fill the Memos token only for the server it was issued for ([546ca0c](https://github.com/csiszaralex/hub-dashboard-extension/commit/546ca0c))
+
 ## 2.8.10 (2026-11-18)
 
 ### 🩹 Fixes

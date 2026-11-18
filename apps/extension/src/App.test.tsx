@@ -71,6 +71,20 @@ describe('App — quote attribution', () => {
   });
 });
 
+describe('App — settings entry point', () => {
+  it('opens the settings from the page', async () => {
+    const chromeStub = installChromeStub();
+    serveQuote(QUOTE_WITHOUT_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+
+    render(<App />);
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: 'Settings' })));
+
+    expect(chromeStub.optionsPageOpens()).toBe(1);
+  });
+});
+
 describe('App — double-click toggle', () => {
   beforeEach(() => {
     installChromeStub();

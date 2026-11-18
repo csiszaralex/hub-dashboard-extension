@@ -148,6 +148,7 @@
   },
   "app": {
     "newBackground": "Request new background",
+    "openSettings": "Settings",
     "toggleHint": "Press . to hide — Esc to bring it back"
   },
   "whatsNew": {

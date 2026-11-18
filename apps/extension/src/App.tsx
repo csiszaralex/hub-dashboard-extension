@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Settings } from 'lucide-react';
 import { useRef, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundInfo } from './components/BackgroundInfo';
@@ -182,6 +182,20 @@ function App() {
               />
             </button>
           )}
+          {/*
+            The settings live behind the toolbar action, which Chrome keeps in
+            the extensions menu until the user pins it, so the page offers its
+            own way in. `options_ui` in the manifest opens the same page in a tab.
+          */}
+          <button
+            type='button'
+            onClick={() => void chrome.runtime.openOptionsPage()}
+            className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all group'
+            title={t('app.openSettings')}
+            aria-label={t('app.openSettings')}
+          >
+            <Settings className='w-4 h-4 text-white/70 group-hover:text-white' />
+          </button>
           {showWidget('backgroundInfo') && (
             <ErrorBoundary name='BackgroundInfo'>
               <BackgroundInfo data={bgData} />

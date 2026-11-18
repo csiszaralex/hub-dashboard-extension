@@ -25,6 +25,9 @@ const EMPTY_BG_DATA: BackgroundData = {
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 
+/** Forgets today's photo metadata; the next load fetches a fresh one. */
+export const clearBackgroundCache = (): void => localStorage.removeItem(CACHE_KEY);
+
 export const useBackground = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(false);

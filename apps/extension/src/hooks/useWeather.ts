@@ -26,6 +26,9 @@ const CACHE_DURATION = 1000 * 60 * 30;
 
 const roundCoord = (coord: number) => Number(coord.toFixed(3));
 
+/** Forgets the last forecast; the next load fetches it again. */
+export const clearWeatherCache = (): void => localStorage.removeItem(CACHE_KEY);
+
 export const useWeather = () => {
   const { settings, isLoaded } = useSettings();
   const [loading, setLoading] = useState(true);

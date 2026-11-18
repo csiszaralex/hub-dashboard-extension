@@ -11,6 +11,9 @@ const CACHE_KEY = 'daily_quote';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 
+/** Forgets today's quote; the next load asks the API again. */
+export const clearQuoteCache = (): void => localStorage.removeItem(CACHE_KEY);
+
 /**
  * The day's quote, and a way to ask for the next one.
  *

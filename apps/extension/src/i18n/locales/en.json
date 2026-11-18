@@ -204,5 +204,12 @@
     "errorServer": "The Memos server returned an error",
     "writeFailedSubmit": "Not sent — kept as a draft",
     "writeFailedArchive": "Couldn't mark that done"
+  },
+  "recovery": {
+    "title": "Something went wrong",
+    "message": "The page could not be displayed. Reloading usually fixes it. If it keeps happening, clear the cached data: your settings, notes and uploaded background are kept.",
+    "reload": "Reload",
+    "clearAndReload": "Clear cached data and reload",
+    "clearing": "Clearing…"
   }
 }

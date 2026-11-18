@@ -1,3 +1,9 @@
+## 2.8.2 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** report a failed settings save and fit custom quotes in the sync quota ([8d5b3c7](https://github.com/csiszaralex/hub-dashboard-extension/commit/8d5b3c7))
+
 ## 2.8.1 (2026-11-04)
 
 ### 🩹 Fixes

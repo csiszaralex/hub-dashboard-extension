@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react';
+import { useRef, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundInfo } from './components/BackgroundInfo';
 import { CalendarWidget } from './components/CalendarWidget';
@@ -38,6 +39,17 @@ function App() {
     countEntries(releasesSince(__CHANGELOG__, lastSeenVersion, currentVersion)) >=
       LONG_RELEASE_ENTRIES;
 
+  // The double-click toggle belongs to the background only. Bubbling up from a
+  // widget it fired on every double-click inside one: selecting a word in the
+  // note or the Memos composer hid the whole UI, and a double-clicked Memos
+  // checkbox archived two rows and hid it too. `main` is the target when the UI
+  // is hidden (the layer is `pointer-events-none` then); the layer is the
+  // target for a click on the photo between the widgets.
+  const layerRef = useRef<HTMLDivElement>(null);
+  const toggleFromBackground = (event: MouseEvent<HTMLElement>) => {
+    if (event.target === event.currentTarget || event.target === layerRef.current) toggle();
+  };
+
   if (!isLoaded) {
     return <div className='w-screen h-screen bg-black' />;
   }
@@ -48,7 +60,7 @@ function App() {
       style={{
         backgroundImage: imageSrc ? `url(${imageSrc})` : undefined,
       }}
-      onDoubleClick={toggle}
+      onDoubleClick={toggleFromBackground}
     >
       <div
         className='absolute inset-0 bg-black pointer-events-none transition-opacity duration-1000'
@@ -56,6 +68,7 @@ function App() {
       />
 
       <div
+        ref={layerRef}
         className={`
           relative z-10 w-full h-full flex flex-col items-center justify-center transition-all duration-700 ease-in-out
           ${uiVisible ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-sm scale-105 pointer-events-none'}

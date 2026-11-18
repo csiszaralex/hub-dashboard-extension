@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from './test/chromeStub';
 import { warmUp } from './test/warmUp';
@@ -68,5 +68,43 @@ describe('App — quote attribution', () => {
     render(<App />);
 
     expect(await waitFor(() => screen.getByRole('link', { name: 'Source' }))).not.toBeNull();
+  });
+});
+
+describe('App — double-click toggle', () => {
+  beforeEach(() => {
+    installChromeStub();
+  });
+
+  /** The layer that fades out when the UI is hidden: `main`'s second child. */
+  const renderApp = async () => {
+    serveQuote(QUOTE_WITHOUT_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText(/Be one\./)).not.toBeNull());
+    const main = container.querySelector('main') as HTMLElement;
+    const layer = main.children[1] as HTMLElement;
+    const hidden = () => layer.className.includes('opacity-0');
+    return { main, layer, hidden };
+  };
+
+  it('hides and restores the UI on a double-click on the background', async () => {
+    const { main, layer, hidden } = await renderApp();
+
+    fireEvent.doubleClick(layer);
+    expect(hidden()).toBe(true);
+
+    // Hidden, the layer takes no pointer events, so the click lands on `main`.
+    fireEvent.doubleClick(main);
+    expect(hidden()).toBe(false);
+  });
+
+  it('leaves the UI alone for a double-click inside a widget', async () => {
+    const { hidden } = await renderApp();
+
+    // Selecting a word in the quote is the case that used to hide everything.
+    fireEvent.doubleClick(screen.getByText(/Be one\./));
+    expect(hidden()).toBe(false);
   });
 });

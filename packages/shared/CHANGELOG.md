@@ -1,3 +1,9 @@
+## 0.1.8 (2026-11-18)
+
+### 🚀 Features
+
+- **shared:** share the default background tags and quote source ([2a7ccb8](https://github.com/csiszaralex/hub-dashboard-extension/commit/2a7ccb8))
+
 ## 0.1.7 (2026-11-18)
 
 This was a version bump only for @hub/shared to align it with other projects, there were no code changes.

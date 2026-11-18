@@ -1,3 +1,13 @@
+## 2.8.14 (2026-11-18)
+
+### 🩹 Fixes
+
+- **extension:** read every setting through one schema ([a295e15](https://github.com/csiszaralex/hub-dashboard-extension/commit/a295e15))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.8
+
 ## 2.8.13 (2026-11-18)
 
 ### 🩹 Fixes

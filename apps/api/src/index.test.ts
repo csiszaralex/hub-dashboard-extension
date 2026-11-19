@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import app from './index';
 import { HOURLY_UNSPLASH_BUDGET } from './background';
 import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
@@ -26,7 +26,9 @@ const unsplashResponse = (count = 3) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-let fetchMock: ReturnType<typeof vi.fn>;
+// Typed as `fetch`, so an async implementation is checked against what it
+// stands in for instead of an untyped mock.
+let fetchMock: Mock<typeof fetch>;
 
 const env = (kv: KVNamespace) => ({ UNSPLASH_CACHE: kv, UNSPLASH_ACCESS_KEY: 'test-key' });
 
@@ -37,7 +39,7 @@ const downloadPings = () =>
   fetchMock.mock.calls.filter(([input]) => String(input).includes('/download'));
 
 beforeEach(() => {
-  fetchMock = vi.fn(async () => unsplashResponse());
+  fetchMock = vi.fn<typeof fetch>(async () => unsplashResponse());
   vi.stubGlobal('fetch', fetchMock);
 });
 

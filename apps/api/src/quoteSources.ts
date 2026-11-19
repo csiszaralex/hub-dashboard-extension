@@ -76,13 +76,14 @@ const staticSource = (id: StaticSourceId): QuoteSource => ({
   id,
   languages: staticLanguages(id),
   acceptsQuery: false,
-  resolve: async ({ language, date }) => {
+  resolve: ({ language, date }) => {
     const quotes = STATIC_QUOTES[id][language];
     // Unreachable through the route, which only offers languages the source
     // advertises — but a resolver that assumes its caller checked is one
-    // refactor away from returning undefined to the client.
-    if (!quotes?.length) throw new Error(`No ${id} quotes for ${language}`);
-    return rotateForDay(quotes, date);
+    // refactor away from returning undefined to the client. A rejection, not a
+    // throw, so it fails the way the network-backed sources do.
+    if (!quotes?.length) return Promise.reject(new Error(`No ${id} quotes for ${language}`));
+    return Promise.resolve(rotateForDay(quotes, date));
   },
 });
 

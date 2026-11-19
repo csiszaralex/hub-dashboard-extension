@@ -39,6 +39,7 @@ export const QuoteWidget = ({ quote, loading, onRefresh }: Props) => {
         onClick={onRefresh}
         disabled={loading}
         title={t('quote.refresh')}
+        aria-label={t('quote.refresh')}
         className='mt-2 p-1.5 rounded-full text-white/30 hover:text-white/80 hover:bg-white/10 transition-all disabled:opacity-40 cursor-pointer'
       >
         <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />

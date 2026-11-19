@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
+import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useDraftSetting } from './useDraftSetting';
 
@@ -17,6 +18,7 @@ export function CountdownSection({ settings }: { settings: HubSettings }) {
     <Field id='countdownTarget' label={t('popup.countdown')} hint={t('popup.countdownHint')}>
       <input
         id='countdownTarget'
+        aria-describedby={hintId('countdownTarget')}
         type='datetime-local'
         value={target.draft}
         onChange={(e) => target.change(e.target.value)}

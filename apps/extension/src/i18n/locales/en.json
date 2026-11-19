@@ -60,7 +60,9 @@
   "notes": {
     "title": "Notes",
     "placeholder": "Write something for today...",
-    "delete": "Delete"
+    "delete": "Delete",
+    "open": "Open notes",
+    "close": "Close notes"
   },
   "popup": {
     "title": "Hub Dashboard",
@@ -125,6 +127,7 @@
     "pomodoroSession": "Current session",
     "pomodoroSessionHint": "The timer runs in the background, so it keeps going even when the Focus widget is hidden.",
     "tabMemos": "Memos",
+    "tabsLabel": "Settings sections",
     "memosUrl": "Server URL",
     "memosUrlHint": "Your own Memos instance. HTTPS only.",
     "memosToken": "Access token",
@@ -151,6 +154,8 @@
   },
   "whatsNew": {
     "updated": "Updated",
+    "close": "Close release notes",
+    "github": "Hub on GitHub",
     "sections": {
       "features": "Features",
       "fixes": "Fixes",
@@ -208,7 +213,9 @@
     "errorUnreachable": "Can't reach your Memos server",
     "errorServer": "The Memos server returned an error",
     "writeFailedSubmit": "Not sent — kept as a draft",
-    "writeFailedArchive": "Couldn't mark that done"
+    "writeFailedArchive": "Couldn't mark that done",
+    "composerLabel": "New memo",
+    "tagFilter": "Filter by tag"
   },
   "recovery": {
     "title": "Something went wrong",

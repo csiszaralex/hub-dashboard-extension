@@ -196,7 +196,7 @@ describe('PopupForm', () => {
 
     // Leaving the tab unmounts the field before the pause is over; the edit
     // is written then rather than lost with it.
-    fireEvent.click(screen.getByRole('button', { name: 'General' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ pomodoroWorkMinutes: DEFAULT_WORK_MINUTES }),
@@ -225,7 +225,7 @@ describe('PopupForm', () => {
       <PopupForm settings={{ ...baseSettings, pomodoroWorkMinutes: 25 }} onSave={async () => {}} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /focus/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /focus/i }));
     const input = screen.getByLabelText(/focus length/i) as HTMLInputElement;
 
     fireEvent.change(input, { target: { value: '' } });
@@ -552,7 +552,7 @@ describe('PopupForm — a write Chrome refuses', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/QUOTA_BYTES quota exceeded/);
     expect(screen.getByRole('status').textContent).not.toMatch(/Saved/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'General' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
     expect(screen.getByRole('alert').textContent).toMatch(/QUOTA_BYTES quota exceeded/);
   });
 
@@ -566,7 +566,7 @@ describe('PopupForm — a write Chrome refuses', () => {
     fireEvent.change(await screen.findByLabelText('Appearance & Background'), {
       target: { value: 'desert' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Widgets' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Widgets' }));
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/QUOTA_BYTES quota exceeded/);
   });
@@ -697,5 +697,40 @@ describe('PopupForm — settings backup', () => {
     });
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ language: 'hu' }));
+  });
+});
+
+/** The text of whatever `element`'s `aria-describedby` points at. */
+const describedText = (element: HTMLElement) =>
+  (element.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .filter(Boolean)
+    .map((id) => document.getElementById(id)?.textContent)
+    .join(' ');
+
+describe('PopupForm — accessibility', () => {
+  it('shows the active section as a tab panel named by its tab', async () => {
+    localStorage.setItem('popup_tab', 'appearance');
+    await renderWithStorage();
+
+    const panel = await screen.findByRole('tabpanel', { name: 'Background' });
+    expect(screen.getByRole('tab', { name: 'Background' }).getAttribute('aria-controls')).toBe(panel.id);
+  });
+
+  it('links a field hint to its control, so it is read with it', async () => {
+    localStorage.setItem('popup_tab', 'appearance');
+    await renderWithStorage();
+
+    const slider = await screen.findByRole('slider', { name: 'Background dimming' });
+    expect(describedText(slider)).toMatch(/hard to read on bright photos/);
+  });
+
+  it('groups the background source radios under a named fieldset', async () => {
+    localStorage.setItem('popup_tab', 'appearance');
+    await renderWithStorage();
+
+    const group = await screen.findByRole('group', { name: 'Background source' });
+    expect(group.tagName).toBe('FIELDSET');
+    expect(group.querySelectorAll('input[type="radio"]').length).toBeGreaterThan(1);
   });
 });

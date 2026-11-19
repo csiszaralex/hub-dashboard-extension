@@ -59,6 +59,7 @@ export const PomodoroWidget = () => {
         disabled={running}
         className='p-3 rounded-full bg-white/5 hover:bg-white/20 transition-colors disabled:opacity-30'
         title={t('pomodoro.start')}
+        aria-label={t('pomodoro.start')}
       >
         <Play className='w-6 h-6' />
       </button>
@@ -66,6 +67,7 @@ export const PomodoroWidget = () => {
         onClick={reset}
         className='p-3 rounded-full bg-white/5 hover:bg-white/20 transition-colors'
         title={t('pomodoro.reset')}
+        aria-label={t('pomodoro.reset')}
       >
         <RotateCcw className='w-6 h-6' />
       </button>

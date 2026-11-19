@@ -192,6 +192,14 @@ describe('CalendarWidget when Google does not answer with events', () => {
     await waitFor(() => expect(screen.getByText('Weekly sync')).not.toBeNull());
   });
 
+  // Arriving after the page has drawn, the failure has to be announced; a
+  // plain paragraph is only found by someone who goes looking for it.
+  it('announces the failure as an alert', async () => {
+    await renderWidget();
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Could not load the calendar.');
+  });
+
   describe('on a fake clock', () => {
     let restoreClock: () => void;
     beforeEach(() => {

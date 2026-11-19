@@ -13,5 +13,32 @@
     /* Hogy a háttérkép ne ugráljon */
     @apply min-h-screen overflow-hidden bg-gray-900;
   }
+
+  /* One keyboard focus indicator for both pages, in the base layer so every
+     control gets it without a class to forget, and a utility that styles its
+     own focus (the popup's `inputCls` ring) still wins. `:focus-visible` keeps
+     it off mouse clicks on buttons and links. White with a dark halo because
+     the new tab page draws over an arbitrary photo. */
+  :focus-visible {
+    outline: 2px solid rgb(255 255 255 / 0.85);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgb(0 0 0 / 0.35);
+  }
+}
+
+/* Motion is decoration everywhere on these pages, so one rule removes it for
+   a user who asked the system for less: the ping on the current calendar
+   event, the 700 to 1000 ms blur and scale when the UI is toggled, and every
+   spinner. A transition still reaches its end state, only instantly; an
+   animation runs once in a blink and the element shows its static style. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
 }
 

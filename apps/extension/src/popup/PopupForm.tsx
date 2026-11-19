@@ -8,6 +8,7 @@ import { GeneralSection } from './GeneralSection';
 import { MemosSection } from './MemosSection';
 import { SaveContext, useSaveStatus } from './saveStatus';
 import { SaveStatusLine } from './SaveStatusLine';
+import { panelElementId, tabElementId } from './ariaIds';
 import { TabNav, type TabId } from './TabNav';
 import { WeatherSection } from './WeatherSection';
 import { WidgetsSection } from './WidgetsSection';
@@ -47,7 +48,11 @@ export function PopupForm({
       <div className='flex flex-col gap-3 min-w-0'>
         <TabNav active={activeTab} onChange={handleTabChange} />
 
-        <div>
+        <div
+          role='tabpanel'
+          id={panelElementId(activeTab)}
+          aria-labelledby={tabElementId(activeTab)}
+        >
           {activeTab === 'general' && <GeneralSection settings={settings} onImport={onSave} />}
           {activeTab === 'appearance' && <AppearanceSection settings={settings} />}
           {activeTab === 'weather' && <WeatherSection settings={settings} />}

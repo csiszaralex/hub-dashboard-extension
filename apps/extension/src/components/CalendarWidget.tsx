@@ -65,9 +65,13 @@ const EventRow = ({ event, state }: EventRowProps) => {
       <div className='flex-1 min-w-0 flex flex-col gap-0.5 justify-center'>
         {/* Top row: Title & Active indicator */}
         <div className='flex items-center gap-2'>
+          {/*
+            The ping is pure motion over the solid dot, so reduced motion
+            drops it rather than leaving it frozen on top of the dot.
+          */}
           {isCurrent && (
             <span className='relative flex h-2 w-2 shrink-0'>
-              <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75'></span>
+              <span className='animate-ping motion-reduce:hidden absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75'></span>
               <span className='relative inline-flex rounded-full h-2 w-2 bg-indigo-400'></span>
             </span>
           )}
@@ -111,6 +115,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
           href={joinUrl}
           className='flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400/80 hover:text-emerald-400 transition-colors shrink-0'
           title={t('calendar.joinCall')}
+          aria-label={t('calendar.joinCall')}
         >
           <Video className='w-4 h-4' />
         </a>
@@ -145,7 +150,7 @@ export const CalendarWidget = () => {
         <div className='p-1.5 bg-white/5 rounded-full text-amber-300'>
           <Calendar className='w-4 h-4' />
         </div>
-        <p className='text-sm text-white/80'>
+        <p role='alert' className='text-sm text-white/80'>
           {needsSignIn ? t('calendar.signInAgainHint') : t('calendar.loadFailed')}
         </p>
         <button
@@ -160,8 +165,12 @@ export const CalendarWidget = () => {
 
   // A refresh that failed after a success: the events below are the last ones
   // Google sent, which is better than nothing but should not pass for current.
+  // A `status`, not an `alert`: the events are still on screen, so this
+  // qualifies them rather than reporting that something is missing.
   const staleNote = refreshFailed && (
-    <p className='text-[10px] text-white/40'>{t('calendar.refreshFailed')}</p>
+    <p role='status' className='text-[10px] text-white/40'>
+      {t('calendar.refreshFailed')}
+    </p>
   );
 
   if (status === 'signed-out') {

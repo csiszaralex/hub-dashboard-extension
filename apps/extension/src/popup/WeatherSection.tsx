@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useSave } from './saveStatus';
 
@@ -92,6 +93,7 @@ export function WeatherSection({ settings }: { settings: HubSettings }) {
     <Field id='city' label={t('popup.weatherLocation')} hint={cityError ?? t('popup.weatherLocationHint')}>
       <input
         id='city'
+        aria-describedby={hintId('city')}
         type='text'
         value={city}
         onChange={(e) => edit(e.target.value)}

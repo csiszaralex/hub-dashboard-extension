@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ChromeStub, installChromeStub } from '../test/chromeStub';
 import { installFakeClock } from '../test/hangingFetch';
+import { restorePageVisibility, setPageVisibility } from '../test/pageVisibility';
 import { warmUp } from '../test/warmUp';
 
 warmUp(() => Promise.all([import('../i18n/i18n'), import('./CalendarWidget')]));
@@ -225,6 +226,66 @@ describe('CalendarWidget when Google does not answer with events', () => {
         expect(screen.getByText('Could not refresh, showing earlier events.')).not.toBeNull(),
       );
       expect(screen.getByText('Weekly sync')).not.toBeNull();
+    });
+  });
+
+  describe('refreshing by tab visibility', () => {
+    let restoreClock: () => void;
+    let google_: ReturnType<typeof google>;
+    beforeEach(() => {
+      restoreClock = installFakeClock();
+      google_ = google(stub, { primary: [meeting({})] });
+      vi.stubGlobal('fetch', google_);
+    });
+    afterEach(() => {
+      restorePageVisibility();
+      restoreClock();
+    });
+
+    const listRequests = () =>
+      google_.mock.calls.filter(([url]) => url.startsWith(CALENDAR_LIST)).length;
+
+    const mount = async () => {
+      await renderWidget();
+      await waitFor(() => expect(screen.getByText('Weekly sync')).not.toBeNull());
+      expect(listRequests()).toBe(1);
+    };
+
+    it('does not refetch on the interval while the tab is hidden', async () => {
+      await mount();
+      setPageVisibility('hidden');
+
+      await act(() => vi.advanceTimersByTimeAsync(90 * 60_000));
+
+      expect(listRequests()).toBe(1);
+    });
+
+    it('refetches once when the tab becomes visible after more than five minutes', async () => {
+      await mount();
+      setPageVisibility('hidden');
+      await act(() => vi.advanceTimersByTimeAsync(6 * 60_000));
+
+      await act(async () => setPageVisibility('visible'));
+
+      await waitFor(() => expect(listRequests()).toBe(2));
+    });
+
+    it('does not refetch when the tab becomes visible within five minutes', async () => {
+      await mount();
+      setPageVisibility('hidden');
+      await act(() => vi.advanceTimersByTimeAsync(4 * 60_000));
+
+      await act(async () => setPageVisibility('visible'));
+
+      expect(listRequests()).toBe(1);
+    });
+
+    it('still refetches on the interval while the tab is visible', async () => {
+      await mount();
+
+      await act(() => vi.advanceTimersByTimeAsync(30 * 60_000));
+
+      expect(listRequests()).toBe(2);
     });
   });
 

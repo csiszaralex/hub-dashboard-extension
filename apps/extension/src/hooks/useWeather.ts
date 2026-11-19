@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import i18n from '../i18n/i18n';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { summarizeDaily, type DailyForecast } from '../utils/forecast';
+import { schedulePageRefresh } from '../utils/pageRefresh';
 import { summarizePrecipitation, type RainData } from '../utils/precipitation';
 import { useSettings } from './useSettings';
 
@@ -24,6 +25,12 @@ interface ResolveLocationResult {
 
 const CACHE_KEY = 'weather_cache';
 const CACHE_DURATION = 1000 * 60 * 30;
+/**
+ * How often a visible tab looks at the cache. Shorter than `CACHE_DURATION` on
+ * purpose: the entry is stamped when its fetch finishes, so a check exactly one
+ * duration after the load would find it a moment too young and wait another.
+ */
+const CHECK_INTERVAL = 1000 * 60 * 5;
 
 const roundCoord = (coord: number) => Number(coord.toFixed(3));
 
@@ -188,15 +195,11 @@ export const useWeather = () => {
   useEffect(() => {
     fetchWeather(false);
 
-    // Refresh weather every 30 minutes
-    const interval = setInterval(
-      () => {
-        fetchWeather(true);
-      },
-      30 * 60 * 1000,
-    );
-
-    return () => clearInterval(interval);
+    // Not forced: the cache is shared by every tab, so a tab whose cache another
+    // tab has just refreshed makes no request. Hidden tabs skip the tick and
+    // catch up through the same path when they become visible.
+    const refreshIfStale = () => void fetchWeather(false);
+    return schedulePageRefresh(CHECK_INTERVAL, refreshIfStale, refreshIfStale);
   }, [fetchWeather]);
 
   return { data, loading, refresh: () => fetchWeather(true) };

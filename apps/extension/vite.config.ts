@@ -2,7 +2,7 @@ import { crx } from '@crxjs/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync } from 'node:fs';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import packageJson from './package.json' with { type: 'json' };
 import baseManifest from './manifest.json' with { type: 'json' };
 
@@ -38,6 +38,49 @@ const getRecentChangelog = (): string => {
   return lines.join('\n').trim();
 };
 
+/**
+ * Fails the build when the service worker's chunks reach for page-only globals
+ * or pull React in.
+ *
+ * CLAUDE.md states the rule: nothing `src/background.ts` imports may touch
+ * `window`, `document` or `localStorage`, since a service worker has none of
+ * them and the first use throws in Chrome while every test still passes under
+ * happy-dom, where all three exist. The rule used to rest on memory and on a
+ * reviewer grepping `dist/`. This walks the worker's chunk graph instead: the
+ * chunk built from `src/background.ts` and everything it imports.
+ */
+const PAGE_GLOBAL = /(?<![\w$.])(window|document|localStorage)(?![\w$])/;
+const REACT_MODULE = /[\\/]node_modules[\\/](\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?react(-dom)?[\\/]/;
+
+const serviceWorkerGuard = (): Plugin => ({
+  name: 'hub:service-worker-guard',
+  apply: 'build',
+  generateBundle(_, bundle) {
+    const chunks = Object.values(bundle).filter((output) => output.type === 'chunk');
+    const byFile = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+    const entry = chunks.find((chunk) =>
+      chunk.facadeModuleId?.replaceAll('\\', '/').endsWith('/src/background.ts'),
+    );
+    if (!entry) this.error('service worker guard: no chunk is built from src/background.ts');
+
+    const seen = new Set<string>();
+    const queue = [entry.fileName];
+    while (queue.length > 0) {
+      const chunk = byFile.get(queue.shift()!);
+      if (!chunk || seen.has(chunk.fileName)) continue;
+      seen.add(chunk.fileName);
+
+      const react = chunk.moduleIds.find((id) => REACT_MODULE.test(id));
+      if (react) this.error(`service worker chunk ${chunk.fileName} includes React (${react})`);
+      const global = PAGE_GLOBAL.exec(chunk.code);
+      if (global) {
+        this.error(`service worker chunk ${chunk.fileName} refers to \`${global[1]}\``);
+      }
+      queue.push(...chunk.imports, ...chunk.dynamicImports);
+    }
+  },
+});
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
@@ -54,7 +97,7 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react(), tailwindcss(), crx({ manifest })],
+    plugins: [react(), tailwindcss(), crx({ manifest }), serviceWorkerGuard()],
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
       __CHANGELOG__: JSON.stringify(getRecentChangelog()),

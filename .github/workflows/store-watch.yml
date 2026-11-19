@@ -1,0 +1,91 @@
+name: Store Watch
+
+# deploy.yml uploads each extension release to the Chrome Web Store as a draft
+# that is submitted for review by hand, and versions once sat there for months
+# unnoticed. This keeps one issue open while a release waits too long, and
+# closes it when the store catches up. The rules live in
+# .github/scripts/store-watch.mjs (`decide`).
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: store-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The tags and their dates are what the store is compared with.
+          fetch-depth: 0
+          # Only `gh` talks to GitHub below, with its own token.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      # Token and request in one step, so the access token never leaves it.
+      - name: Fetch store status
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.EXTENSION_ID }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+          token=$(curl -fsS https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=${CLIENT_ID}" \
+            --data-urlencode "client_secret=${CLIENT_SECRET}" \
+            --data-urlencode "refresh_token=${REFRESH_TOKEN}" \
+            --data-urlencode "grant_type=refresh_token" | jq -r '.access_token // empty')
+          if [ -z "$token" ]; then echo "::error::No access token in the OAuth response"; exit 1; fi
+          echo "::add-mask::${token}"
+          curl -fsS -H "Authorization: Bearer ${token}" \
+            "https://chromewebstore.googleapis.com/v2/publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}:fetchStatus" \
+            -o "$RUNNER_TEMP/status.json"
+
+      - name: Decide
+        id: decide
+        run: |
+          set -euo pipefail
+          git for-each-ref --format='%(refname:short) %(creatordate:iso-strict)' 'refs/tags/extension@*' \
+            > "$RUNNER_TEMP/tags.txt"
+          node .github/scripts/store-watch.mjs \
+            "$RUNNER_TEMP/status.json" "$RUNNER_TEMP/tags.txt" "$RUNNER_TEMP/message.md" >> "$GITHUB_OUTPUT"
+
+      # The label, not the title, finds the issue, so a retitled one is still
+      # updated rather than duplicated.
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ACTION: ${{ steps.decide.outputs.action }}
+        run: |
+          set -euo pipefail
+          label=store-watch
+          message="$RUNNER_TEMP/message.md"
+          number=$(gh issue list --label "$label" --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ "$ACTION" = report ]; then
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --body-file "$message"
+            else
+              gh label create "$label" --color FBCA04 --description 'Opened by store-watch.yml' --force
+              title=$(node --input-type=module -e "import { ISSUE_TITLE } from './.github/scripts/store-watch.mjs'; console.log(ISSUE_TITLE)")
+              gh issue create --title "$title" --label "$label" --body-file "$message"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "$(cat "$message")"
+          fi

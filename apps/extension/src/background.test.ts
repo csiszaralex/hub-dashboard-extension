@@ -1,5 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment node
+//
+// The worker runs with no `window`, `document` or `localStorage`, and happy-dom
+// provides all three, which would let a page-only call pass here and throw in
+// Chrome. The build's `serviceWorkerGuard` (vite.config.ts) checks the bundle.
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from './test/chromeStub';
+
+// Node's `navigator` reports the machine's own locale, and a test that saves no
+// language falls back to it. Pinned, so the expected strings do not depend on
+// where the suite runs.
+beforeEach(() => {
+  vi.stubGlobal('navigator', { language: 'en-US', languages: ['en-US'] });
+});
 import { pomodoroState } from './test/pomodoroState';
 import type { PomodoroMessage, PomodoroState } from './utils/pomodoroState';
 

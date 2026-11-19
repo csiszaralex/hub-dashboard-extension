@@ -7,7 +7,9 @@ beforeEach(() => {
   // Hooks backed by module-level stores must start each test as they would on a
   // fresh page load, so the registry is cleared and test files import lazily.
   vi.resetModules();
-  localStorage.clear();
+  // Absent in the node environment the service worker's tests run in, which is
+  // the point of running them there.
+  if (typeof localStorage !== 'undefined') localStorage.clear();
   installChromeStub();
   installCacheStub();
 

@@ -1,3 +1,9 @@
+## 2.11.0 (2026-11-19)
+
+### 🚀 Features
+
+- **extension:** welcome a first install instead of showing release notes ([635dbd9](https://github.com/csiszaralex/hub-dashboard-extension/commit/635dbd9))
+
 ## 2.10.4 (2026-11-19)
 
 ### 🩹 Fixes

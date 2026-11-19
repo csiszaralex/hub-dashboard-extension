@@ -1,3 +1,9 @@
+## 2.12.0 (2026-11-19)
+
+### 🚀 Features
+
+- **extension:** let destructive actions be undone or confirmed ([4d3ad43](https://github.com/csiszaralex/hub-dashboard-extension/commit/4d3ad43))
+
 ## 2.11.0 (2026-11-19)
 
 ### 🚀 Features

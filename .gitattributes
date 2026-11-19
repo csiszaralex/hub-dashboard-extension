@@ -1,0 +1,10 @@
+# Text files are stored and checked out with LF on every platform. This repo is
+# edited on Windows, where tools that write CRLF otherwise show every line of a
+# file as changed and hide the real edit.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.zip binary

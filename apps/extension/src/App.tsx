@@ -17,7 +17,7 @@ import { useQuote } from './hooks/useQuote';
 import { useSettings } from './hooks/useSettings';
 import { useUiVisibility } from './hooks/useUiVisibility';
 import { useWhatsNew } from './hooks/useWhatsNew';
-import { countEntries, LONG_RELEASE_ENTRIES, releasesSince } from './utils/changelog';
+import { CHANGELOG, countEntries, LONG_RELEASE_ENTRIES, releasesSince } from './utils/changelog';
 import { dimToOpacity } from './utils/dim';
 import { isWidgetVisible, type WidgetId } from './widgets';
 
@@ -36,7 +36,7 @@ function App() {
   // behind should not have the dashboard blanked for two lines of fixes.
   const hidesBackdrop =
     shouldShow &&
-    countEntries(releasesSince(__CHANGELOG__, lastSeenVersion, currentVersion)) >=
+    countEntries(releasesSince(CHANGELOG, lastSeenVersion, currentVersion)) >=
       LONG_RELEASE_ENTRIES;
 
   // The double-click toggle belongs to the background only. Bubbling up from a

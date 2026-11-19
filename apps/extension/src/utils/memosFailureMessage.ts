@@ -40,11 +40,20 @@ export const failureMessageKey = (
 ): (typeof FAILURE_KEY)[MemosFailureReason] | 'memos.errorUnreachable' =>
   failure === 'network' && !hasRows ? 'memos.errorUnreachable' : FAILURE_KEY[failure];
 
-/** A submit or an archive the server did not take. Kept apart from the load's failure. */
+/**
+ * A submit, an archive or an archive's undo (`restore`) the server did not
+ * take. Kept apart from the load's failure.
+ */
 export interface MemosWriteFailure {
-  action: 'submit' | 'archive';
+  action: 'submit' | 'archive' | 'restore';
   reason: MemosFailureReason;
 }
+
+const WRITE_FAILURE_KEY = {
+  submit: 'memos.writeFailedSubmit',
+  archive: 'memos.writeFailedArchive',
+  restore: 'memos.writeFailedRestore',
+} as const satisfies Record<MemosWriteFailure['action'], string>;
 
 /**
  * The message for a failed write.
@@ -58,7 +67,7 @@ export interface MemosWriteFailure {
 export const writeFailureMessageKey = ({
   action,
   reason,
-}: MemosWriteFailure): 'memos.errorAuth' | 'memos.writeFailedSubmit' | 'memos.writeFailedArchive' => {
+}: MemosWriteFailure): 'memos.errorAuth' | (typeof WRITE_FAILURE_KEY)[MemosWriteFailure['action']] => {
   if (reason === 'auth') return 'memos.errorAuth';
-  return action === 'submit' ? 'memos.writeFailedSubmit' : 'memos.writeFailedArchive';
+  return WRITE_FAILURE_KEY[action];
 };

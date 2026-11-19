@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type ArchivedRow,
   composeContent,
   filterByTag,
   isSupportedVersion,
+  type MemoItem,
+  type MemoRow,
   normalizeBaseUrl,
   originPattern,
   parseMemoList,
+  restoreArchivedRow,
+  rowIndexOf,
   sanitizeMemosTag,
   stripTags,
   tagsExcept,
   tagsOf,
+  withArchivedRows,
+  withoutArchivedRow,
 } from './memos';
 
 describe('normalizeBaseUrl', () => {
@@ -287,5 +294,69 @@ describe('tagsExcept', () => {
 
   it('keeps every tag when nothing is filtered', () => {
     expect(tagsExcept(['todo', 'proj'], null)).toEqual(['todo', 'proj']);
+  });
+});
+
+describe('archived rows', () => {
+  const memo = (id: string): MemoItem => ({
+    name: `memos/${id}`,
+    creator: 'users/1',
+    content: id,
+    snippet: id,
+    tags: [],
+    createTime: '',
+    pinned: false,
+  });
+  const names = (rows: MemoRow[]) =>
+    rows.map((row) => (row.kind === 'memo' ? row.memo.name : `archived:${row.row.memo.name}`));
+
+  /** Archives `name` the way `useMemos` does: its slot, then out of the live list. */
+  const archive = (live: MemoItem[], archived: ArchivedRow[], name: string) => {
+    const index = rowIndexOf(live, archived, name);
+    const target = live.find((item) => item.name === name) as MemoItem;
+    return {
+      live: live.filter((item) => item.name !== name),
+      archived: [...archived, { memo: target, index, restoring: false }],
+    };
+  };
+
+  const start = [memo('a'), memo('b'), memo('c')];
+
+  // In either order, both lines stand where their memos did.
+  it.each([
+    ['top first', ['memos/a', 'memos/b']],
+    ['lower first', ['memos/b', 'memos/a']],
+  ])('keeps each archived memo in its own slot, archiving %s', (_label, order) => {
+    let state = { live: start, archived: [] as ArchivedRow[] };
+    for (const name of order) state = archive(state.live, state.archived, name);
+
+    expect(names(withArchivedRows(state.live, state.archived))).toEqual([
+      'archived:memos/a',
+      'archived:memos/b',
+      'memos/c',
+    ]);
+  });
+
+  it('closes a slot and moves the rows below it up', () => {
+    let state = archive(start, [], 'memos/a');
+    state = archive(state.live, state.archived, 'memos/c');
+
+    const archived = withoutArchivedRow(state.archived, 'memos/a');
+
+    expect(names(withArchivedRows(state.live, archived))).toEqual(['memos/b', 'archived:memos/c']);
+  });
+
+  it('restores a memo into the slot it left', () => {
+    let state = archive(start, [], 'memos/a');
+    state = archive(state.live, state.archived, 'memos/b');
+
+    const restored = restoreArchivedRow(state.live, state.archived, 'memos/b');
+
+    expect(restored.memos.map((item) => item.name)).toEqual(['memos/b', 'memos/c']);
+    expect(names(withArchivedRows(restored.memos, restored.archived))).toEqual([
+      'archived:memos/a',
+      'memos/b',
+      'memos/c',
+    ]);
   });
 });

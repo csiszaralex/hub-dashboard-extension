@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMemos } from '../hooks/useMemos';
 import { stripTags, tagsExcept } from '../utils/memos';
 import { failureMessageKey, writeFailureMessageKey } from '../utils/memosFailureMessage';
-import { ArchiveButton, MemosPanel, MemoTags } from './MemosPanel';
+import { ArchiveButton, ArchivedMemoLine, MemosPanel, MemoTags } from './MemosPanel';
 
 /** How many rows the compact view shows before it starts counting. */
 const COMPACT_ROWS = 3;
@@ -23,7 +23,7 @@ export function MemosWidget() {
     status,
     failure,
     writeFailure,
-    memos,
+    rows,
     tags,
     activeTag,
     setActiveTag,
@@ -32,6 +32,7 @@ export function MemosWidget() {
     submit,
     submitting,
     archive,
+    undoArchive,
     refresh,
     refreshing,
     grantAccess,
@@ -89,11 +90,12 @@ export function MemosWidget() {
     return (
       <div className={wrapper}>
         <MemosPanel
-          memos={memos}
+          rows={rows}
           tags={tags}
           activeTag={activeTag}
           onTagChange={setActiveTag}
           onArchive={(name) => void archive(name)}
+          onUndo={(name) => void undoArchive(name)}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={() => void submit()}
@@ -109,9 +111,11 @@ export function MemosWidget() {
     );
   }
 
-  const visible = memos.slice(0, COMPACT_ROWS);
-  const hidden = memos.length - visible.length;
-  const hasRows = memos.length > 0;
+  // An archived row keeps its slot among the visible ones while its undo is on
+  // offer, so the count below is of the live memos that did not fit.
+  const visible = rows.slice(0, COMPACT_ROWS);
+  const hidden = rows.slice(COMPACT_ROWS).filter((row) => row.kind === 'memo').length;
+  const hasRows = rows.length > 0;
 
   return (
     // A fixed minimum height so the compact view does not grow into place: the
@@ -119,7 +123,20 @@ export function MemosWidget() {
     // corner around on every new tab reads as a glitch.
     <div className={`${wrapper} min-h-24 w-64`}>
       {hasRows ? (
-        visible.map((memo) => {
+        visible.map((row) => {
+          if (row.kind === 'archived') {
+            return (
+              <div key={row.row.memo.name} className='flex items-start min-w-0 w-full'>
+                <ArchivedMemoLine
+                  row={row.row}
+                  onUndo={(name) => void undoArchive(name)}
+                  className='text-sm text-white/45'
+                />
+              </div>
+            );
+          }
+
+          const { memo } = row;
           // Tags out of the text, chips after it — and the text is what gives
           // way when the row runs out of room, since a chip that truncates
           // says nothing at all.
@@ -127,7 +144,7 @@ export function MemosWidget() {
 
           return (
             <div key={memo.name} className='group flex items-start gap-2 min-w-0 w-full'>
-              <ArchiveButton onClick={() => void archive(memo.name)} title={t('memos.done')} />
+              <ArchiveButton memo={memo} onClick={() => void archive(memo.name)} />
               {text && (
                 <button
                   type='button'

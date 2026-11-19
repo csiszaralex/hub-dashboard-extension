@@ -1,13 +1,21 @@
 import { Check, RefreshCw, X } from 'lucide-react';
 import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type MemoItem, stripTags, tagsExcept } from '../utils/memos';
+import {
+  type ArchivedRow,
+  type MemoItem,
+  memoLabel,
+  type MemoRow,
+  stripTags,
+  tagsExcept,
+} from '../utils/memos';
 import type { MemosFailureReason } from '../utils/memosClient';
 import {
   failureMessageKey,
   type MemosWriteFailure,
   writeFailureMessageKey,
 } from '../utils/memosFailureMessage';
+import { UndoLine } from './UndoLine';
 
 const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/50';
 
@@ -52,13 +60,16 @@ export function MemoTags({ tags, onSelect }: { tags: string[]; onSelect?: (tag: 
  * component rather than the same markup and Tailwind classes typed out twice
  * with the risk of the two silently drifting apart.
  */
-export function ArchiveButton({ onClick, title }: { onClick: () => void; title: string }) {
+export function ArchiveButton({ memo, onClick }: { memo: MemoItem; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
+    // Named per memo: every row has one, and a screen reader's list of
+    // buttons read "Mark done" once per row with nothing to tell them apart.
     <button
       type='button'
       onClick={onClick}
-      title={title}
-      aria-label={title}
+      title={t('memos.done')}
+      aria-label={t('memos.doneNamed', { text: memoLabel(memo) })}
       className='mt-0.5 shrink-0 w-4 h-4 rounded border border-white/25 flex items-center justify-center text-transparent hover:text-black hover:bg-white hover:border-white transition-colors'
     >
       <Check className='w-3 h-3' />
@@ -66,12 +77,39 @@ export function ArchiveButton({ onClick, title }: { onClick: () => void; title: 
   );
 }
 
+/**
+ * An archived memo's row while its undo is on offer: the same slot, so the
+ * rows below stay where they were.
+ */
+export function ArchivedMemoLine({
+  row,
+  onUndo,
+  className,
+}: {
+  row: ArchivedRow;
+  onUndo: (name: string) => void;
+  className: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <UndoLine
+      message={t('memos.archived')}
+      undoLabel={t('memos.undo')}
+      undoName={t('memos.undoNamed', { text: memoLabel(row.memo) })}
+      onUndo={() => onUndo(row.memo.name)}
+      disabled={row.restoring}
+      className={className}
+    />
+  );
+}
+
 export function MemosPanel({
-  memos,
+  rows,
   tags,
   activeTag,
   onTagChange,
   onArchive,
+  onUndo,
   draft,
   onDraftChange,
   onSubmit,
@@ -83,11 +121,13 @@ export function MemosPanel({
   writeFailure,
   ref,
 }: {
-  memos: MemoItem[];
+  /** `useMemos`'s `rows`: the memos, with any archived one still in its slot. */
+  rows: MemoRow[];
   tags: string[];
   activeTag: string | null;
   onTagChange: (tag: string | null) => void;
   onArchive: (name: string) => void;
+  onUndo: (name: string) => void;
   draft: string;
   onDraftChange: (text: string) => void;
   onSubmit: () => void;
@@ -101,7 +141,7 @@ export function MemosPanel({
   ref?: Ref<HTMLDivElement>;
 }) {
   const { t } = useTranslation();
-  const hasRows = memos.length > 0;
+  const hasRows = rows.length > 0;
 
   return (
     // A named region, focusable from script only, so the focus moved here on
@@ -191,7 +231,20 @@ export function MemosPanel({
       */}
       <div className='max-h-64 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
         {hasRows ? (
-          memos.map((memo) => {
+          rows.map((row) => {
+            if (row.kind === 'archived') {
+              return (
+                <div key={row.row.memo.name} className='flex items-start px-4 py-2'>
+                  <ArchivedMemoLine
+                    row={row.row}
+                    onUndo={onUndo}
+                    className='text-sm leading-snug text-white/45'
+                  />
+                </div>
+              );
+            }
+
+            const { memo } = row;
             // The tags come out of the text and back as chips: Memos writes
             // them into the content, and composeContent appends one to
             // everything sent from here, so leaving them in would repeat the
@@ -203,7 +256,7 @@ export function MemosPanel({
                 key={memo.name}
                 className='group flex items-start gap-2 px-4 py-2 hover:bg-white/5 transition-colors'
               >
-                <ArchiveButton onClick={() => onArchive(memo.name)} title={t('memos.done')} />
+                <ArchiveButton memo={memo} onClick={() => onArchive(memo.name)} />
                 {text && (
                   <span className='text-sm text-white/80 leading-snug wrap-break-word min-w-0 flex-1'>
                     {text}

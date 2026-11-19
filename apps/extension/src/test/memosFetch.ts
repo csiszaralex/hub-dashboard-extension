@@ -146,27 +146,97 @@ export const memosConnectRoutes = ({
 });
 
 /**
+ * Each memo's `state` on one fake server, by name: what `memosUpdateRoutes`
+ * writes and `memosListRoute` reads, so an archive and its undo show up in the
+ * next list. A map of its own rather than writes into the memo objects, which
+ * tests share across cases. A memo with no `state` is `NORMAL`.
+ */
+export const memoStates = (memos: Record<string, unknown>[]): Map<string, string> =>
+  new Map(memos.map((memo) => [String(memo.name), String(memo.state ?? 'NORMAL')]));
+
+/**
  * `ListMemos` as Memos serves it on `api` — public, like `instance/profile`.
  *
  * A caller whose token the server accepts gets `memos`. Any other caller,
  * including one whose token has expired, still gets 200 — with only the memos
  * marked `visibility: 'PUBLIC'`. That is what once made an expired token look
  * like an account with nothing in it, so the fake must not answer 401 here.
+ *
+ * Only memos in the requested `state` come back, `NORMAL` when none is given —
+ * `ListMemosRequest.state`'s documented default. `states` is where a write
+ * route recorded a change; without one, each memo's own `state` stands.
  */
 export const memosListRoute = ({
   api = '/api/v1',
   tokens = {},
   memos = [],
+  states = memoStates(memos),
 }: {
   api?: MemosApi;
   tokens?: Record<string, string>;
   memos?: Record<string, unknown>[];
+  states?: Map<string, string>;
 } = {}): Record<string, Handler> => ({
-  [`GET ${api}/memos`]: ({ token }) =>
-    reply(200, {
+  [`GET ${api}/memos`]: ({ url, token }) => {
+    const wanted = url.searchParams.get('state') ?? 'NORMAL';
+    const listed = memos.filter((memo) => states.get(String(memo.name)) === wanted);
+    return reply(200, {
       memos: Object.hasOwn(tokens, token)
-        ? memos
-        : memos.filter((memo) => memo.visibility === 'PUBLIC'),
+        ? listed
+        : listed.filter((memo) => memo.visibility === 'PUBLIC'),
       nextPageToken: '',
-    }),
+    });
+  },
 });
+
+/**
+ * `UpdateMemo` for each of `memos`, as Memos serves it on `api`:
+ * `PATCH {api}/memos/{id}?updateMask=...`, the memo as the JSON body.
+ *
+ * What v0.30's handler enforces: a token it accepts (401
+ * otherwise — unlike `ListMemos` this is not public), a non-empty update mask
+ * (400), and a caller who is the memo's creator (403; a superuser may too, but
+ * these fakes issue none). A memo that does not exist is the 404 every unrouted
+ * path gets. The server itself does not check the state value; this fake takes
+ * only `NORMAL` and `ARCHIVED` and answers 400 for anything else, so a typo in
+ * the client fails a test rather than passing as a no-op.
+ *
+ * A `state` change is recorded in `states`, which `memosListRoute` reads.
+ */
+export const memosUpdateRoutes = ({
+  api = '/api/v1',
+  tokens = {},
+  memos = [],
+  states = memoStates(memos),
+}: {
+  api?: MemosApi;
+  tokens?: Record<string, string>;
+  memos?: Record<string, unknown>[];
+  states?: Map<string, string>;
+} = {}): Record<string, Handler> =>
+  Object.fromEntries(
+    memos.map((memo) => [
+      `PATCH ${api}/${String(memo.name)}`,
+      ({ url, init, token }: FakeRequest): FakeReply => {
+        if (!Object.hasOwn(tokens, token)) return UNAUTHENTICATED;
+
+        const mask = (url.searchParams.get('updateMask') ?? '').split(',').filter(Boolean);
+        if (mask.length === 0) {
+          return reply(400, { code: 3, message: 'update mask is required', details: [] });
+        }
+        if (memo.creator !== tokens[token]) {
+          return reply(403, { code: 7, message: 'permission denied', details: [] });
+        }
+
+        const body = JSON.parse(String(init?.body ?? '{}')) as { state?: unknown };
+        const name = String(memo.name);
+        if (mask.includes('state')) {
+          if (body.state !== 'NORMAL' && body.state !== 'ARCHIVED') {
+            return reply(400, { code: 3, message: 'invalid state', details: [] });
+          }
+          states.set(name, body.state);
+        }
+        return reply(200, { ...memo, state: states.get(name) });
+      },
+    ]),
+  );

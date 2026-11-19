@@ -303,23 +303,35 @@ export const createMemo = async (
 };
 
 /**
- * Marks a memo done.
- *
- * Archive rather than delete: reversible, leaves the content untouched, and a
- * misclick on the new tab page costs nothing. `name` already carries the
- * `memos/` prefix — it is the resource name, not a bare id.
+ * `UpdateMemo` with only `state` in the mask: `PATCH /{name}?updateMask=state`
+ * with the memo as the body. `name` already carries the `memos/` prefix — it
+ * is the resource name, not a bare id.
  */
-export const archiveMemo = async (
+const setMemoState = async (
   credentials: MemosCredentials,
   name: string,
+  state: 'ARCHIVED' | 'NORMAL',
 ): Promise<MemosResult<null>> => {
   const result = await call(credentials, `/${name}?updateMask=state`, {
     method: 'PATCH',
     headers: jsonHeaders(credentials.token),
-    body: JSON.stringify({ state: 'ARCHIVED' }),
+    body: JSON.stringify({ state }),
   });
 
   if (!result.ok) return result;
 
   return { ok: true, value: null };
 };
+
+/**
+ * Marks a memo done.
+ *
+ * Archive rather than delete: reversible, leaves the content untouched, and a
+ * misclick on the new tab page costs nothing — `restoreMemo` puts it back.
+ */
+export const archiveMemo = (credentials: MemosCredentials, name: string) =>
+  setMemoState(credentials, name, 'ARCHIVED');
+
+/** The reverse of `archiveMemo`: the same update, back to `NORMAL`. The widget's Undo. */
+export const restoreMemo = (credentials: MemosCredentials, name: string) =>
+  setMemoState(credentials, name, 'NORMAL');

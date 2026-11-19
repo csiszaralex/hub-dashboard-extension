@@ -120,6 +120,20 @@ export function MemosSection({
   // left to fill in, and landing late must not overwrite that.
   const tokenSettledRef = useRef(false);
 
+  // The pressed button is replaced by the confirmation, and the confirmation
+  // by the button, so focus would fall back to `body` each time. It goes to
+  // Cancel, the harmless choice, and back to Disconnect when cancelled. Only
+  // after a click: mounting the tab must not move focus.
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const disconnectRef = useRef<HTMLButtonElement>(null);
+  const cancelDisconnectRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef(false);
+  useEffect(() => {
+    if (confirmingDisconnect) cancelDisconnectRef.current?.focus();
+    else if (returnFocusRef.current) disconnectRef.current?.focus();
+    returnFocusRef.current = false;
+  }, [confirmingDisconnect]);
+
   const showUrl = (value: string) => {
     draftUrlRef.current = value;
     setDraftUrl(value);
@@ -332,17 +346,51 @@ export function MemosSection({
         <p className='text-[10px] text-white/50'>{t('popup.memosDisconnected')}</p>
       )}
 
-      {/* Nothing to disconnect from until a server has been saved. */}
-      {url && (
-        <button
-          type='button'
-          onClick={() => void disconnect()}
-          disabled={state.kind === 'busy'}
-          className='w-full border border-white/10 hover:bg-white/10 transition-colors py-2 rounded-md text-sm text-white/70 disabled:opacity-50'
-        >
-          {t('popup.memosDisconnect')}
-        </button>
-      )}
+      {/*
+        Nothing to disconnect from until a server has been saved. Two steps,
+        because the token goes with it and Memos shows a token only once, when
+        it is created: one stray click could cost a new token and a Connect.
+      */}
+      {url &&
+        (confirmingDisconnect ? (
+          <div className='flex flex-col gap-2 rounded-md border border-white/10 p-2'>
+            <p className='text-xs text-white/70'>{t('popup.memosDisconnectConfirm')}</p>
+            <div className='flex gap-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  setConfirmingDisconnect(false);
+                  void disconnect();
+                }}
+                disabled={state.kind === 'busy'}
+                className='flex-1 bg-white/10 hover:bg-white/20 transition-colors py-1.5 rounded-md text-sm font-semibold disabled:opacity-50'
+              >
+                {t('popup.memosDisconnect')}
+              </button>
+              <button
+                ref={cancelDisconnectRef}
+                type='button'
+                onClick={() => {
+                  setConfirmingDisconnect(false);
+                  returnFocusRef.current = true;
+                }}
+                className='flex-1 border border-white/10 hover:bg-white/10 transition-colors py-1.5 rounded-md text-sm text-white/70'
+              >
+                {t('popup.cancel')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            ref={disconnectRef}
+            type='button'
+            onClick={() => setConfirmingDisconnect(true)}
+            disabled={state.kind === 'busy'}
+            className='w-full border border-white/10 hover:bg-white/10 transition-colors py-2 rounded-md text-sm text-white/70 disabled:opacity-50'
+          >
+            {t('popup.memosDisconnect')}
+          </button>
+        ))}
 
       <Field id='memosTag' label={t('popup.memosTag')} hint={t('popup.memosTagHint')}>
         <input

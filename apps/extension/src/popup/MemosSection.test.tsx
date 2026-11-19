@@ -421,12 +421,43 @@ describe('MemosSection — disconnecting', () => {
     return stub;
   };
 
+  /** Disconnect, then the confirmation's own Disconnect. */
+  const disconnectAndConfirm = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+  };
+
+  // Memos shows a token once, when it is made, so one stray click could cost
+  // the user a new token. The first click only asks.
+  it('asks before it removes anything, and Cancel keeps the token', async () => {
+    const stub = seedConnected();
+
+    await renderSection('https://memo.example.com');
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+
+    expect(
+      screen.getByText('Disconnect? This removes the token from this device.'),
+    ).toBeTruthy();
+    // Focus moves to the harmless choice, not back to `body`.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText('Disconnect? This removes the token from this device.')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Disconnect' }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(stub.readLocal('memos_token')).toBe('memos_pat_x');
+    expect(stub.readSync('memosUrl')).toBe('https://memo.example.com');
+  });
+
   // Until now the only way to remove the token was to uninstall the extension.
   it('removes everything this machine stored, and the server URL', async () => {
     const stub = seedConnected();
 
     await renderSection('https://memo.example.com');
-    fireEvent.click(screen.getByText('Disconnect'));
+    disconnectAndConfirm();
 
     await waitFor(() => expect(stub.readLocal('memos_token')).toBeUndefined());
     for (const key of ['memos_server', 'memos_user', 'memos_cache', 'memos_check', 'memos_draft']) {
@@ -441,7 +472,7 @@ describe('MemosSection — disconnecting', () => {
     seedConnected();
 
     await renderSection('https://memo.example.com');
-    fireEvent.click(screen.getByText('Disconnect'));
+    disconnectAndConfirm();
 
     await waitFor(() =>
       expect(
@@ -457,7 +488,7 @@ describe('MemosSection — disconnecting', () => {
 
     await renderSection('https://memo.example.com');
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    fireEvent.click(screen.getByText('Disconnect'));
+    disconnectAndConfirm();
 
     await waitFor(() => expect(screen.getByText('Disconnected')).toBeTruthy());
     expect((screen.getByLabelText('Server URL') as HTMLInputElement).value).toBe('');
@@ -478,7 +509,7 @@ describe('MemosSection — disconnecting', () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
 
     await renderSection('https://memo.example.com');
-    fireEvent.click(screen.getByText('Disconnect'));
+    disconnectAndConfirm();
 
     await waitFor(() => expect(stub.readLocal('memos_token')).toBeUndefined());
   });

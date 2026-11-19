@@ -1,7 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
-import { memosConnectRoutes, memosListRoute, routeFetch, UNAUTHENTICATED } from '../test/memosFetch';
+import {
+  memoStates,
+  memosConnectRoutes,
+  memosListRoute,
+  memosUpdateRoutes,
+  routeFetch,
+  UNAUTHENTICATED,
+} from '../test/memosFetch';
 
 const BASE = 'https://memo.example.com';
 const TOKENS = { memos_pat_x: 'users/1' };
@@ -373,6 +380,150 @@ describe('MemosWidget — failures', () => {
   });
 });
 
+describe('MemosWidget — undoing an archive', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * A v0.30 server that keeps each memo's state, so an archive and its undo
+   * land in the list it serves next — and `patches` says what was sent.
+   */
+  const serveWithState = (memos: Record<string, unknown>[] = payload) => {
+    const states = memoStates(memos);
+    const fetchMock = routeFetch({
+      ...memosConnectRoutes({ tokens: TOKENS }),
+      ...memosListRoute({ tokens: TOKENS, memos, states }),
+      ...memosUpdateRoutes({ tokens: TOKENS, memos, states }),
+    });
+    const patches = () =>
+      fetchMock.mock.calls
+        .filter(([, init]) => init?.method === 'PATCH')
+        .map(([input, init]) => {
+          const url = new URL(input);
+          return { path: `${url.pathname}${url.search}`, body: JSON.parse(String(init?.body)) };
+        });
+    return { fetchMock, states, patches };
+  };
+
+  const renderLoaded = async () => {
+    const MemosWidget = await load();
+    const view = render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    return view;
+  };
+
+  /**
+   * Whatever now sits where the first compact row's checkbox was: the leading
+   * element of the first row. A real double-click's second click goes to the
+   * element under the pointer, not to the button the first one pressed —
+   * which React has unmounted by then.
+   */
+  const firstRowLeadingElement = (container: HTMLElement) =>
+    container.firstElementChild?.firstElementChild?.firstElementChild as HTMLElement;
+
+  it('replaces the row with an undo line, and Undo sends the reverse change and restores it', async () => {
+    seedConfigured();
+    const server = serveWithState();
+    vi.stubGlobal('fetch', server.fetchMock);
+    await renderLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done: one' }));
+
+    expect(screen.queryByText('one')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('Archived');
+    await waitFor(() => expect(server.states.get('memos/1')).toBe('ARCHIVED'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo archiving: one' }));
+
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(server.states.get('memos/1')).toBe('NORMAL');
+    expect(server.patches()).toEqual([
+      { path: '/api/v1/memos/1?updateMask=state', body: { state: 'ARCHIVED' } },
+      { path: '/api/v1/memos/1?updateMask=state', body: { state: 'NORMAL' } },
+    ]);
+    // Back in its own slot, at the top, not appended below the others.
+    expect(screen.getAllByTitle('Mark done')[0].getAttribute('aria-label')).toBe('Mark done: one');
+  });
+
+  it('archives one memo on a double-click of a compact checkbox', async () => {
+    seedConfigured();
+    const server = serveWithState();
+    vi.stubGlobal('fetch', server.fetchMock);
+    const { container } = await renderLoaded();
+
+    const checkbox = firstRowLeadingElement(container);
+    expect(checkbox.getAttribute('aria-label')).toBe('Mark done: one');
+    fireEvent.click(checkbox);
+    fireEvent.click(firstRowLeadingElement(container));
+
+    await waitFor(() => expect(server.states.get('memos/1')).toBe('ARCHIVED'));
+    await settle();
+    expect(server.patches()).toHaveLength(1);
+    expect(server.states.get('memos/2')).toBe('NORMAL');
+    expect(screen.getByText('two')).toBeTruthy();
+    // The second click undid nothing either: the line is still on offer.
+    expect(screen.getByRole('status').textContent).toContain('Archived');
+  });
+
+  it('closes the undo line once its time is up, and the memo stays archived', async () => {
+    seedConfigured();
+    const server = serveWithState();
+    vi.stubGlobal('fetch', server.fetchMock);
+    const { container } = await renderLoaded();
+    const { UNDO_WINDOW_MS } = await import('../utils/undo');
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done: one' }));
+    await waitFor(() => expect(server.states.get('memos/1')).toBe('ARCHIVED'));
+    expect(screen.getByRole('status')).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS));
+
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByText('one')).toBeNull();
+    // The slot closes: the next memo moves up into it.
+    expect(firstRowLeadingElement(container).getAttribute('aria-label')).toBe('Mark done: two');
+    expect(server.patches()).toHaveLength(1);
+  });
+
+  it('reports an undo the server refuses, and leaves the memo archived', async () => {
+    seedConfigured();
+    const server = serveWithState();
+    vi.stubGlobal('fetch', server.fetchMock);
+    await renderLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done: one' }));
+    await waitFor(() => expect(server.states.get('memos/1')).toBe('ARCHIVED'));
+
+    vi.stubGlobal('fetch', respondWith(500, { code: 13, message: 'internal', details: [] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo archiving: one' }));
+
+    expect(
+      await screen.findByText("Couldn't undo that, the memo is still archived"),
+    ).toBeTruthy();
+    expect(screen.queryByText('one')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  // The same rows and the same undo in the panel, which has its own markup.
+  it('offers the undo in the expanded panel too', async () => {
+    seedConfigured();
+    const server = serveWithState();
+    vi.stubGlobal('fetch', server.fetchMock);
+    await renderLoaded();
+    fireEvent.click(screen.getByText('+1 more'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done: three' }));
+    await waitFor(() => expect(server.states.get('memos/3')).toBe('ARCHIVED'));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo archiving: three' }));
+
+    await waitFor(() => expect(screen.getByText('three')).toBeTruthy());
+    expect(server.states.get('memos/3')).toBe('NORMAL');
+  });
+});
+
 describe('MemosWidget — refreshing', () => {
   // New tabs use the cache for a few minutes so the server is not asked twice
   // per tab. The button is how a memo written elsewhere arrives before then.
@@ -427,7 +578,10 @@ describe('MemosWidget — accessibility', () => {
     expect(screen.getByRole('textbox', { name: 'New memo' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Collapse' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Mark done' }).length).toBeGreaterThan(0);
+    // Named per memo: one "Mark done" per row told a screen reader nothing
+    // about which row each one would archive.
+    expect(screen.getByRole('button', { name: 'Mark done: one' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark done: four' })).toBeTruthy();
   });
 
   // The pressed control is replaced by the other view, so without this focus

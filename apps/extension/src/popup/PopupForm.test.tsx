@@ -606,6 +606,7 @@ describe('PopupForm — a write Chrome refuses', () => {
         ],
       },
     });
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }));
 
     expect(await screen.findByText(/QUOTA_BYTES quota exceeded/)).not.toBeNull();
     expect(reload).not.toHaveBeenCalled();
@@ -642,10 +643,63 @@ describe('PopupForm — settings backup', () => {
       target: { files: [backupFile({ locationCity: 'Szeged', backgroundDim: 45 })] },
     });
 
+    // Settings sync to every signed-in machine, so the file says how much it
+    // would change and nothing is written until Apply.
+    expect(await screen.findByText('Settings this file will change: 2')).not.toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ locationCity: 'Szeged', backgroundDim: 45 }),
     );
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  });
+
+  it('counts only the settings that differ, and Cancel writes nothing', async () => {
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn(async () => {});
+
+    render(<PopupForm settings={baseSettings} onSave={onSave} />);
+
+    const input = await screen.findByLabelText('Import');
+    fireEvent.change(input, {
+      target: {
+        files: [
+          backupFile({
+            // The same as the current ones: no change, so not counted.
+            unsplashQuery: 'landscape',
+            selectedCalendars: ['primary'],
+            locationCity: 'Szeged',
+          }),
+        ],
+      },
+    });
+
+    expect(await screen.findByText('Settings this file will change: 1')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText('Settings this file will change: 1')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('offers nothing to apply for a file that matches the current settings', async () => {
+    await import('../i18n/i18n');
+    const { PopupForm } = await import('./PopupForm');
+    const onSave = vi.fn(async () => {});
+
+    render(<PopupForm settings={baseSettings} onSave={onSave} />);
+
+    fireEvent.change(await screen.findByLabelText('Import'), {
+      target: { files: [backupFile({ language: 'en', hiddenWidgets: [] })] },
+    });
+
+    expect(await screen.findByText('This file matches your current settings.')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('reports a file that is not a backup and changes nothing', async () => {
@@ -695,6 +749,7 @@ describe('PopupForm — settings backup', () => {
     fireEvent.change(input, {
       target: { files: [backupFile({ language: 'hu', junk: 'x'.repeat(4000) })] },
     });
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ language: 'hu' }));
   });

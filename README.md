@@ -7,7 +7,8 @@ A minimalist new tab dashboard for Chrome, with a serverless backend of its own.
 Hub replaces the new tab page with the handful of things worth seeing when you
 open one, laid over a daily Unsplash photograph — or your own image, if you
 prefer. Everything is local: your notes, your calendar and your location never
-leave the browser.
+leave the browser. The one exception is the Memos widget, which talks to your
+own Memos server and to nothing else.
 
 ## What it shows
 
@@ -16,14 +17,17 @@ leave the browser.
 | **Clock**       | Time and date                                                                     |
 | **Weather**     | Current conditions and a four-day forecast, from your city or your location       |
 | **Calendar**    | Upcoming Google Calendar events, from whichever calendars you pick                |
-| **Quote**       | A daily Stoic quote                                                               |
+| **Quote**       | A daily quote: Stoic (English), Citatum (Hungarian), a built-in list, or your own |
 | **Countdown**   | Time remaining to a date you set                                                  |
 | **Focus timer** | A Pomodoro timer that runs in the background and notifies you at each phase       |
 | **Quick note**  | A scratchpad that persists on the device                                          |
+| **Memos**       | Your notes from a self-hosted [Memos](https://usememos.com) instance (v0.30+)     |
 
-Every widget can be hidden from the popup, the background can be dimmed to taste,
+Every widget can be hidden from the settings, the background can be dimmed to taste,
 and the whole overlay toggles away with `.` or a double-click when you just want
-the photograph. Available in English and Hungarian.
+the photograph. Settings open from the toolbar icon or from a button on the page,
+and every change is saved as you make it. Settings can be exported to a file and
+imported again. Available in English and Hungarian.
 
 The focus timer is worth a note: it lives in the extension's service worker, not
 in the page, so one session is shared by every open tab and keeps running — and
@@ -54,10 +58,10 @@ This is an Nx monorepo.
 ```
 hub/
 ├── apps/
-│   ├── api/        # Cloudflare Worker (Hono.js) — background images and daily quotes
+│   ├── api/        # Cloudflare Worker (Hono.js) — background images, daily quotes, health check
 │   └── extension/  # Chrome extension (React 19 + Vite + CRXJS)
 ├── packages/
-│   └── shared/     # Shared TypeScript types
+│   └── shared/     # Types and constants both apps share
 ├── assets/         # Images for this page and the Chrome Web Store listing
 ├── nx.json
 ├── package.json
@@ -65,7 +69,8 @@ hub/
 ```
 
 The API keeps the Unsplash credentials server-side and caches both endpoints in
-Cloudflare KV — an image pool per tag set, and the daily quote by date — so
+Cloudflare KV — an image pool per tag set, and a pool of the day's quotes per
+source and language — so
 upstream is hit far less than once per user.
 
 ## Prerequisites
@@ -103,8 +108,12 @@ and on `main`.
 
 ## Releases
 
-Both apps version independently using git tags. Pushing a tag triggers the
-corresponding GitHub Actions deployment.
+Both apps version independently using git tags. A push to `main` runs the Check
+workflow; only when it passes does the Release workflow (`release.yml`) run Nx
+release and cut the tags. A tag triggers the corresponding deployment, which
+runs `pnpm run check` again before it ships. The extension is uploaded to the
+Chrome Web Store as a draft unless the `PUBLISH_EXTENSION` repository variable
+is `true`.
 
 | App       | Tag pattern   | Example            |
 | --------- | ------------- | ------------------ |

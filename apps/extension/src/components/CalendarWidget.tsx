@@ -1,10 +1,11 @@
 import { differenceInMinutes, format, isToday, isTomorrow, parseISO } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
 import { Calendar, MapPin, Video } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCalendar } from '../hooks/useCalendar';
 import { useSettings } from '../hooks/useSettings';
+import { toLanguage } from '../i18n/language';
+import { DATE_LOCALES, formatTime } from '../utils/localeFormat';
 import type { CalendarEvent } from '../types/calendar';
 import { categorizeEvents, meetingLink } from '../utils/calendarEvents';
 
@@ -15,13 +16,13 @@ interface EventRowProps {
 
 const EventRow = ({ event, state }: EventRowProps) => {
   const { t, i18n } = useTranslation();
-  const isHu = i18n.language.startsWith('hu');
-  const dateLocale = isHu ? hu : enUS;
+  const language = toLanguage(i18n.language);
+  const time = (date: Date) => formatTime(date, language);
 
   const formatEventTime = (date: Date) => {
-    if (isToday(date)) return format(date, 'HH:mm');
-    if (isTomorrow(date)) return `${t('calendar.tomorrow')} ${format(date, 'HH:mm')}`;
-    return format(date, t('calendar.dateFormat'), { locale: dateLocale });
+    if (isToday(date)) return time(date);
+    if (isTomorrow(date)) return `${t('calendar.tomorrow')} ${time(date)}`;
+    return `${format(date, t('calendar.dateFormat'), { locale: DATE_LOCALES[language] })} ${time(date)}`;
   };
 
   const start = parseISO(event.start.dateTime!);
@@ -33,11 +34,11 @@ const EventRow = ({ event, state }: EventRowProps) => {
 
   let timeDisplay = '';
   if (isCurrent) {
-    timeDisplay = `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`;
+    timeDisplay = `${time(start)} - ${time(end)}`;
   } else if (isNext && isToday(start) && diff < 60 && diff > 0) {
-    timeDisplay = `${t('calendar.minutesUntil', { count: diff })} | ${format(end, 'HH:mm')}`;
+    timeDisplay = `${t('calendar.minutesUntil', { count: diff })} | ${time(end)}`;
   } else {
-    timeDisplay = `${formatEventTime(start)} | ${format(end, 'HH:mm')}`;
+    timeDisplay = `${formatEventTime(start)} | ${time(end)}`;
   }
 
   const opacityClass = isCurrent

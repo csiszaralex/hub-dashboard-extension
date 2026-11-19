@@ -1,14 +1,14 @@
 import { format } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toLanguage } from '../i18n/language';
+import { clockParts, DATE_LOCALES } from '../utils/localeFormat';
 
 export const Clock = () => {
   const [time, setTime] = useState(new Date());
   const { t, i18n } = useTranslation();
-  const isHu = i18n.language.startsWith('hu');
-  const dateLocale = isHu ? hu : enUS;
-  const dateFormat = isHu ? 'MMMM d., EEEE' : 'MMMM d, EEEE';
+  const language = toLanguage(i18n.language);
+  const { hour, minute, dayPeriod } = clockParts(time, language);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -33,7 +33,7 @@ export const Clock = () => {
       {/* Clock - symmetric layout */}
       <div className='flex items-end leading-none tabular-nums'>
         <span className='text-8xl md:text-9xl font-bold tracking-tighter text-white'>
-          {format(time, 'HH')}
+          {hour}
         </span>
 
         <span className='text-6xl md:text-7xl font-light text-white/50 mb-2 mx-1 animate-pulse'>
@@ -41,13 +41,18 @@ export const Clock = () => {
         </span>
 
         <span className='text-8xl md:text-9xl font-light tracking-tighter text-white/90'>
-          {format(time, 'mm')}
+          {minute}
         </span>
+
+        {/* AM/PM only where the language uses a 12-hour clock; small, so the digits stay the clock. */}
+        {dayPeriod && (
+          <span className='text-2xl md:text-3xl font-medium text-white/60 mb-3 ml-2'>{dayPeriod}</span>
+        )}
       </div>
 
       {/* Date */}
       <div className='mt-3 text-white/70 font-medium tracking-[0.3em] uppercase text-sm md:text-base border-t border-white/10 pt-3 px-8'>
-        {format(time, dateFormat, { locale: dateLocale })}
+        {format(time, t('clock.dateFormat'), { locale: DATE_LOCALES[language] })}
       </div>
     </div>
   );

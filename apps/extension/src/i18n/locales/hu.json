@@ -5,11 +5,16 @@
     "day": "Szép napot",
     "evening": "Kellemes estét"
   },
+  "clock": {
+    "dateFormat": "MMMM d., EEEE"
+  },
   "weather": {
     "refresh": "Időjárás frissítése",
     "wind": "Szél",
-    "sunset": "Nyugta",
-    "sunrise": "Kelte",
+    "windSpeed": "{{value}} km/h",
+    "rainAmount": "{{value}} mm",
+    "sunset": "Napnyugta",
+    "sunrise": "Napkelte",
     "precipitation": "Csapadék (köv. 12 óra)",
     "noPrecipitation": "Nincs várható csapadék",
     "now": "Most",
@@ -39,7 +44,7 @@
   "calendar": {
     "attach": "Naptár csatolása",
     "empty": "Üres naptár",
-    "flowState": "Flow state ON",
+    "flowState": "Zavartalan fókusz",
     "signInAgainHint": "Jelentkezz be újra az események megjelenítéséhez.",
     "signInAgain": "Bejelentkezés",
     "loadFailed": "Nem sikerült betölteni a naptárt.",
@@ -49,7 +54,7 @@
     "joinCall": "Csatlakozás a híváshoz",
     "tomorrow": "Holnap",
     "minutesUntil": "{{count}} perc múlva",
-    "dateFormat": "MMM. d. HH:mm"
+    "dateFormat": "MMM d."
   },
   "countdown": {
     "days": "Nap",
@@ -67,26 +72,26 @@
   "popup": {
     "title": "Hub Dashboard",
     "loading": "Betöltés...",
-    "appearance": "Kinézet & Háttér",
+    "appearance": "Kinézet és háttér",
     "appearancePlaceholder": "pl. landscape, dark, city",
     "appearanceHint": "Angol kifejezések, vesszővel elválasztva.",
     "backgroundSource": "Háttér forrása",
     "source_unsplash": "Unsplash fotók",
     "source_custom": "Saját kép",
     "upload": "Kép kiválasztása",
-    "uploadHint": "Csak ezen az eszközön tárolódik. Sehova nem töltjük fel, és emiatt nem is állítható vissza, ha a böngésző tárhelye törlődik — tartsd meg a saját másolatodat.",
+    "uploadHint": "Csak ezen az eszközön tárolódik. Sehova nem töltjük fel, és emiatt nem is állítható vissza, ha a böngésző tárhelye törlődik. Tartsd meg a saját másolatodat.",
     "uploadNotImage": "Ez a fájl nem kép.",
     "uploadFailed": "A kép mentése nem sikerült.",
     "uploadMissing": "Válassz ki egy képet, hogy ezt használhasd.",
     "dim": "Háttér sötétítése",
-    "dimHint": "{{value}}% — világos képeken emeld, ha nehéz olvasni a szöveget.",
-    "weatherLocation": "Időjárás Lokáció",
+    "dimHint": "{{value}}%. Világos képeken emeld, ha nehéz olvasni a szöveget.",
+    "weatherLocation": "Az időjárás helyszíne",
     "weatherLocationPlaceholder": "Opcionális (pl. Budapest)",
     "weatherLocationHint": "Üresen hagyva automatikus (IP alapján).",
-    "countdown": "Fókusz Visszaszámláló",
+    "countdown": "Fókusz visszaszámláló",
     "countdownHint": "Ha a megadott idő letelik, a számláló eltűnik.",
     "calendars": "Naptárak",
-    "googleLogin": "Google Belépés / Frissítés",
+    "googleLogin": "Google-bejelentkezés / frissítés",
     "loadingCalendars": "Naptárak betöltése folyamatban...",
     "calendarsSignedOut": "Jelentkezz be a Google-fiókoddal, hogy kiválaszthasd a megjelenő naptárakat.",
     "signInFailed": "A Google-bejelentkezés nem fejeződött be.",
@@ -99,14 +104,14 @@
     "language": "Nyelv",
     "languageAuto": "Automatikus (böngésző alapján)",
     "backup": "Beállítások mentése",
-    "backupHint": "Fájlba menti a beállításaidat. A saját háttérkép nem kerül bele — az nem beállítás, és a böngésző tárhelyén marad.",
+    "backupHint": "Fájlba menti a beállításaidat. A saját háttérkép nem kerül bele: az nem beállítás, és a böngésző tárhelyén marad.",
     "backupExport": "Exportálás",
     "backupImport": "Importálás",
     "backupInvalid": "Ez a fájl nem Hub beállítás-mentés.",
     "backupTooNew": "Ezt a mentést a Hub egy újabb verziója készítette. Frissítsd a bővítményt, majd importáld újra.",
     "quoteSource": "Idézet forrása",
     "quoteSourceHint": "Csak azok a források jelennek meg, amikhez van a nyelvedhez idézet.",
-    "quoteQuery": "Idézet kategória",
+    "quoteQuery": "Idézetkategória",
     "quoteQueryHint": "Nem kötelező. Üresen hagyva bármelyik kategória.",
     "quoteQueryPlaceholder": "pl. Pénz, Szerelem",
     "customQuotes": "Saját idézetek",
@@ -138,7 +143,7 @@
     "memosTagHint": "Ezzel a címkével nyit minden új lap. Üresen hagyva a legfrissebb jegyzetek látszanak.",
     "memosConnect": "Csatlakozás",
     "memosConnecting": "Csatlakozás…",
-    "memosConnected": "Csatlakozva — Memos {{version}}",
+    "memosConnected": "Csatlakozva: Memos {{version}}",
     "memosErrorUrl": "Ez nem egy https URL",
     "memosErrorPermission": "A Chrome nem kapott hozzáférést ahhoz a szerverhez",
     "memosErrorAuth": "A szerver elutasította ezt a tokent",
@@ -150,7 +155,7 @@
   "app": {
     "newBackground": "Új háttérkép kérése",
     "openSettings": "Beállítások",
-    "toggleHint": "A . elrejti — az Esc visszahozza"
+    "toggleHint": "A . elrejti, az Esc visszahozza"
   },
   "whatsNew": {
     "updated": "Frissítve",
@@ -165,7 +170,7 @@
     }
   },
   "background": {
-    "photographerLabel": "{{name}} fotója az Unsplash-en"
+    "photographerLabel": "{{name}} fotója az Unsplashen"
   },
   "widgets": {
     "clock": "Óra",
@@ -184,14 +189,21 @@
     "start": "Indítás",
     "reset": "Visszaállítás",
     "notificationTitle": "Hub",
-    "workStarted": "Fókusz idő — vissza a munkához.",
-    "breakStarted": "Szünet — állj fel egy kicsit.",
+    "workStarted": "Fókuszidő: vissza a munkához.",
+    "breakStarted": "Szünet: állj fel egy kicsit.",
     "titleWork": "Hub — Fókusz {{time}}",
     "titleBreak": "Hub — Szünet {{time}}"
   },
   "quote": {
     "source": "Forrás",
-    "refresh": "Új idézet"
+    "refresh": "Új idézet",
+    "quoted": "„{{text}}”",
+    "sources": {
+      "stoic": "Sztoikus idézetek",
+      "citatum": "Citatum.hu",
+      "programming": "Idézetek a programozásról",
+      "custom": "Saját idézetek"
+    }
   },
   "memos": {
     "title": "Memos",
@@ -207,12 +219,12 @@
     "accessLost": "A Chrome már nem fér hozzá a Memos szerveredhez",
     "grantAccess": "Újracsatlakozás",
     "unconfigured": "Csatlakozz újra a Memos szerverhez a beállításokban",
-    "errorAuth": "A Memos tokened érvénytelen vagy lejárt — csatlakozz újra a beállításokban",
+    "errorAuth": "A Memos tokened érvénytelen vagy lejárt. Csatlakozz újra a beállításokban",
     "errorVersion": "Frissítsd a szervert Memos 0.30.0-ra vagy újabbra",
     "errorNetwork": "Tárolt jegyzetek láthatók",
     "errorUnreachable": "A Memos szerver nem érhető el",
     "errorServer": "A Memos szerver hibát adott vissza",
-    "writeFailedSubmit": "Nem ment el — piszkozatként megmaradt",
+    "writeFailedSubmit": "Nem ment el, piszkozatként megmaradt",
     "writeFailedArchive": "Nem sikerült késznek jelölni",
     "composerLabel": "Új jegyzet",
     "tagFilter": "Szűrés címke szerint"

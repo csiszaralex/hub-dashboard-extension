@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
+import { toLanguage } from '../i18n/language';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
@@ -20,7 +21,8 @@ interface GeocodingAnswer {
  * leaves the last working location in place.
  */
 export function WeatherSection({ settings }: { settings: HubSettings }) {
-  const { t } = useTranslation();
+  // The city name comes back in this language too, and is what gets saved.
+  const { t, i18n } = useTranslation();
   const { save, report } = useSave();
   const [city, setCity] = useState(settings.locationCity);
   const [cityError, setCityError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function WeatherSection({ settings }: { settings: HubSettings }) {
     let data: GeocodingAnswer;
     try {
       data = await fetchWithTimeout(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(wanted)}&count=1&language=en&format=json`,
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(wanted)}&count=1&language=${toLanguage(i18n.language)}&format=json`,
         (res) => res.json() as Promise<GeocodingAnswer>,
       );
     } catch {

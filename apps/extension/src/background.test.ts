@@ -404,7 +404,7 @@ describe('background service worker — Pomodoro', () => {
     await settle();
 
     expect(chromeStub.sentNotifications()[0]).toMatchObject({
-      message: 'Szünet — állj fel egy kicsit.',
+      message: 'Szünet: állj fel egy kicsit.',
     });
   });
 

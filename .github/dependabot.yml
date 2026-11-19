@@ -1,0 +1,30 @@
+# Weekly, grouped, so updates arrive as two pull requests a week at most rather
+# than one per package. Actions are pinned by commit SHA; Dependabot updates the
+# SHA and the version comment together. The prefixes keep the messages inside
+# the scopes commitlint accepts.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore(ci)
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Majors change behaviour and are upgraded deliberately, one at a time.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      dependencies:
+        patterns: ['*']
+    commit-message:
+      # commitlint allows these scopes only (commitlint.config.js).
+      prefix: chore(repo)

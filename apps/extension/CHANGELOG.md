@@ -1,3 +1,9 @@
+## 2.10.1 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** make the page and the popup usable from the keyboard ([ef8f21b](https://github.com/csiszaralex/hub-dashboard-extension/commit/ef8f21b))
+
 ## 2.10.0 (2026-11-18)
 
 ### 🚀 Features

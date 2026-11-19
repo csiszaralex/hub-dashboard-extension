@@ -1,3 +1,9 @@
+## 2.12.2 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** handle every promise the page and the worker start ([2e41f4b](https://github.com/csiszaralex/hub-dashboard-extension/commit/2e41f4b))
+
 ## 2.12.1 (2026-11-19)
 
 ### 🩹 Fixes

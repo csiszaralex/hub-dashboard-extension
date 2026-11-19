@@ -217,7 +217,7 @@ backgroundRoutes.get('/api/background', async (c) => {
     c.executionCtx.waitUntil(
       // Bounded too: `waitUntil` would otherwise hold the invocation open for as
       // long as Unsplash takes to answer a request whose reply nobody reads.
-      fetchWithTimeout(downloadLocation, async () => undefined, {
+      fetchWithTimeout(downloadLocation, () => Promise.resolve(undefined), {
         headers: { Authorization: `Client-ID ${c.env.UNSPLASH_ACCESS_KEY}` },
       }).catch((error) => console.error('Download ping failed:', error)),
     );

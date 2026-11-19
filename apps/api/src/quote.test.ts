@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import app from './index';
 import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
 import { quoteCacheKey, quoteLatestKey } from './quote';
@@ -10,7 +10,9 @@ const upstream = (text: string, author: string) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-let fetchMock: ReturnType<typeof vi.fn>;
+// Typed as `fetch`, so an async implementation is checked against what it
+// stands in for instead of an untyped mock.
+let fetchMock: Mock<typeof fetch>;
 
 const env = (kv: KVNamespace) => ({ UNSPLASH_CACHE: kv, UNSPLASH_ACCESS_KEY: 'test-key' });
 
@@ -36,7 +38,7 @@ const withFailingPut = (kv: KVNamespace): KVNamespace =>
   }) as unknown as KVNamespace;
 
 beforeEach(() => {
-  fetchMock = vi.fn(async () => upstream('Waste no more time arguing.', 'Marcus Aurelius'));
+  fetchMock = vi.fn<typeof fetch>(async () => upstream('Waste no more time arguing.', 'Marcus Aurelius'));
   vi.stubGlobal('fetch', fetchMock);
 });
 

@@ -66,6 +66,21 @@ describe('useQuote', () => {
     await waitFor(() => expect(FALLBACK_QUOTES).toContainEqual(result.current.quote));
   });
 
+  it('falls back, and caches nothing, when a 200 body is not a quote', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ text: 'Half a quote.', author: { name: 'Seneca' } })),
+    );
+    const useQuote = await loadUseQuote();
+
+    const { result } = renderHook(() => useQuote());
+
+    await waitFor(() => expect(console.error).toHaveBeenCalled());
+    expect(FALLBACK_QUOTES).toContainEqual(result.current.quote);
+    expect(localStorage.getItem('daily_quote')).toBeNull();
+  });
+
   it('makes no request when today\'s quote is already cached', async () => {
     localStorage.setItem(
       'daily_quote',

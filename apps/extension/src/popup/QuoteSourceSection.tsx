@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_QUOTE_SOURCE_ID, type QuoteData } from '@hub/shared';
+import {
+  DEFAULT_QUOTE_SOURCE_ID,
+  isQuoteSourceList,
+  type QuoteData,
+  type QuoteSourceList,
+} from '@hub/shared';
 import { QUOTE_SOURCES_ENDPOINT } from '../utils/api';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
@@ -14,12 +19,6 @@ import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useSave } from './saveStatus';
 import { useDraftSetting } from './useDraftSetting';
-
-interface ApiSource {
-  id: string;
-  languages: string[];
-  acceptsQuery: boolean;
-}
 
 interface Props {
   /** The stored settings, read once when the section mounts. */
@@ -54,7 +53,7 @@ export function QuoteSourceSection({
    */
   const labels: Partial<Record<string, string>> = t('quote.sources', { returnObjects: true });
   const label = (id: string) => labels[id] ?? id;
-  const [sources, setSources] = useState<ApiSource[] | null>(null);
+  const [sources, setSources] = useState<QuoteSourceList | null>(null);
   const [source, setSource] = useState(storedSource);
   const query = useDraftSetting(storedQuery, (value) => ({ quoteQuery: value }));
   /**
@@ -74,9 +73,14 @@ export function QuoteSourceSection({
 
   useEffect(() => {
     let live = true;
-    fetchWithTimeout(QUOTE_SOURCES_ENDPOINT, (res) =>
-      res.ok ? (res.json() as Promise<ApiSource[]>) : Promise.reject(res.status),
-    )
+    fetchWithTimeout(QUOTE_SOURCES_ENDPOINT, async (res): Promise<QuoteSourceList> => {
+      if (!res.ok) throw new Error(`Quote sources API error: ${res.status}`);
+      const body: unknown = await res.json();
+      // Rejected rather than cast: a malformed entry would throw in the render
+      // below (`entry.languages.includes`) instead of leaving the picker as is.
+      if (!isQuoteSourceList(body)) throw new Error('Quote sources API answered an unexpected shape');
+      return body;
+    })
       .then((list) => live && setSources(list))
       // The saved source keeps working regardless; only the picker needs the
       // list, so a failure here leaves the current setting alone rather than

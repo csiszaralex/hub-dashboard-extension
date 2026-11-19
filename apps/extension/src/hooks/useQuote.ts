@@ -1,4 +1,4 @@
-import type { QuoteData } from '@hub/shared';
+import { isQuoteData, type QuoteData } from '@hub/shared';
 import { useEffect, useState } from 'react';
 import { toLanguage } from '../i18n/language';
 import { quoteRequestUrl } from '../utils/api';
@@ -92,7 +92,10 @@ export const useQuote = () => {
           quoteRequestUrl(settings.quoteSource, language, settings.quoteQuery, index),
           async (res): Promise<QuoteData> => {
             if (!res.ok) throw new Error(`Quote API error: ${res.status}`);
-            return res.json();
+            const body: unknown = await res.json();
+            // A malformed body would otherwise be cached for the day.
+            if (!isQuoteData(body)) throw new Error('Quote API answered an unexpected shape');
+            return body;
           },
         );
         if (!data.text) throw new Error('Quote API returned no text');

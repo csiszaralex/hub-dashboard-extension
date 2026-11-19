@@ -1,3 +1,13 @@
+## 2.10.3 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** keep text readable over bright photos ([904c394](https://github.com/csiszaralex/hub-dashboard-extension/commit/904c394))
+
+### 🔥 Performance
+
+- **extension:** bundle the release notes once ([71bc5db](https://github.com/csiszaralex/hub-dashboard-extension/commit/71bc5db))
+
 ## 2.10.2 (2026-11-19)
 
 ### 🩹 Fixes

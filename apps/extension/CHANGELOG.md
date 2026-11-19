@@ -1,3 +1,9 @@
+## 2.10.4 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** format time, numbers and quotes by the chosen language ([d035a73](https://github.com/csiszaralex/hub-dashboard-extension/commit/d035a73))
+
 ## 2.10.3 (2026-11-19)
 
 ### 🩹 Fixes

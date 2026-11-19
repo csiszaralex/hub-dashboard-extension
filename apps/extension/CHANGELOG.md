@@ -1,3 +1,13 @@
+## 2.12.3 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** check API responses instead of casting them ([a79541b](https://github.com/csiszaralex/hub-dashboard-extension/commit/a79541b))
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.9
+
 ## 2.12.2 (2026-11-19)
 
 ### 🩹 Fixes

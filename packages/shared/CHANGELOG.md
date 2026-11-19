@@ -1,3 +1,9 @@
+## 0.1.9 (2026-11-19)
+
+### 🚀 Features
+
+- **shared:** describe every API response with a type and a guard ([767a884](https://github.com/csiszaralex/hub-dashboard-extension/commit/767a884))
+
 ## 0.1.8 (2026-11-18)
 
 ### 🚀 Features

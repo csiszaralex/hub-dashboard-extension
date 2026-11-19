@@ -1,3 +1,9 @@
+## 1.4.4 (2026-11-19)
+
+### 🧱 Updated Dependencies
+
+- Updated @hub/shared to 0.1.9
+
 ## 1.4.3 (2026-11-18)
 
 ### 🧱 Updated Dependencies

@@ -1,4 +1,4 @@
-import type { Language, QuoteData } from '@hub/shared';
+import type { Language, QuoteData, QuoteSourceList } from '@hub/shared';
 import { DEFAULT_QUOTE_SOURCE_ID, SUPPORTED_LANGUAGES } from '@hub/shared';
 import type { Bindings } from './bindings';
 import { claimCitatumCalls, citatumUrl, parseCitatumQuote } from './citatum';
@@ -195,7 +195,7 @@ export const resolveLanguage = (source: QuoteSource, requested: string | undefin
 };
 
 /** What `GET /api/quote/sources` reports, so the popup can build its picker. */
-export const describeSources = (env: Bindings) =>
+export const describeSources = (env: Bindings): QuoteSourceList =>
   SOURCES.filter((source) => isUsable(source, env)).map(({ id, languages, acceptsQuery }) => ({
     id,
     languages,

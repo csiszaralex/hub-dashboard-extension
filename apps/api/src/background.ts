@@ -1,4 +1,4 @@
-import { BackgroundData } from '@hub/shared';
+import { BackgroundData, type ErrorBody } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
 import { BUNDLED_POOL } from './bundledPool';
@@ -207,7 +207,7 @@ backgroundRoutes.get('/api/background', async (c) => {
     (await readFallbackPool(kv));
 
   if (!pool) {
-    return c.json({ error: 'No background available' }, 503);
+    return c.json({ error: 'No background available' } satisfies ErrorBody, 503);
   }
 
   const { downloadLocation, ...selected } = pool[Math.floor(Math.random() * pool.length)];

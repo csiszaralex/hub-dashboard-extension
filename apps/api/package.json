@@ -22,8 +22,8 @@
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4",
+    "typescript-eslint": "^8.73.0",
     "vitest": "^4.1.10",
-    "wrangler": "^4.76.0"
+    "wrangler": "^4.165.0"
   }
 }

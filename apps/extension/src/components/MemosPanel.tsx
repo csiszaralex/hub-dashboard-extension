@@ -1,4 +1,5 @@
 import { Check, RefreshCw, X } from 'lucide-react';
+import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type MemoItem, stripTags, tagsExcept } from '../utils/memos';
 import type { MemosFailureReason } from '../utils/memosClient';
@@ -54,8 +55,10 @@ export function MemoTags({ tags, onSelect }: { tags: string[]; onSelect?: (tag: 
 export function ArchiveButton({ onClick, title }: { onClick: () => void; title: string }) {
   return (
     <button
+      type='button'
       onClick={onClick}
       title={title}
+      aria-label={title}
       className='mt-0.5 shrink-0 w-4 h-4 rounded border border-white/25 flex items-center justify-center text-transparent hover:text-black hover:bg-white hover:border-white transition-colors'
     >
       <Check className='w-3 h-3' />
@@ -78,6 +81,7 @@ export function MemosPanel({
   refreshing,
   failure,
   writeFailure,
+  ref,
 }: {
   memos: MemoItem[];
   tags: string[];
@@ -93,12 +97,22 @@ export function MemosPanel({
   refreshing: boolean;
   failure: MemosFailureReason | null;
   writeFailure: MemosWriteFailure | null;
+  /** Where `MemosWidget` moves focus when the panel opens. */
+  ref?: Ref<HTMLDivElement>;
 }) {
   const { t } = useTranslation();
   const hasRows = memos.length > 0;
 
   return (
-    <div className='w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col'>
+    // A named region, focusable from script only, so the focus moved here on
+    // expand is announced as "Memos" rather than as whichever control is first.
+    <div
+      ref={ref}
+      role='region'
+      aria-label={t('memos.title')}
+      tabIndex={-1}
+      className='w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col'
+    >
       <div className='flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5'>
         <span className='text-xs font-bold text-white/70 uppercase tracking-widest'>
           {t('memos.title')}
@@ -114,6 +128,7 @@ export function MemosPanel({
             disabled={refreshing}
             className='text-white/40 hover:text-white transition-colors disabled:opacity-50'
             title={t('memos.refresh')}
+            aria-label={t('memos.refresh')}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -121,15 +136,26 @@ export function MemosPanel({
             onClick={onCollapse}
             className='text-white/40 hover:text-white transition-colors'
             title={t('memos.collapse')}
+            aria-label={t('memos.collapse')}
           >
             <X className='w-3.5 h-3.5' />
           </button>
         </div>
       </div>
 
+      {/*
+        A toggle group: the active filter was told apart by colour alone, so
+        `aria-pressed` is what tells a screen reader which one is on.
+      */}
       {tags.length > 0 && (
-        <div className='flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-white/5'>
+        <div
+          role='group'
+          aria-label={t('memos.tagFilter')}
+          className='flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-white/5'
+        >
           <button
+            type='button'
+            aria-pressed={activeTag === null}
             onClick={() => onTagChange(null)}
             className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
               activeTag === null ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
@@ -140,6 +166,8 @@ export function MemosPanel({
           {tags.map((tag) => (
             <button
               key={tag}
+              type='button'
+              aria-pressed={activeTag === tag}
               onClick={() => onTagChange(tag)}
               className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
                 activeTag === tag ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
@@ -199,7 +227,7 @@ export function MemosPanel({
         in the compact view they have since left behind by expanding.
       */}
       {failure && (
-        <p className='px-4 py-1.5 text-[10px] text-white/40 border-t border-white/5'>
+        <p role='alert' className='px-4 py-1.5 text-[10px] text-white/40 border-t border-white/5'>
           {t(failureMessageKey(failure, hasRows))}
         </p>
       )}
@@ -210,7 +238,7 @@ export function MemosPanel({
         leave a failed Add looking exactly like nothing happened.
       */}
       {writeFailure && (
-        <p className='px-4 py-1.5 text-[10px] text-white/60 border-t border-white/5'>
+        <p role='alert' className='px-4 py-1.5 text-[10px] text-white/60 border-t border-white/5'>
           {t(writeFailureMessageKey(writeFailure))}
         </p>
       )}
@@ -219,6 +247,11 @@ export function MemosPanel({
         The composer stays disabled until the server confirms: the id and
         timestamps come from it, and a phantom row that duplicates a moment
         later is worse than a short wait.
+
+        The input is named by `aria-label` because a placeholder is not a
+        name. It no longer sets `outline-none`, so it shows the global focus
+        outline from `index.css`; the form's padding leaves room for it inside
+        the panel's `overflow-hidden`.
       */}
       <form
         onSubmit={(e) => {
@@ -237,8 +270,9 @@ export function MemosPanel({
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
           placeholder={t('memos.placeholder')}
+          aria-label={t('memos.composerLabel')}
           disabled={submitting}
-          className='flex-1 min-w-0 bg-transparent text-sm text-white outline-none placeholder:text-white/25 disabled:opacity-50'
+          className='flex-1 min-w-0 bg-transparent text-sm text-white rounded-sm placeholder:text-white/25 disabled:opacity-50'
         />
         <button
           type='submit'

@@ -67,8 +67,15 @@ function App() {
         style={{ opacity: uiVisible ? dimToOpacity(settings.backgroundDim) : 0 }}
       />
 
+      {/*
+        `inert` while hidden: the fade only made the widgets invisible, so Tab
+        still walked through every control and a screen reader still read the
+        whole dashboard. It also blocks pointer input, as `pointer-events-none`
+        does, so the double-click target above is unchanged.
+      */}
       <div
         ref={layerRef}
+        inert={!uiVisible}
         className={`
           relative z-10 w-full h-full flex flex-col items-center justify-center transition-all duration-700 ease-in-out
           ${uiVisible ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-sm scale-105 pointer-events-none'}
@@ -176,6 +183,7 @@ function App() {
               disabled={bgLoading}
               className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
               title={t('app.newBackground')}
+              aria-label={t('app.newBackground')}
             >
               <RefreshCw
                 className={`w-4 h-4 text-white/70 group-hover:text-white ${bgLoading ? 'animate-spin' : ''}`}

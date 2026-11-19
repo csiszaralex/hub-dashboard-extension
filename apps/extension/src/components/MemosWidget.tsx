@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMemos } from '../hooks/useMemos';
 import { stripTags, tagsExcept } from '../utils/memos';
@@ -36,6 +36,22 @@ export function MemosWidget() {
     refreshing,
     grantAccess,
   } = useMemos();
+
+  // The compact view and the panel replace each other, so the control that was
+  // pressed is gone a moment later and focus would fall back to `body`, the
+  // top of the page. It goes into the panel on expand and back to the toggle
+  // on collapse. Only after a toggle, so the first render moves nothing: a new
+  // tab must not pull focus into a corner widget.
+  const toggled = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (toggled.current) (expanded ? panelRef : toggleRef).current?.focus();
+  }, [expanded]);
+  const toggle = (next: boolean) => {
+    toggled.current = true;
+    setExpanded(next);
+  };
 
   // No server set is the widget switched off, not a prompt: nearly every user
   // never configures it, and a nudge on every new tab would be theirs forever.
@@ -82,11 +98,12 @@ export function MemosWidget() {
           onDraftChange={setDraft}
           onSubmit={() => void submit()}
           submitting={submitting}
-          onCollapse={() => setExpanded(false)}
+          onCollapse={() => toggle(false)}
           onRefresh={() => void refresh()}
           refreshing={refreshing}
           failure={failure}
           writeFailure={writeFailure}
+          ref={panelRef}
         />
       </div>
     );
@@ -113,7 +130,8 @@ export function MemosWidget() {
               <ArchiveButton onClick={() => void archive(memo.name)} title={t('memos.done')} />
               {text && (
                 <button
-                  onClick={() => setExpanded(true)}
+                  type='button'
+                  onClick={() => toggle(true)}
                   className='text-left text-sm text-white/70 hover:text-white transition-colors truncate min-w-0 flex-1'
                 >
                   {text}
@@ -131,7 +149,9 @@ export function MemosWidget() {
       )}
 
       <button
-        onClick={() => setExpanded(true)}
+        ref={toggleRef}
+        type='button'
+        onClick={() => toggle(true)}
         className='text-[10px] text-white/35 hover:text-white/70 transition-colors'
       >
         {hidden > 0 ? t('memos.more', { count: hidden }) : t('memos.title')}
@@ -144,7 +164,9 @@ export function MemosWidget() {
         "showing cached memos" would assert a cache that does not exist.
       */}
       {failure && (
-        <p className='text-[10px] text-white/30'>{t(failureMessageKey(failure, hasRows))}</p>
+        <p role='alert' className='text-[10px] text-white/30'>
+          {t(failureMessageKey(failure, hasRows))}
+        </p>
       )}
 
       {/*
@@ -152,7 +174,9 @@ export function MemosWidget() {
         too — on its own line, since the load's line may already be showing.
       */}
       {writeFailure && (
-        <p className='text-[10px] text-white/50'>{t(writeFailureMessageKey(writeFailure))}</p>
+        <p role='alert' className='text-[10px] text-white/50'>
+          {t(writeFailureMessageKey(writeFailure))}
+        </p>
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import {
   setToken,
   setUser,
 } from '../utils/memosStorage';
+import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useDraftSetting } from './useDraftSetting';
 
@@ -285,6 +286,7 @@ export function MemosSection({
       <Field id='memosUrl' label={t('popup.memosUrl')} hint={t('popup.memosUrlHint')}>
         <input
           id='memosUrl'
+          aria-describedby={hintId('memosUrl')}
           type='url'
           value={draftUrl}
           onChange={(e) => changeUrl(e.target.value)}
@@ -296,6 +298,7 @@ export function MemosSection({
       <Field id='memosToken' label={t('popup.memosToken')} hint={t('popup.memosTokenHint')}>
         <input
           id='memosToken'
+          aria-describedby={hintId('memosToken')}
           type='password'
           value={token}
           onChange={(e) => {
@@ -344,6 +347,7 @@ export function MemosSection({
       <Field id='memosTag' label={t('popup.memosTag')} hint={t('popup.memosTagHint')}>
         <input
           id='memosTag'
+          aria-describedby={hintId('memosTag')}
           type='text'
           value={tag.draft}
           onChange={(e) => tag.change(sanitizeMemosTag(e.target.value))}

@@ -122,3 +122,40 @@ describe('App — double-click toggle', () => {
     expect(hidden()).toBe(false);
   });
 });
+
+describe('App — hidden UI', () => {
+  beforeEach(() => {
+    installChromeStub();
+  });
+
+  // Faded out is not gone: without `inert` Tab still walked through every
+  // invisible control and a screen reader still read the whole dashboard.
+  it('takes the hidden widgets out of reach, and gives them back', async () => {
+    serveQuote(QUOTE_WITHOUT_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+
+    render(<App />);
+    const settings = await waitFor(() => screen.getByRole('button', { name: 'Settings' }));
+    expect(settings.closest('[inert]')).toBeNull();
+
+    fireEvent.keyDown(window, { key: '.' });
+    expect(settings.closest('[inert]')).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(settings.closest('[inert]')).toBeNull();
+  });
+
+  it('names the icon-only controls on the page', async () => {
+    serveQuote(QUOTE_WITHOUT_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+
+    render(<App />);
+
+    // Testing Library's name lookup is the check that a name exists at all.
+    expect(await screen.findByRole('button', { name: 'Request new background' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'New quote' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Open notes' })).not.toBeNull();
+  });
+});

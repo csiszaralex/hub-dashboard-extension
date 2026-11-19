@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { clampDim, MAX_DIM } from '../utils/dim';
+import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useSave } from './saveStatus';
 import { useDraftSetting } from './useDraftSetting';
@@ -87,6 +88,7 @@ export function AppearanceSection({ settings }: { settings: HubSettings }) {
         <Field id='upload' label={t('popup.upload')} hint={uploadError ?? t('popup.uploadHint')}>
           <input
             id='upload'
+            aria-describedby={hintId('upload')}
             type='file'
             accept='image/*'
             onChange={(e) => void handleUpload(e.target.files?.[0])}
@@ -99,6 +101,7 @@ export function AppearanceSection({ settings }: { settings: HubSettings }) {
         <Field id='query' label={t('popup.appearance')} hint={t('popup.appearanceHint')}>
           <input
             id='query'
+            aria-describedby={hintId('query')}
             type='text'
             value={tags.draft}
             onChange={(e) => tags.change(e.target.value)}
@@ -117,6 +120,7 @@ export function AppearanceSection({ settings }: { settings: HubSettings }) {
         */}
         <input
           id='dim'
+          aria-describedby={hintId('dim')}
           type='range'
           min={0}
           max={MAX_DIM}

@@ -393,3 +393,62 @@ describe('MemosWidget — refreshing', () => {
     await waitFor(() => expect(screen.getByText('two')).toBeTruthy());
   });
 });
+
+describe('MemosWidget — accessibility', () => {
+  /** Opens the panel the way a user does, from the compact view's count. */
+  const renderExpanded = async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', serve());
+    const MemosWidget = await load();
+    render(<MemosWidget />);
+    await waitFor(() => expect(screen.getByText('one')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: '+1 more' }));
+  };
+
+  const pressed = () =>
+    within(screen.getByRole('group', { name: 'Filter by tag' }))
+      .getAllByRole('button')
+      .filter((button) => button.getAttribute('aria-pressed') === 'true')
+      .map((button) => button.textContent);
+
+  // The active filter used to differ from the rest by colour alone.
+  it('says which tag filter is on with aria-pressed', async () => {
+    await renderExpanded();
+
+    expect(pressed()).toEqual(['todo']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(pressed()).toEqual(['All']));
+  });
+
+  it('names the composer and the icon-only panel controls', async () => {
+    await renderExpanded();
+
+    expect(screen.getByRole('textbox', { name: 'New memo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Mark done' }).length).toBeGreaterThan(0);
+  });
+
+  // The pressed control is replaced by the other view, so without this focus
+  // fell back to `body`, the top of the page.
+  it('moves focus into the panel on expand and back to the toggle on collapse', async () => {
+    await renderExpanded();
+
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Memos' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '+1 more' }));
+  });
+
+  it('announces a load failure as an alert', async () => {
+    seedConfigured();
+    vi.stubGlobal('fetch', rejectingFetch());
+    const MemosWidget = await load();
+
+    render(<MemosWidget />);
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Can't reach your Memos server");
+  });
+});

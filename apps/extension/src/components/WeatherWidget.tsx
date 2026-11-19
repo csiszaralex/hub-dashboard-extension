@@ -72,10 +72,13 @@ export const WeatherWidget = () => {
             {data.city}
           </span>
         </div>
+        {/* Shown on keyboard focus as well as on hover: a Tab stop that stays invisible is a trap. */}
         <button
+          type='button'
           onClick={refresh}
-          className={`p-1 text-white/30 hover:text-white transition-colors rounded-full ${loading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          className={`p-1 text-white/30 hover:text-white transition-colors rounded-full ${loading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
           title={t('weather.refresh')}
+          aria-label={t('weather.refresh')}
         >
           <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
         </button>

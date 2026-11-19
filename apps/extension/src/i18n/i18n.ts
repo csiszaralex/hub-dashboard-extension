@@ -27,6 +27,14 @@ const autoDetectLanguage = (): string => {
   return AVAILABLE_LANGUAGES[0] ?? 'en';
 };
 
+// Both pages load this module, so this is the one place `lang` follows the
+// chosen language: screen readers pick their voice from it, and the static
+// `lang="en"` in the HTML read Hungarian text with English pronunciation.
+// Registered before `init`, which emits the first `languageChanged` itself.
+i18n.on('languageChanged', (language) => {
+  document.documentElement.lang = language;
+});
+
 i18n.use(initReactI18next).init({
   resources: {
     hu: { translation: hu },

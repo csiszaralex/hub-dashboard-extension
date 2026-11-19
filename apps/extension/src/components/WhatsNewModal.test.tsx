@@ -1,5 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 // Hoisted out of the JSX: `i18next/no-literal-string` flags string literals in
 // attribute expressions too. This is the shape `nx release` writes, version
@@ -131,5 +131,81 @@ describe('WhatsNewModal', () => {
     // Without `min-h-0` the flex child refuses to shrink below its content and
     // `overflow-y-auto` never engages — the modal grows instead of scrolling.
     expect(list?.className).toContain('min-h-0');
+  });
+});
+
+describe('WhatsNewModal — as a dialog', () => {
+  /** With i18n, so the names below are text rather than raw keys. */
+  const load = async () => {
+    await import('../i18n/i18n');
+    return (await import('./WhatsNewModal')).WhatsNewModal;
+  };
+
+  it('is a named modal dialog that takes focus when it opens', async () => {
+    const WhatsNewModal = await load();
+
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />);
+
+    const dialog = screen.getByRole('dialog', { name: 'Updated v2.3.0' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it('names its icon-only close button and GitHub link', async () => {
+    const WhatsNewModal = await load();
+    const onClose = vi.fn();
+
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={onClose} changelog={CHANGELOG} />);
+
+    expect(screen.getByRole('link', { name: 'Hub on GitHub' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close release notes' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape', async () => {
+    const WhatsNewModal = await load();
+    const onClose = vi.fn();
+
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={onClose} changelog={CHANGELOG} />);
+
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Tab inside while open, wrapping at both ends', async () => {
+    const WhatsNewModal = await load();
+
+    render(<WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />);
+
+    const dialog = screen.getByRole('dialog');
+    const link = screen.getByRole('link', { name: 'Hub on GitHub' });
+    // The scrolling list is the last stop, so a keyboard can scroll it.
+    const list = screen.getByRole('region');
+
+    // From the dialog itself, where focus starts, Shift+Tab wraps to the end.
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(list);
+
+    fireEvent.keyDown(list, { key: 'Tab' });
+    expect(document.activeElement).toBe(link);
+
+    fireEvent.keyDown(link, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(list);
+  });
+
+  it('gives focus back to where it was when it closes', async () => {
+    const WhatsNewModal = await load();
+    const before = document.createElement('button');
+    document.body.append(before);
+    before.focus();
+
+    const { unmount } = render(
+      <WhatsNewModal version={VERSION} lastSeenVersion={null} onClose={noop} changelog={CHANGELOG} />,
+    );
+    expect(document.activeElement).not.toBe(before);
+
+    unmount();
+    expect(document.activeElement).toBe(before);
+    before.remove();
   });
 });

@@ -10,6 +10,7 @@ import {
   parseCustomQuotes,
   serializeCustomQuotes,
 } from '../utils/customQuotes';
+import { hintId } from './ariaIds';
 import { Field, inputCls } from './Field';
 import { useSave } from './saveStatus';
 import { useDraftSetting } from './useDraftSetting';
@@ -92,6 +93,7 @@ export function QuoteSourceSection({
       <Field id='quoteSource' label={t('popup.quoteSource')} hint={t('popup.quoteSourceHint')}>
         <select
           id='quoteSource'
+          aria-describedby={hintId('quoteSource')}
           value={source}
           onChange={(e) => {
             setSource(e.target.value);
@@ -129,6 +131,7 @@ export function QuoteSourceSection({
         >
           <textarea
             id='customQuotes'
+            aria-describedby={hintId('customQuotes')}
             value={quotesText.draft}
             rows={5}
             placeholder={t('popup.customQuotesPlaceholder')}
@@ -151,6 +154,7 @@ export function QuoteSourceSection({
         <Field id='quoteQuery' label={t('popup.quoteQuery')} hint={t('popup.quoteQueryHint')}>
           <input
             id='quoteQuery'
+            aria-describedby={hintId('quoteQuery')}
             type='text'
             value={query.draft}
             onChange={(e) => query.change(e.target.value)}

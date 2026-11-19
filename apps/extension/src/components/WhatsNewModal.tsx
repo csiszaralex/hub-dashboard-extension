@@ -1,9 +1,12 @@
 import { Sparkles, X } from 'lucide-react';
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseHeading, releasesSince, stripMarkdown } from '../utils/changelog';
 
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 const GithubIcon = () => (
-  <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4'>
+  <svg viewBox='0 0 24 24' fill='currentColor' className='w-4 h-4' aria-hidden>
     <path d='M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z' />
   </svg>
 );
@@ -41,6 +44,47 @@ export const WhatsNewModal = ({
   // Several do, or the reader gets two "Features" lists with nothing to say
   // which release each belongs to.
   const showVersions = releases.length > 1;
+  const titleId = useId();
+  const versionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus goes in when the dialog opens and back to wherever it was when it
+  // closes. On a fresh new tab that is usually `body`, which needs no restore.
+  useEffect(() => {
+    const previous = document.activeElement;
+    dialogRef.current?.focus();
+    return () => {
+      if (previous instanceof HTMLElement && previous !== document.body && previous.isConnected) {
+        previous.focus();
+      }
+    };
+  }, []);
+
+  // `aria-modal` promises the rest of the page is out of reach, so Tab wraps
+  // inside the dialog instead of walking off into widgets a screen reader has
+  // just been told are not there. Escape is the keyboard's way out.
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+
+    const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && (active === first || active === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return (
     // The same glass as every other widget. An opaque panel was tried first,
@@ -57,25 +101,43 @@ export const WhatsNewModal = ({
     // from the edge, on top of the container's own padding. Each child pads
     // itself instead, so the scrollbar can sit against the panel edge while the
     // text still lines up with the header.
-    <div className='flex flex-col bg-black/20 backdrop-blur-md py-4 rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full max-h-[calc(100vh-5rem)]'>
+    //
+    // `tabIndex={-1}` so the opening focus can land on the dialog itself, which
+    // makes a screen reader announce its name before any of its controls.
+    <div
+      ref={dialogRef}
+      role='dialog'
+      aria-modal
+      aria-labelledby={`${titleId} ${versionId}`}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className='flex flex-col bg-black/20 backdrop-blur-md py-4 rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full max-h-[calc(100vh-5rem)]'
+    >
       {/* Header */}
       <div className='flex items-center justify-between gap-6 px-5'>
         <div className='flex items-center gap-2.5'>
           <Sparkles className='w-4 h-4 text-white/60 shrink-0' />
-          <span className='text-xs text-white/50 uppercase tracking-widest'>{t('whatsNew.updated')}</span>
-          <span className='text-sm font-bold text-white/90'>{`v${version}`}</span>
+          <span id={titleId} className='text-xs text-white/50 uppercase tracking-widest'>
+            {t('whatsNew.updated')}
+          </span>
+          <span id={versionId} className='text-sm font-bold text-white/90'>{`v${version}`}</span>
           <a
             href='https://github.com/csiszaralex/hub-dashboard-extension'
             target='_blank'
             rel='noreferrer'
             className='text-white/40 hover:text-white transition-colors'
+            title={t('whatsNew.github')}
+            aria-label={t('whatsNew.github')}
           >
             <GithubIcon />
           </a>
         </div>
         <button
+          type='button'
           onClick={onClose}
           className='cursor-pointer text-white/40 hover:text-white transition-colors shrink-0'
+          title={t('whatsNew.close')}
+          aria-label={t('whatsNew.close')}
         >
           <X className='w-4 h-4' />
         </button>
@@ -107,7 +169,17 @@ export const WhatsNewModal = ({
             with the header. `mx-5` keeps it on the header's grid.
           */}
           <div className='mt-3 mx-5 border-t border-white/10' />
-          <div className='pt-3 space-y-4 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
+          {/*
+            Focusable so a keyboard can scroll a long release, and listed in
+            the Tab cycle on purpose: Chrome makes a scroller focusable on its
+            own, and one the Tab trap did not count would be a way out of it.
+          */}
+          <div
+            role='region'
+            aria-labelledby={`${titleId} ${versionId}`}
+            tabIndex={0}
+            className='pt-3 space-y-4 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'
+          >
             {releases.map((release) => (
               <div key={release.version} className='space-y-3'>
                 {showVersions && (

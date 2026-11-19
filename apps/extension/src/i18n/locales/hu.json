@@ -60,7 +60,9 @@
   "notes": {
     "title": "Jegyzetek",
     "placeholder": "Írj valamit mára...",
-    "delete": "Törlés"
+    "delete": "Törlés",
+    "open": "Jegyzetek megnyitása",
+    "close": "Jegyzetek bezárása"
   },
   "popup": {
     "title": "Hub Dashboard",
@@ -125,6 +127,7 @@
     "pomodoroSession": "Aktuális munkamenet",
     "pomodoroSessionHint": "Az időzítő a háttérben fut, így akkor is jár, ha a Fókusz widget rejtve van.",
     "tabMemos": "Memos",
+    "tabsLabel": "Beállítási csoportok",
     "memosUrl": "Szerver URL",
     "memosUrlHint": "A saját Memos példányod. Csak HTTPS.",
     "memosToken": "Hozzáférési token",
@@ -151,6 +154,8 @@
   },
   "whatsNew": {
     "updated": "Frissítve",
+    "close": "Kiadási jegyzetek bezárása",
+    "github": "A Hub a GitHubon",
     "sections": {
       "features": "Újdonságok",
       "fixes": "Javítások",
@@ -208,7 +213,9 @@
     "errorUnreachable": "A Memos szerver nem érhető el",
     "errorServer": "A Memos szerver hibát adott vissza",
     "writeFailedSubmit": "Nem ment el — piszkozatként megmaradt",
-    "writeFailedArchive": "Nem sikerült késznek jelölni"
+    "writeFailedArchive": "Nem sikerült késznek jelölni",
+    "composerLabel": "Új jegyzet",
+    "tagFilter": "Szűrés címke szerint"
   },
   "recovery": {
     "title": "Valami hiba történt",

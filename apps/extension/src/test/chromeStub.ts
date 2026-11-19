@@ -1,3 +1,5 @@
+import manifest from '../../manifest.json';
+
 type StorageChange = { oldValue?: unknown; newValue?: unknown };
 type ChangeListener = (changes: Record<string, StorageChange>, area: string) => void;
 
@@ -46,12 +48,33 @@ const SYNC_QUOTA_BYTES = 102_400;
 const SYNC_QUOTA_BYTES_PER_ITEM = 8_192;
 const SYNC_MAX_ITEMS = 512;
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
 /**
- * Mirrors `optional_host_permissions` in `manifest.json`. Chrome refuses to
- * request anything outside it, so the stub must too — otherwise a forgotten
- * manifest entry passes here and fails in every real browser.
+ * A match pattern from the manifest, as a test for the origin patterns code
+ * asks `permissions.request` for: `*` as the whole host is any host, `*.` a
+ * subdomain wildcard, and the path is compared literally, since a request names
+ * a pattern such as `https://memos.example.test/*` rather than a URL.
  */
-const OPTIONAL_HOST_PATTERNS = [/^https:\/\/[^/]+\/\*$/];
+const toOriginPattern = (pattern: string): RegExp => {
+  const [scheme, rest] = pattern.split('://');
+  const slash = rest.indexOf('/');
+  const host = rest.slice(0, slash);
+  const hostRe =
+    host === '*'
+      ? '[^/]+'
+      : host.startsWith('*.')
+        ? `(?:[^/]+\\.)?${escapeRegExp(host.slice(2))}`
+        : escapeRegExp(host);
+  return new RegExp(`^${escapeRegExp(scheme)}:\\/\\/${hostRe}${escapeRegExp(rest.slice(slash))}$`);
+};
+
+/**
+ * Read from `optional_host_permissions` in `manifest.json` itself. Chrome
+ * refuses to request anything outside it, so the stub must too, and a copy of
+ * the list here would be one more place for a forgotten manifest entry to hide.
+ */
+const OPTIONAL_HOST_PATTERNS = (manifest.optional_host_permissions ?? []).map(toOriginPattern);
 
 /**
  * What a non-interactive `identity.getAuthToken` fails with when it would need

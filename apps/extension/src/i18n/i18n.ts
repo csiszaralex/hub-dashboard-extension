@@ -4,6 +4,7 @@ import en from './locales/en.json';
 import hu from './locales/hu.json';
 import { SUPPORTED_LANGUAGES } from '@hub/shared';
 import { readSettings, type SettingKey } from '../utils/settingsSchema';
+import { DEFAULT_LANGUAGE, detectLanguage, resolveLanguage } from './language';
 
 /**
  * Not read through `useSettings`, whose store is reachable only from a React
@@ -18,15 +19,6 @@ const LANGUAGE_KEY = 'language' satisfies SettingKey;
  */
 export const AVAILABLE_LANGUAGES: readonly string[] = SUPPORTED_LANGUAGES;
 
-const autoDetectLanguage = (): string => {
-  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
-  for (const lang of preferred) {
-    const code = lang.split('-')[0];
-    if (AVAILABLE_LANGUAGES.includes(code)) return code;
-  }
-  return AVAILABLE_LANGUAGES[0] ?? 'en';
-};
-
 // Both pages load this module, so this is the one place `lang` follows the
 // chosen language: screen readers pick their voice from it, and the static
 // `lang="en"` in the HTML read Hungarian text with English pronunciation.
@@ -40,21 +32,21 @@ i18n.use(initReactI18next).init({
     hu: { translation: hu },
     en: { translation: en },
   },
-  lng: autoDetectLanguage(),
-  fallbackLng: 'hu',
+  lng: detectLanguage(),
+  fallbackLng: DEFAULT_LANGUAGE,
   interpolation: {
     escapeValue: false,
   },
 }).then(() => {
   chrome.storage.sync.get(LANGUAGE_KEY, (stored) => {
-    void i18n.changeLanguage(readSettings(stored).language || autoDetectLanguage());
+    void i18n.changeLanguage(resolveLanguage(readSettings(stored).language));
   });
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && LANGUAGE_KEY in changes) {
     const { language } = readSettings({ [LANGUAGE_KEY]: changes[LANGUAGE_KEY].newValue });
-    void i18n.changeLanguage(language || autoDetectLanguage());
+    void i18n.changeLanguage(resolveLanguage(language));
   }
 });
 

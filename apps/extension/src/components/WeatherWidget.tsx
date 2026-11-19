@@ -1,13 +1,15 @@
 import { format, parseISO } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
 import { MapPin, RefreshCw, Sunrise, Sunset, Umbrella, Wind } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWeather } from '../hooks/useWeather';
+import { toLanguage } from '../i18n/language';
+import { DATE_LOCALES, formatNumber, formatTime } from '../utils/localeFormat';
 import { getWeatherDescription, getWeatherIcon } from '../utils/weatherMapping';
 
 export const WeatherWidget = () => {
   const { data, loading, refresh } = useWeather();
   const { t, i18n } = useTranslation();
+  const language = toLanguage(i18n.language);
 
   if (loading && !data) {
     return (
@@ -57,10 +59,10 @@ export const WeatherWidget = () => {
     if (!isoTime) return null;
     const rainDate = new Date(isoTime);
     if (rainDate.getTime() <= now.getTime()) return t('weather.now');
-    return format(rainDate, 'HH:mm');
+    return formatTime(rainDate, language);
   };
 
-  const dateLocale = i18n.language.startsWith('hu') ? hu : enUS;
+  const dateLocale = DATE_LOCALES[language];
 
   return (
     <div className='group absolute top-8 right-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
@@ -108,7 +110,9 @@ export const WeatherWidget = () => {
               <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
                 {t('weather.wind')}
               </span>
-              <span className='text-[11px] font-medium text-white/90'>{data.windSpeed} km/h</span>
+              <span className='text-[11px] font-medium text-white/90'>
+                {t('weather.windSpeed', { value: formatNumber(data.windSpeed, language) })}
+              </span>
             </div>
           </div>
 
@@ -120,7 +124,7 @@ export const WeatherWidget = () => {
                 {nextSolarEvent.label}
               </span>
               <span className='text-[11px] font-medium text-white/90'>
-                {format(nextSolarEvent.time, 'HH:mm')}
+                {formatTime(nextSolarEvent.time, language)}
               </span>
             </div>
           </div>
@@ -140,7 +144,7 @@ export const WeatherWidget = () => {
                 <span className='flex items-center gap-1.5'>
                   {data.rain.probability}%
                   {data.rain.amount > 0 && <span className='text-white/30'>•</span>}
-                  {data.rain.amount > 0 && `${data.rain.amount} mm`}
+                  {data.rain.amount > 0 && t('weather.rainAmount', { value: formatNumber(data.rain.amount, language) })}
                   {data.rain.nextTime && <span className='text-white/30'>•</span>}
                   {data.rain.nextTime && (
                     <span className='text-indigo-300'>{getRainTimeLabel(data.rain.nextTime)}</span>

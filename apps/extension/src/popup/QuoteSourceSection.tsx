@@ -48,6 +48,12 @@ export function QuoteSourceSection({
 }: Props) {
   const { t } = useTranslation();
   const { save } = useSave();
+  /**
+   * The ids come from the API, so one this build has no label for (a source
+   * added to the worker later) shows as its id rather than as a missing key.
+   */
+  const labels: Partial<Record<string, string>> = t('quote.sources', { returnObjects: true });
+  const label = (id: string) => labels[id] ?? id;
   const [sources, setSources] = useState<ApiSource[] | null>(null);
   const [source, setSource] = useState(storedSource);
   const query = useDraftSetting(storedQuery, (value) => ({ quoteQuery: value }));
@@ -108,10 +114,10 @@ export function QuoteSourceSection({
             whatever happens to be first, claiming a preference the user never
             chose.
           */}
-          {!selected && <option value={source}>{source || DEFAULT_QUOTE_SOURCE_ID}</option>}
+          {!selected && <option value={source}>{label(source || DEFAULT_QUOTE_SOURCE_ID)}</option>}
           {usable.map((entry) => (
             <option key={entry.id} value={entry.id}>
-              {entry.id}
+              {label(entry.id)}
             </option>
           ))}
           {/*
@@ -119,7 +125,7 @@ export function QuoteSourceSection({
             the extension, so it does not depend on the worker being reachable
             or on any language having content.
           */}
-          <option value={CUSTOM_QUOTE_SOURCE}>{CUSTOM_QUOTE_SOURCE}</option>
+          <option value={CUSTOM_QUOTE_SOURCE}>{label(CUSTOM_QUOTE_SOURCE)}</option>
         </select>
       </Field>
 

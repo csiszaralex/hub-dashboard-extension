@@ -1,4 +1,5 @@
-import { SUPPORTED_LANGUAGES, type Language } from '@hub/shared';
+import type { Language } from '@hub/shared';
+import { resolveLanguage } from './i18n/language';
 import en from './i18n/locales/en.json';
 import hu from './i18n/locales/hu.json';
 import { deleteObsoleteImageCaches } from './utils/imageCache';
@@ -120,21 +121,8 @@ const readPomodoroSettings = (): Promise<PomodoroSettings> =>
  */
 const LOCALES: Record<Language, typeof en.pomodoro> = { en: en.pomodoro, hu: hu.pomodoro };
 
-const isSupported = (code: string): code is Language =>
-  (SUPPORTED_LANGUAGES as readonly string[]).includes(code);
-
-const detectLanguage = (): Language => {
-  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
-  for (const lang of preferred) {
-    const code = lang.split('-')[0];
-    if (isSupported(code)) return code;
-  }
-  return SUPPORTED_LANGUAGES[0];
-};
-
-/** `language` is `''` until the popup saves one, which means "follow the browser". */
-const pomodoroStrings = (language: string) =>
-  isSupported(language) ? LOCALES[language] : LOCALES[detectLanguage()];
+/** The same choice the page makes, through the same `resolveLanguage`. */
+const pomodoroStrings = (language: string) => LOCALES[resolveLanguage(language)];
 
 const notify = (phase: PomodoroPhase, language: string) => {
   // `notifications` is declared in manifest.json, so this API is present in

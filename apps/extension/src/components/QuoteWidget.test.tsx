@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { QuoteData } from '@hub/shared';
+import { installChromeStub } from '../test/chromeStub';
 
 const CITATUM: QuoteData = {
   text: 'Üres fejjel lehet megélni, üres gyomorral nem.',
@@ -34,6 +35,20 @@ describe('QuoteWidget', () => {
     render(<QuoteWidget quote={CITATUM} loading={true} onRefresh={noop} />);
 
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('quotes with the language’s own marks', async () => {
+    // Hungarian opens low („…”); the straight "…" it had was English typing.
+    // Saved rather than set with `changeLanguage`, which the saved value read
+    // after `init` would overwrite.
+    installChromeStub().seedSync({ language: 'hu' });
+    const i18n = (await import('../i18n/i18n')).default;
+    const QuoteWidget = (await import('./QuoteWidget')).QuoteWidget;
+    await vi.waitFor(() => expect(i18n.language).toBe('hu'));
+
+    render(<QuoteWidget quote={CITATUM} loading={false} onRefresh={noop} />);
+
+    expect(screen.getByText(`„${CITATUM.text}”`)).not.toBeNull();
   });
 
   it('no longer prints the source under the quote', async () => {

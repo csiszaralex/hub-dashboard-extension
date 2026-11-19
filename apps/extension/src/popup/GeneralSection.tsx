@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n, { AVAILABLE_LANGUAGES } from '../i18n/i18n';
 import type { HubSettings } from '../hooks/useSettings';
+import { toLanguage } from '../i18n/language';
 import { Field, inputCls } from './Field';
 import { QuoteSourceSection } from './QuoteSourceSection';
 import { useSave } from './saveStatus';
@@ -11,9 +12,6 @@ const getLanguageLabel = (lang: string): string => {
   const name = new Intl.DisplayNames([lang], { type: 'language' }).of(lang) ?? lang;
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
-
-/** Module scope: `i18next/no-literal-string` flags literals inside JSX. */
-const FALLBACK_LANGUAGE = 'en';
 
 /** The General tab: language, the quote source, and the settings backup. */
 export function GeneralSection({
@@ -56,7 +54,7 @@ export function GeneralSection({
         source={settings.quoteSource}
         query={settings.quoteQuery}
         customQuotes={settings.customQuotes}
-        language={language || i18n.language?.split('-')[0] || FALLBACK_LANGUAGE}
+        language={language || toLanguage(i18n.language)}
       />
       {/*
         Exports what is stored. Every control writes as it changes, so that

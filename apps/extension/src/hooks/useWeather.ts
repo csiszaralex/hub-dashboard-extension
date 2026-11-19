@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '../i18n/i18n';
+import { toLanguage } from '../i18n/language';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { summarizeDaily, type DailyForecast } from '../utils/forecast';
 import { schedulePageRefresh } from '../utils/pageRefresh';
@@ -150,7 +151,7 @@ export const useWeather = () => {
           city = settings.locationCity;
         } else {
           cityPromise = fetchWithTimeout(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=hu`,
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${toLanguage(i18n.language)}`,
             (res) => res.json(),
           ).catch(() => null);
         }

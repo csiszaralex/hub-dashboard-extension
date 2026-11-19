@@ -1,5 +1,6 @@
 import type { QuoteData } from '@hub/shared';
 import { useEffect, useState } from 'react';
+import { toLanguage } from '../i18n/language';
 import { quoteRequestUrl } from '../utils/api';
 import { CUSTOM_QUOTE_SOURCE, pickCustomQuote } from '../utils/customQuotes';
 import { getDailyData, setDailyData } from '../utils/dailyStorage';
@@ -36,7 +37,7 @@ export const clearQuoteCache = (): void => localStorage.removeItem(CACHE_KEY);
 export const useQuote = () => {
   const { settings, isLoaded } = useSettings();
   const { i18n } = useTranslation();
-  const language = i18n.language?.split('-')[0] || 'en';
+  const language = toLanguage(i18n.language);
 
   /**
    * What the cached quote was fetched for. `dailyStorage` invalidates on a

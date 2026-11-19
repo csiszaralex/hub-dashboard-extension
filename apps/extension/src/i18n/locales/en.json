@@ -5,9 +5,14 @@
     "day": "Good day",
     "evening": "Good evening"
   },
+  "clock": {
+    "dateFormat": "MMMM d, EEEE"
+  },
   "weather": {
     "refresh": "Refresh weather",
     "wind": "Wind",
+    "windSpeed": "{{value}} km/h",
+    "rainAmount": "{{value}} mm",
     "sunset": "Sunset",
     "sunrise": "Sunrise",
     "precipitation": "Precipitation (next 12h)",
@@ -49,7 +54,7 @@
     "joinCall": "Join the call",
     "tomorrow": "Tomorrow",
     "minutesUntil": "in {{count}} min",
-    "dateFormat": "MMM d, HH:mm"
+    "dateFormat": "MMM d,"
   },
   "countdown": {
     "days": "Days",
@@ -191,7 +196,14 @@
   },
   "quote": {
     "source": "Source",
-    "refresh": "New quote"
+    "refresh": "New quote",
+    "quoted": "“{{text}}”",
+    "sources": {
+      "stoic": "Stoic quotes",
+      "citatum": "Citatum.hu",
+      "programming": "Programming quotes",
+      "custom": "My own quotes"
+    }
   },
   "memos": {
     "title": "Memos",

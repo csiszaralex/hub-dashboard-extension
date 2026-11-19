@@ -1,3 +1,9 @@
+## 2.12.1 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** let only extension pages read the dev server ([57ccac1](https://github.com/csiszaralex/hub-dashboard-extension/commit/57ccac1))
+
 ## 2.12.0 (2026-11-19)
 
 ### 🚀 Features

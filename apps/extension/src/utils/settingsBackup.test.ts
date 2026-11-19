@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { HubSettings } from '../hooks/useSettings';
 import { MAX_DIM } from './dim';
 import { MAX_MINUTES, MIN_MINUTES } from './pomodoro';
-import { BACKUP_VERSION, buildBackup, parseBackup } from './settingsBackup';
+import { BACKUP_VERSION, buildBackup, countChangedSettings, parseBackup } from './settingsBackup';
 
 const configured: HubSettings = {
   unsplashQuery: 'forest,fog',
@@ -212,5 +212,34 @@ describe('memos settings', () => {
       settings: { memosUrl: 'https://memo.example.com', memosToken: 'memos_pat_leaked' },
     });
     expect(restored(file)).toEqual({ memosUrl: 'https://memo.example.com' });
+  });
+});
+
+describe('countChangedSettings', () => {
+  it('is zero for a backup of the settings in place', () => {
+    const result = parseBackup(buildBackup(configured));
+    if (!result.ok) throw new Error('expected a valid backup');
+
+    expect(countChangedSettings(configured, result.settings)).toBe(0);
+  });
+
+  it('counts each differing setting once, lists and quotes included', () => {
+    expect(
+      countChangedSettings(configured, {
+        locationCity: 'Pécs',
+        selectedCalendars: ['primary'],
+        customQuotes: [{ text: 'Be one.', author: 'Seneca' }],
+        language: 'hu',
+      }),
+    ).toBe(3);
+  });
+
+  // A hand-edited file may list a quote's fields in another order.
+  it('does not count a quote whose fields are only in a different order', () => {
+    expect(
+      countChangedSettings(configured, {
+        customQuotes: [{ author: 'Marcus Aurelius', text: 'Be one.' }],
+      }),
+    ).toBe(0);
   });
 });

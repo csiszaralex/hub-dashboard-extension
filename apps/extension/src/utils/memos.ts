@@ -193,3 +193,73 @@ export const filterByTag = (memos: MemoItem[], tag: string | null): MemoItem[] =
  */
 export const tagsExcept = (tags: string[], exclude: string | null): string[] =>
   exclude ? tags.filter((tag) => tag !== exclude) : tags;
+
+/**
+ * A short name for a memo, for the controls that act on it: its text without
+ * the tags, or the tags alone when there is nothing else.
+ */
+export const memoLabel = (memo: MemoItem): string =>
+  stripTags(memo.snippet, memo.tags) || memo.tags.map((tag) => `#${tag}`).join(' ');
+
+/**
+ * A memo just archived, still offered for undo in the slot it left.
+ *
+ * `index` is a position in the rendered list — live memos and these rows
+ * together — not in the live list alone. Kept in that space, positions stay
+ * right whichever order rows are archived in: archiving the second row and
+ * then the first records 1 and then 0, and inserting by ascending index puts
+ * both back where they were.
+ */
+export interface ArchivedRow {
+  memo: MemoItem;
+  index: number;
+  /** True while the Undo request is in flight. */
+  restoring: boolean;
+}
+
+export type MemoRow = { kind: 'memo'; memo: MemoItem } | { kind: 'archived'; row: ArchivedRow };
+
+/** The list as rendered: the live memos, with each archived row back in its own slot. */
+export const withArchivedRows = (memos: MemoItem[], archived: ArchivedRow[]): MemoRow[] => {
+  const rows: MemoRow[] = memos.map((memo) => ({ kind: 'memo', memo }));
+  for (const row of [...archived].sort((a, b) => a.index - b.index)) {
+    rows.splice(Math.min(row.index, rows.length), 0, { kind: 'archived', row });
+  }
+  return rows;
+};
+
+/** The rendered slot `name` occupies, live or archived, or -1. */
+export const rowIndexOf = (memos: MemoItem[], archived: ArchivedRow[], name: string): number =>
+  withArchivedRows(memos, archived).findIndex((row) =>
+    row.kind === 'memo' ? row.memo.name === name : row.row.memo.name === name,
+  );
+
+/**
+ * Drops an archived row whose slot is to close — its undo ran out, or failed.
+ * The rows below it move up one, as the rendered list does.
+ */
+export const withoutArchivedRow = (archived: ArchivedRow[], name: string): ArchivedRow[] => {
+  const gone = archived.find((row) => row.memo.name === name);
+  if (!gone) return archived;
+  return archived
+    .filter((row) => row !== gone)
+    .map((row) => (row.index > gone.index ? { ...row, index: row.index - 1 } : row));
+};
+
+/**
+ * Turns an archived row back into a live memo in the same slot: the live list
+ * it belongs in, and the archived rows left. Their indices stand, since the
+ * slot stays filled.
+ */
+export const restoreArchivedRow = (
+  memos: MemoItem[],
+  archived: ArchivedRow[],
+  name: string,
+): { memos: MemoItem[]; archived: ArchivedRow[] } => {
+  const next: MemoItem[] = [];
+  for (const row of withArchivedRows(memos, archived)) {
+    if (row.kind === 'memo') next.push(row.memo);
+    else if (row.row.memo.name === name) next.push(row.row.memo);
+  }
+  return { memos: next, archived: archived.filter((row) => row.memo.name !== name) };
+};

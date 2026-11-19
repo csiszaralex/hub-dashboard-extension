@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from '../test/chromeStub';
-import { memosConnectRoutes, memosListRoute, routeFetch } from '../test/memosFetch';
+import {
+  memoStates,
+  memosConnectRoutes,
+  memosListRoute,
+  memosUpdateRoutes,
+  routeFetch,
+} from '../test/memosFetch';
 
 const BASE = 'https://memo.example.com';
 const OTHER = 'https://other.example.com';
@@ -790,6 +796,63 @@ describe('useMemos — writing', () => {
       await pending;
     });
     expect(result.current.writeFailure).toBeNull();
+  });
+
+  // The undo line is on screen from the click, before the server has answered
+  // the archive. Sent at once, the restore could overtake the archive and the
+  // memo would end up archived after all.
+  it('holds an Undo pressed mid-archive until the archive is answered', async () => {
+    const stub = seedConfigured();
+    const states = memoStates(listPayload.memos);
+    const server = routeFetch({
+      ...memosConnectRoutes({ tokens: TOKENS }),
+      ...memosListRoute({ tokens: TOKENS, memos: listPayload.memos, states }),
+      ...memosUpdateRoutes({ tokens: TOKENS, memos: listPayload.memos, states }),
+    });
+    vi.stubGlobal('fetch', server);
+
+    const { useMemos } = await import('./useMemos');
+    const { result } = renderHook(() => useMemos());
+    await waitFor(() => expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']));
+
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const sent: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string, init?: RequestInit) => {
+        const body = String(init?.body ?? '');
+        if (body.includes('ARCHIVED')) await held;
+        if (init?.method === 'PATCH') sent.push(JSON.parse(body).state);
+        return server(input, init);
+      }),
+    );
+
+    let archiving: Promise<void> = Promise.resolve();
+    let undoing: Promise<void> = Promise.resolve();
+    act(() => {
+      archiving = result.current.archive('memos/1');
+    });
+    expect(result.current.rows.map((row) => row.kind)).toEqual(['archived']);
+    act(() => {
+      undoing = result.current.undoArchive('memos/1');
+    });
+
+    await act(async () => {
+      release();
+      await archiving;
+      await undoing;
+    });
+
+    expect(sent).toEqual(['ARCHIVED', 'NORMAL']);
+    expect(states.get('memos/1')).toBe('NORMAL');
+    expect(result.current.memos.map((m) => m.name)).toEqual(['memos/1']);
+    await waitFor(() =>
+      expect((stub.readLocal('memos_cache') as CacheRecord).memos.map((m) => m.name)).toEqual([
+        'memos/1',
+        'memos/2',
+      ]),
+    );
   });
 
   it('appends the active tag on submit and clears the draft', async () => {

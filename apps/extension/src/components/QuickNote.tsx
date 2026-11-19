@@ -2,10 +2,11 @@ import { Edit3, Trash2, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNote } from '../hooks/useNote';
+import { UndoLine } from './UndoLine';
 
 export const QuickNote = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { note, setNote } = useNote();
+  const { note, setNote, clearNote, undoClear, canUndoClear } = useNote();
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { t } = useTranslation();
@@ -47,7 +48,7 @@ export const QuickNote = () => {
             {t('notes.title')}
           </span>
           <button
-            onClick={() => setNote('')}
+            onClick={clearNote}
             className='text-white/40 hover:text-red-400 transition-colors'
             title={t('notes.delete')}
             aria-label={t('notes.delete')}
@@ -55,6 +56,16 @@ export const QuickNote = () => {
             <Trash2 className='w-3.5 h-3.5' />
           </button>
         </div>
+
+        {/* The whole note goes in one click, so it can come back in one too. */}
+        {canUndoClear && (
+          <UndoLine
+            message={t('notes.cleared')}
+            undoLabel={t('notes.undo')}
+            onUndo={undoClear}
+            className='px-4 py-2 border-b border-white/5 text-xs text-white/50'
+          />
+        )}
 
         {/*
           Named by `aria-label`, since a placeholder is not a name and is gone

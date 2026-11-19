@@ -1,4 +1,4 @@
-import { decodeSettings, type HubSettings } from './settingsSchema';
+import { decodeSettings, type HubSettings, type SettingKey } from './settingsSchema';
 
 /**
  * Bumped only if the file's shape changes in a way an older build cannot read.
@@ -58,3 +58,38 @@ export const parseBackup = (text: string): BackupParseResult => {
 
   return { ok: true, settings: decodeSettings(parsed.settings) };
 };
+
+/**
+ * Structural equality for setting values: primitives, `null`, arrays and plain
+ * objects (`customQuotes` entries), which is every shape `HubSettings` holds.
+ * Object keys are compared as a set, since a hand-edited file may order them
+ * differently and still mean the same quote.
+ */
+const sameValue = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => sameValue(item, b[i]))
+    );
+  }
+  if (!isRecord(a) || !isRecord(b)) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && sameValue(a[key], b[key]))
+  );
+};
+
+/**
+ * How many of the settings an import would write differ from the ones in
+ * place — what the popup shows before it asks to apply them.
+ */
+export const countChangedSettings = (
+  current: HubSettings,
+  incoming: Partial<HubSettings>,
+): number =>
+  (Object.keys(incoming) as SettingKey[]).filter((key) => !sameValue(current[key], incoming[key]))
+    .length;

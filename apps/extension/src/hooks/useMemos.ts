@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { composeContent, filterByTag, type MemoItem, originPattern, tagsOf } from '../utils/memos';
+import {
+  type ArchivedRow,
+  composeContent,
+  filterByTag,
+  type MemoItem,
+  originPattern,
+  restoreArchivedRow,
+  rowIndexOf,
+  tagsOf,
+  withArchivedRows,
+  withoutArchivedRow,
+} from '../utils/memos';
 import {
   archiveMemo,
   createMemo,
@@ -7,6 +18,7 @@ import {
   listMemos,
   type MemosCredentials,
   type MemosFailureReason,
+  restoreMemo,
 } from '../utils/memosClient';
 import type { MemosWriteFailure } from '../utils/memosFailureMessage';
 import { hasOriginPermission, requestOriginPermission } from '../utils/memosPermissions';
@@ -22,6 +34,7 @@ import {
   setCheck,
   setDraft as persistDraft,
 } from '../utils/memosStorage';
+import { UNDO_WINDOW_MS } from '../utils/undo';
 import { useSettings } from './useSettings';
 
 /**
@@ -73,7 +86,8 @@ export const useMemos = () => {
   const { settings, isLoaded } = useSettings();
   const { memosUrl, memosTag } = settings;
 
-  const [all, setAll] = useState<MemoItem[]>([]);
+  const [all, setAllState] = useState<MemoItem[]>([]);
+  const [archived, setArchivedState] = useState<ArchivedRow[]>([]);
   const [status, setStatus] = useState<MemosStatus>('loading');
   const [failure, setFailure] = useState<MemosFailureReason | null>(null);
   const [writeFailure, setWriteFailure] = useState<MemosWriteFailure | null>(null);
@@ -88,6 +102,54 @@ export const useMemos = () => {
   const refreshingRef = useRef(false);
   /** Bumped by every write the server took, so a refresh can tell it is holding older news. */
   const writeEpoch = useRef(0);
+
+  // Mirrors of `all` and `archived`, written together with them. An archive
+  // and its undo each change both lists from inside async work, and a closure
+  // captured at click time would hand them a list from before the last click.
+  const allRef = useRef<MemoItem[]>([]);
+  const archivedRef = useRef<ArchivedRow[]>([]);
+  const setAll = useCallback((next: MemoItem[]) => {
+    allRef.current = next;
+    setAllState(next);
+  }, []);
+  const setArchived = useCallback((next: ArchivedRow[]) => {
+    archivedRef.current = next;
+    setArchivedState(next);
+  }, []);
+
+  /**
+   * Per archived row: the archive request, resolving to the credentials it was
+   * sent with once the server took it, or null when it did not. Undo waits on
+   * it, since a click on Undo can land before the archive has been answered.
+   */
+  const archiveRequests = useRef(new Map<string, Promise<MemosCredentials | null>>());
+  const undoTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const stopUndoTimer = useCallback((name: string) => {
+    const timer = undoTimers.current.get(name);
+    if (timer !== undefined) clearTimeout(timer);
+    undoTimers.current.delete(name);
+  }, []);
+
+  /** Closes an archived row's slot: its undo ran out, failed, or had nothing to undo. */
+  const dropArchivedRow = useCallback(
+    (name: string) => {
+      stopUndoTimer(name);
+      archiveRequests.current.delete(name);
+      setArchived(withoutArchivedRow(archivedRef.current, name));
+    },
+    [setArchived, stopUndoTimer],
+  );
+
+  /** Every undo on offer withdrawn: they belong to the connection that is being replaced. */
+  const dropAllArchivedRows = useCallback(() => {
+    for (const timer of undoTimers.current.values()) clearTimeout(timer);
+    undoTimers.current.clear();
+    archiveRequests.current.clear();
+    if (archivedRef.current.length > 0) setArchived([]);
+  }, [setArchived]);
+
+  useEffect(() => dropAllArchivedRows, [dropAllArchivedRows]);
 
   // Bumped when the token or the account changes in local storage, so a tab
   // left open reloads after a reconnect. `forceRef` makes that reload ignore
@@ -155,7 +217,7 @@ export const useMemos = () => {
       void setCachedMemos(creds.baseUrl, own);
       void setCheck({ baseUrl: creds.baseUrl, nextAt: now + MEMOS_FRESH_MS, failure: null });
     },
-    [],
+    [setAll],
   );
 
   useEffect(() => {
@@ -176,6 +238,9 @@ export const useMemos = () => {
     const load = async () => {
       const force = forceRef.current;
       forceRef.current = false;
+      // An Undo offered under the credentials being reloaded could otherwise
+      // send its request with whatever replaced them.
+      dropAllArchivedRows();
 
       if (!memosUrl) {
         credentials.current = null;
@@ -249,7 +314,7 @@ export const useMemos = () => {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, memosUrl, reloadKey, refreshFromServer]);
+  }, [isLoaded, memosUrl, reloadKey, refreshFromServer, setAll, dropAllArchivedRows]);
 
   /**
    * A write the server took proves it is reachable and the token still good,
@@ -318,32 +383,106 @@ export const useMemos = () => {
   }, []);
 
   /**
-   * Archives optimistically: the row goes at once and comes back if the server
-   * refuses. Safe precisely because archiving is reversible — the worst case
-   * here is a row that reappears, not a note that is gone.
+   * Archives optimistically: the row leaves the live list at once and comes
+   * back if the server refuses. Safe precisely because archiving is
+   * reversible — the worst case here is a row that reappears, not a note that
+   * is gone.
+   *
+   * The slot does not close. An archived row stands in it for
+   * `UNDO_WINDOW_MS`, offering Undo — which is also what makes a double-click
+   * archive one memo: the second click lands on that row, not on the memo that
+   * would otherwise have moved up under the pointer.
    */
   const archive = useCallback(async (name: string) => {
     const creds = credentials.current;
     if (!creds) return;
 
-    const previous = all;
-    const next = all.filter((memo) => memo.name !== name);
+    const memo = allRef.current.find((item) => item.name === name);
+    if (!memo) return;
+
+    const index = rowIndexOf(allRef.current, archivedRef.current, name);
+    const next = allRef.current.filter((item) => item.name !== name);
     setAll(next);
+    setArchived([...archivedRef.current, { memo, index, restoring: false }]);
     setWriteFailure(null);
+
+    let settle: (value: MemosCredentials | null) => void = () => {};
+    archiveRequests.current.set(name, new Promise((resolve) => (settle = resolve)));
+    undoTimers.current.set(
+      name,
+      setTimeout(() => dropArchivedRow(name), UNDO_WINDOW_MS),
+    );
 
     const result = await archiveMemo(creds, name);
     if (result.ok) {
       writeEpoch.current += 1;
       setWriteFailure(null);
-      void setCachedMemos(creds.baseUrl, next);
+      // What the server now holds: everything live, this one gone.
+      void setCachedMemos(creds.baseUrl, allRef.current);
       void noteWriteSucceeded(creds.baseUrl);
+      settle(creds);
       return;
     }
 
-    setAll(previous);
+    settle(null);
+    // Back into its own slot, rather than the list from before the click:
+    // another row may have been archived or added since.
+    if (archivedRef.current.some((row) => row.memo.name === name)) {
+      const restored = restoreArchivedRow(allRef.current, archivedRef.current, name);
+      setAll(restored.memos);
+      setArchived(restored.archived);
+    } else {
+      setAll([...allRef.current, memo]);
+    }
+    stopUndoTimer(name);
+    archiveRequests.current.delete(name);
     setWriteFailure({ action: 'archive', reason: result.reason });
     noteWriteFailed(creds.baseUrl, result.reason);
-  }, [all, noteWriteFailed, noteWriteSucceeded]);
+  }, [dropArchivedRow, noteWriteFailed, noteWriteSucceeded, setAll, setArchived, stopUndoTimer]);
+
+  /**
+   * Undoes an archive: the same update back to `NORMAL`, and the memo back in
+   * the slot it left.
+   *
+   * Not optimistic, unlike the archive: the row is already on screen as the
+   * undo line, so waiting costs nothing visible, and a memo that came back and
+   * then vanished again would be worse than one that stayed put.
+   */
+  const undoArchive = useCallback(async (name: string) => {
+    const row = archivedRef.current.find((item) => item.memo.name === name);
+    const request = archiveRequests.current.get(name);
+    if (!row || row.restoring || !request) return;
+
+    // Kept on screen until the server answers, however long that takes.
+    stopUndoTimer(name);
+    setArchived(
+      archivedRef.current.map((item) => (item === row ? { ...item, restoring: true } : item)),
+    );
+    setWriteFailure(null);
+
+    const creds = await request;
+    // The archive failed, and its row is already back as a live memo.
+    if (!creds) return;
+
+    const result = await restoreMemo(creds, name);
+    // The connection was replaced meanwhile, and the rows with it.
+    if (credentials.current !== creds) return;
+
+    if (!result.ok) {
+      dropArchivedRow(name);
+      setWriteFailure({ action: 'restore', reason: result.reason });
+      noteWriteFailed(creds.baseUrl, result.reason);
+      return;
+    }
+
+    writeEpoch.current += 1;
+    archiveRequests.current.delete(name);
+    const restored = restoreArchivedRow(allRef.current, archivedRef.current, name);
+    setAll(restored.memos);
+    setArchived(restored.archived);
+    void setCachedMemos(creds.baseUrl, restored.memos);
+    void noteWriteSucceeded(creds.baseUrl);
+  }, [dropArchivedRow, noteWriteFailed, noteWriteSucceeded, setAll, setArchived, stopUndoTimer]);
 
   /**
    * Not optimistic: the id and timestamps come from the server, and a phantom
@@ -374,20 +513,32 @@ export const useMemos = () => {
     void clearDraft();
     // Computed outside the updater: React double-invokes updaters under
     // StrictMode, and a storage write is not something to do twice.
-    const next = [result.value, ...all];
+    const next = [result.value, ...allRef.current];
     setAll(next);
+    // The new memo takes the top slot, so every archived row is one further down.
+    if (archivedRef.current.length > 0) {
+      setArchived(archivedRef.current.map((row) => ({ ...row, index: row.index + 1 })));
+    }
     void setCachedMemos(creds.baseUrl, next);
     void noteWriteSucceeded(creds.baseUrl);
-  }, [activeTag, all, draft, noteWriteFailed, noteWriteSucceeded, submitting]);
+  }, [activeTag, draft, noteWriteFailed, noteWriteSucceeded, setAll, setArchived, submitting]);
 
   return {
     status,
     /** Why the last load failed, or null when it did not. Writes never set it. */
     failure,
-    /** The last submit or archive the server did not take, until the next one starts. */
+    /** The last submit, archive or undo the server did not take, until the next one starts. */
     writeFailure,
     /** Already narrowed to `activeTag`. */
     memos: filterByTag(all, activeTag),
+    /**
+     * What the views render: `memos`, with each just-archived memo still in
+     * its slot as an undo row. Narrowed to `activeTag` the same way.
+     */
+    rows: withArchivedRows(all, archived).filter((row) => {
+      const memo = row.kind === 'memo' ? row.memo : row.row.memo;
+      return !activeTag || memo.tags.includes(activeTag);
+    }),
     /** Every tag in the fetched set — the chips. */
     tags: tagsOf(all),
     activeTag,
@@ -397,6 +548,7 @@ export const useMemos = () => {
     submit,
     submitting,
     archive,
+    undoArchive,
     refresh,
     /** True while `refresh` is waiting on the server. */
     refreshing,

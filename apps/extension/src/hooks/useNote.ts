@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { UNDO_WINDOW_MS } from '../utils/undo';
 
 const NOTE_STORAGE_KEY = 'quick_note_content';
 
@@ -50,7 +51,7 @@ export const useNote = () => {
     }
   }, []);
 
-  const setNote = useCallback(
+  const save = useCallback(
     (value: string) => {
       setNoteState(value);
       pending.current = value;
@@ -60,11 +61,64 @@ export const useNote = () => {
     [flush],
   );
 
+  // The text a clear removed, while Undo is on offer for it.
+  const [cleared, setCleared] = useState<string | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dropUndo = useCallback(() => {
+    if (undoTimer.current !== null) clearTimeout(undoTimer.current);
+    undoTimer.current = null;
+    setCleared(null);
+  }, []);
+
+  /**
+   * A keystroke also withdraws a pending Undo: restoring the cleared text
+   * over something typed since would throw the newer text away.
+   */
+  const setNote = useCallback(
+    (value: string) => {
+      dropUndo();
+      save(value);
+    },
+    [dropUndo, save],
+  );
+
+  /**
+   * Clears the note, and keeps what it said for `UNDO_WINDOW_MS`.
+   *
+   * The empty note is saved the ordinary way, not held back until the undo
+   * runs out: closing the tab inside the window must leave it cleared, as the
+   * click asked, and other tabs follow the clear as they follow any edit.
+   */
+  const clearNote = useCallback(() => {
+    if (!note) return;
+    if (undoTimer.current !== null) clearTimeout(undoTimer.current);
+    setCleared(note);
+    undoTimer.current = setTimeout(dropUndo, UNDO_WINDOW_MS);
+    save('');
+  }, [dropUndo, note, save]);
+
+  /** Puts the cleared text back, and saves it like any edit. */
+  const undoClear = useCallback(() => {
+    if (cleared === null) return;
+    dropUndo();
+    save(cleared);
+  }, [cleared, dropUndo, save]);
+
+  useEffect(
+    () => () => {
+      if (undoTimer.current !== null) clearTimeout(undoTimer.current);
+    },
+    [],
+  );
+
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       // Fired only in the other tabs, never in the one that wrote. A tab with
       // unsaved typing of its own keeps it: that typing is the newer edit.
       if (event.key !== NOTE_STORAGE_KEY || pending.current !== null) return;
+      // Another tab's edit is newer than the text an Undo here would restore.
+      dropUndo();
       setNoteState(event.newValue ?? '');
     };
 
@@ -75,7 +129,14 @@ export const useNote = () => {
       window.removeEventListener('storage', onStorage);
       flush();
     };
-  }, [flush]);
+  }, [dropUndo, flush]);
 
-  return { note, setNote };
+  return {
+    note,
+    setNote,
+    clearNote,
+    undoClear,
+    /** True while the last clear can still be undone. */
+    canUndoClear: cleared !== null,
+  };
 };

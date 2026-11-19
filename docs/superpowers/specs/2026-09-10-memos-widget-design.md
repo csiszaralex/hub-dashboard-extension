@@ -1,3 +1,5 @@
+> Historical design: it describes the original `/api/v1`-only flow. The current behaviour (route prefix lookup, `/api/...` on Memos 26.10+) lives in `apps/extension/src/utils/memosClient.ts`; see CLAUDE.md's Memos section.
+
 # Memos Widget Design
 
 **Goal:** Surface the user's self-hosted [Memos](https://usememos.com) instance on the

@@ -8,7 +8,7 @@ Nx monorepo for a Chrome extension dashboard with a serverless backend API.
 
 - **`apps/extension`** — Chrome extension (React 19 + Vite + CRXJS) replacing the new tab page
 - **`apps/api`** — Cloudflare Worker (Hono.js) serving background images from Unsplash and daily quotes, both with KV caching
-- **`packages/shared`** — Shared TypeScript types (`BackgroundData` interface)
+- **`packages/shared`** — Types and the few constants both apps must agree on (`packages/shared/src/index.ts`): `BackgroundData` and `QuoteData` (the response shapes), `SUPPORTED_LANGUAGES` / `Language`, `DEFAULT_BACKGROUND_TAGS` and `DEFAULT_QUOTE_SOURCE_ID`. Runtime values stay short; anything bulky belongs with the app that uses it
 
 ## Commands
 
@@ -44,11 +44,13 @@ pnpm nx run api:test            # Vitest
 
 Vitest covers the logic that is cheap to get wrong: cache expiry, tag
 normalisation, event categorisation, forecast aggregation, the settings
-store, and — the largest suite by far — the service worker's prefetch and
-Pomodoro state machines, including their concurrency and cross-restart
-invariants (`apps/extension/src/background.test.ts`). Rendering and Chrome
-integration are still verified by hand — load the built extension from
-`apps/extension/dist/` in Chrome.
+store, the Memos client and hook, the popup form, and the service worker's
+prefetch and Pomodoro state machines, including their concurrency and
+cross-restart invariants (`apps/extension/src/background.test.ts`, the one to
+read before touching them). No single suite dominates: `useMemos.test.tsx`,
+`PopupForm.test.tsx` and `background.test.ts` are each about 40 tests. Pixels
+and real Chrome integration are still verified by hand — load the built
+extension from `apps/extension/dist/` in Chrome.
 
 Extension tests run under happy-dom with stubs for `chrome` and the Cache API
 (`src/test/`). Hooks backed by module-level stores (`useSettings`) must be
@@ -89,9 +91,9 @@ Examples: `feat(extension): add countdown widget`, `fix(api): handle empty respo
 
 ### Extension
 
-The extension entry is `apps/extension/src/main.tsx` → `App.tsx`. The main `App` component mounts all widgets and shows/hides the UI overlay via `useUiVisibility` (double-click, `.`, or Escape).
+The extension entry is `apps/extension/src/main.tsx` → `Root.tsx` (the outer error boundary) → `App.tsx`. The main `App` component mounts all widgets and shows/hides the UI overlay via `useUiVisibility` (double-click, `.`, or Escape). It also holds a settings button (it calls `chrome.runtime.openOptionsPage()`; `options_ui` in `manifest.json` opens `popup.html` in a tab), because the toolbar action stays in Chrome's extensions menu until the user pins it.
 
-**Widgets** (`src/components/`): `Clock`, `WeatherWidget`, `CalendarWidget`, `QuoteWidget`, `CountdownWidget`, `PomodoroWidget`, `QuickNote`, `MemosWidget`, `BackgroundInfo`, `WhatsNewModal` — each is self-contained and reads settings through `useSettings`. `src/widgets.ts` is the single source of truth for widget ids (`WIDGET_IDS`): the popup's visibility checkboxes, `App.tsx`'s `showWidget`, and settings sanitisation (`sanitizeHiddenWidgets`) all read from it. Renaming a widget id is a migration, not a find-and-replace — `sanitizeHiddenWidgets` drops an unrecognised id rather than leaving a widget hidden with no way for the user to find it again.
+**Widgets** (`src/components/`): `Clock`, `WeatherWidget`, `CalendarWidget`, `QuoteWidget`, `CountdownWidget`, `PomodoroWidget`, `QuickNote`, `MemosWidget`, `BackgroundInfo`, plus `WhatsNewModal` and `WelcomeCard` (first-run and release notices) and `UndoLine` (the shared "done · Undo" line, shown for `UNDO_WINDOW_MS` from `utils/undo.ts` after an archived memo or a cleared note). Most widgets call their own data hook and read `useSettings` themselves; `QuoteWidget` and `BackgroundInfo` are the exceptions, presentational components that take `quote` / `data` as props, because `App` calls `useQuote` and `useBackground` itself (it passes `refresh` down and owns the background refresh button). `TopSitesWidget` and `useTopSites` exist but are commented out in `App.tsx` and absent from `WIDGET_IDS`. `src/widgets.ts` is the single source of truth for widget ids (`WIDGET_IDS`): the popup's visibility checkboxes, `App.tsx`'s `showWidget`, and settings sanitisation (`sanitizeHiddenWidgets`) all read from it. Renaming a widget id is a migration, not a find-and-replace — `sanitizeHiddenWidgets` drops an unrecognised id rather than leaving a widget hidden with no way for the user to find it again.
 
 **Error boundaries** (`components/ErrorBoundary.tsx`): two levels, because a render error otherwise unmounts the whole tree and a bad cached value makes every new tab come up blank. In `App.tsx` each widget sits in its own boundary, inside its `showWidget(...)` condition, with an empty fallback: a failing widget disappears and the rest of the page stays. `Root.tsx` (rendered by `main.tsx`) wraps `App` itself, for errors in `App` or its hooks, and falls back to `RecoveryScreen`: Reload, or clear cached data and reload. That screen must not throw a second time, so it translates through `i18n.t` with the English locale file as a fallback rather than through `useTranslation`. What "clear cached data" may delete is listed in one place, `utils/recovery.ts`'s `clearRecoverableData`, and the rule is: only what the extension can fetch or derive again. Never the quick note, the last-seen release, the Memos credentials or draft, the Pomodoro state, `chrome.storage.sync`, or the uploaded background, which is why the image buckets are cleared through `pruneImageCache` and `deleteObsoleteImageCaches` rather than deleted.
 
@@ -116,7 +118,7 @@ Two invariants hold this widget together, and both are easy to undo by accident:
 
 `utils/memosStorage.ts` also keeps a per-server `memos_check` — when to ask again (five minutes after a success, one after a failure) and what the last attempt failed with — so opening tabs does not mean a request each. The panel's refresh button and a credential change both bypass it. `MemosStatus`'s `needs-access` is the case where the connection is whole and only Chrome's host grant is gone, which is what every reload of an unpacked build produces: the widget offers a button rather than the popup, because the click on it is the user gesture `permissions.request` needs.
 
-**Settings UI** (`src/popup/`): Separate popup page (`popup.html`), tabbed (`TabNav`) across general, appearance, weather, countdown, focus, calendars, widgets and memos, one section component per tab (`GeneralSection`, `AppearanceSection`, … `MemosSection`), each owning its fields. There is no Apply button: a Chrome popup closes on any outside click, so held-back edits were lost silently. Every setting is written as it changes, through `saveStatus.ts`'s `SaveContext`, which runs the patch through the schema's `decodeSettings` before `saveSettings`. Checkboxes, selects and radios write at once; free text (and the dim slider) goes through `useDraftSetting`, which writes after `DRAFT_SAVE_DELAY_MS` of pause, on blur, on `pagehide`/hidden and when its tab unmounts — the pause is what keeps a typing user inside `chrome.storage.sync`'s write-rate limits (quoted at that constant). Three things are not plain writes: the city is resolved by a geocoding lookup on blur or Enter and written with its coordinates or not at all (`WeatherSection`); the custom background becomes the setting only once an image is in the cache (`AppearanceSection`); the Memos URL is written by Connect, which needs the click's gesture. Feedback lands in `SaveStatusLine`, pinned below the tabs, so a write that finishes after its tab is gone is still seen: "Saved" in a polite live region, an error (with Chrome's message) as an `alert`. Field errors (city, upload) also show by their field. The Calendars tab asks for the list without a prompt and stays silent when signed out; an error appears only for a request that failed (offline, an API error), or after the sign-in button was pressed. Widgets react to the storage changes as before.
+**Settings UI** (`src/popup/`): Separate popup page (`popup.html`, also the options page), tabbed (`TabNav`) across general, appearance, weather, countdown, focus (id `pomodoro`), calendars, widgets and memos, one section component per tab (`GeneralSection`, `AppearanceSection`, … `MemosSection`), each owning its fields. There is no Apply button: a Chrome popup closes on any outside click, so held-back edits were lost silently. Every setting is written as it changes, through `saveStatus.ts`'s `SaveContext`, which runs the patch through the schema's `decodeSettings` before `saveSettings`. Checkboxes, selects and radios write at once; free text (and the dim slider) goes through `useDraftSetting`, which writes after `DRAFT_SAVE_DELAY_MS` of pause, on blur, on `pagehide`/hidden and when its tab unmounts — the pause is what keeps a typing user inside `chrome.storage.sync`'s write-rate limits (quoted at that constant). Three things are not plain writes: the city is resolved by a geocoding lookup on blur or Enter and written with its coordinates or not at all (`WeatherSection`); the custom background becomes the setting only once an image is in the cache (`AppearanceSection`); the Memos URL is written by Connect, which needs the click's gesture. Feedback lands in `SaveStatusLine`, pinned below the tabs, so a write that finishes after its tab is gone is still seen: "Saved" in a polite live region, an error (with Chrome's message) as an `alert`. Field errors (city, upload) also show by their field. The Calendars tab asks for the list without a prompt and stays silent when signed out; an error appears only for a request that failed (offline, an API error), or after the sign-in button was pressed. Widgets react to the storage changes as before.
 
 **Background image caching**: metadata (url, photographer, location) goes to `localStorage` via `dailyStorage`; the image itself — an Unsplash photo or a user-uploaded custom image — goes to the Cache API via `imageCache`. Never put image bytes in `localStorage` — a 4K JPEG base64-encodes past the origin quota. A cache version bump must not lose the user's own upload: `deleteObsoleteImageCaches` carries it forward, since it is the one entry in those buckets that cannot be re-downloaded.
 
@@ -144,7 +146,7 @@ Changes to permissions, scopes or external hosts must be reflected in `privacy-p
 
 ### API
 
-`src/index.ts` (Hono app) mounts one route module per concern — `src/background.ts` (`GET /api/background`) and `src/quote.ts` (`GET /api/quote`) — with tag normalisation shared out of `src/tags.ts`. Configured via `wrangler.toml`. `apps/api/README.md` documents both endpoints in full and is kept accurate independently of this file; this section is a pointer, not a duplicate.
+`src/index.ts` (Hono app) mounts one route module per concern — `src/background.ts` (`GET /api/background`), `src/quote.ts` (`GET /api/quote` and `GET /api/quote/sources`) and `src/health.ts` (`GET /api/health`) — with tag normalisation shared out of `src/tags.ts`. Configured via `wrangler.toml`. `apps/api/README.md` documents every endpoint in full and is kept accurate independently of this file; this section is a pointer, not a duplicate.
 
 Every outbound request in both apps goes through that app's `fetchWithTimeout` (`apps/api/src/fetchWithTimeout.ts`, `apps/extension/src/utils/fetchWithTimeout.ts`; the Memos client keeps its own), whose deadline also covers the body read, because a hung upstream raises no error and the fallbacks only run after one; the extension's `REQUEST_TIMEOUT_MS` must stay above the worker's `UPSTREAM_TIMEOUT_MS`, or the client gives up before the worker's fallback arrives.
 
@@ -156,15 +158,15 @@ Fallback order: own pool → Unsplash fetch → default pool → `last_good:defa
 
 Unsplash's API guidelines are load-bearing here: the worker pings each photo's `download_location` when it hands the photo out, and attribution links carry `utm_source=hub&utm_medium=referral`.
 
-`GET /api/quote` proxies `stoic.tekloon.net` behind a KV cache keyed by the current UTC date, so upstream is hit roughly once per day in total rather than once per request, and falls back to the last successfully cached quote (`quote:latest`) when upstream is down or errors. The extension talks only to this endpoint for quotes — see the External APIs note in the Extension section above.
+`GET /api/quote?source=&lang=` serves one source from the registry in `src/quoteSources.ts` (`stoic` proxies `stoic.tekloon.net`, `citatum` proxies Citatum and exists only where its secrets are set, the built-in lists answer from `src/static_quotes/`). What is cached is a day's *pool* per source and language, keyed `quote:<source>:<lang>[:<category>]:<YYYY-MM-DD>` (UTC date), so upstream is hit roughly once per day per key rather than once per request; when upstream is down it falls back to a per-source, per-language `quote:<source>:<lang>:latest` pointer, never a shared one, so an outage cannot hand a user another source's quote. The extension talks only to this endpoint for quotes — see the External APIs note in the Extension section above.
 
-`GET /api/health` (`src/health.ts`) is for an uptime monitor: one KV read of the default pool, never an upstream call. Workers Logs keeps the worker's `console.*` output, but `invocation_logs` stays off in `wrangler.toml`: those would record each request URL, which carries the user's tags and quote category, and `privacy-policy.md` promises no request logs. So no log line may include the request either.
+`GET /api/health` (`src/health.ts`) is for an uptime monitor: at most two KV reads of the background fallback layers, never an upstream call. Workers Logs keeps the worker's `console.*` output, but `invocation_logs` stays off in `wrangler.toml`: those would record each request URL, which carries the user's tags and quote category, and `privacy-policy.md` promises no request logs. So no log line may include the request either.
 
 ### Release Flow
 
 1. Push to `main` → `check.yml` runs → on its success `release.yml` (a `workflow_run` trigger, not a push trigger) runs `pnpm nx release` → creates git tags using conventional commits. A failed or cancelled Check releases nothing; re-running the Check is how a release is retried
-2. Tag matching `extension@*` triggers `deploy.yml` → builds and uploads to Chrome Web Store
-3. Tag matching `api@*` triggers `deploy-api.yml` → deploys via Wrangler to Cloudflare
+2. Tag matching `extension@*` triggers `deploy.yml` → runs `pnpm run check`, builds with `pnpm nx run extension:pack` and uploads to the Chrome Web Store. The upload is a draft unless the repository variable `PUBLISH_EXTENSION` is `true`; submitting for review is otherwise done by hand
+3. Tag matching `api@*` triggers `deploy-api.yml` → runs `pnpm run check`, then deploys via Wrangler (`pnpm nx deploy api`) to Cloudflare
 
 ## Nx Guidelines
 

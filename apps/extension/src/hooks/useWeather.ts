@@ -194,7 +194,8 @@ export const useWeather = () => {
   );
 
   useEffect(() => {
-    fetchWeather(false);
+    // Never rejects: everything after the loaded check runs inside its try.
+    void fetchWeather(false);
 
     // Not forced: the cache is shared by every tab, so a tab whose cache another
     // tab has just refreshed makes no request. Hidden tabs skip the tick and

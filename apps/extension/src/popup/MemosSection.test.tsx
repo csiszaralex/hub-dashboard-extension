@@ -285,12 +285,12 @@ describe('MemosSection — the stored token and its server', () => {
   const holdLocalReads = () => {
     const held: (() => void)[] = [];
     const original = chrome.storage.local.get.bind(chrome.storage.local);
-    vi.spyOn(chrome.storage.local, 'get').mockImplementation(((
-      keys: string[],
-      cb: (items: Record<string, unknown>) => void,
-    ) => {
-      held.push(() => original(keys, cb));
-    }) as typeof chrome.storage.local.get);
+    // Parameters inferred from the callback overload `spyOn` resolves to.
+    vi.spyOn(chrome.storage.local, 'get').mockImplementation((keys, cb) => {
+      held.push(() => {
+        original(keys, cb);
+      });
+    });
     return () => act(async () => {
       for (const release of held.splice(0)) release();
       await new Promise((resolve) => setTimeout(resolve, 0));

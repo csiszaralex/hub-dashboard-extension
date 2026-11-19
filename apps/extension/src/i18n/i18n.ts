@@ -41,7 +41,7 @@ i18n.use(initReactI18next).init({
   chrome.storage.sync.get(LANGUAGE_KEY, (stored) => {
     void i18n.changeLanguage(resolveLanguage(readSettings(stored).language));
   });
-});
+}).catch((error) => console.error('Failed to initialise translations:', error));
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && LANGUAGE_KEY in changes) {

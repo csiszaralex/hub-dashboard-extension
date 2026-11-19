@@ -252,6 +252,17 @@ export const installChromeStub = (): ChromeStub => {
   const startupListeners = new Set<() => void>();
   const messageListeners = new Set<MessageListener>();
   const notifications: NotificationOptions[] = [];
+  /**
+   * Chrome's two calling conventions: with a callback a call returns nothing
+   * and hands the callback its result a microtask later; without one it
+   * returns a Promise of that result. Code written against the Promise form
+   * chains `.catch` on it, which would throw on the callback form's `undefined`.
+   */
+  const reply = <T>(result: T, cb?: (result: T) => void): Promise<T> | undefined => {
+    if (!cb) return new Promise((resolve) => queueMicrotask(() => resolve(result)));
+    queueMicrotask(() => cb(result));
+    return undefined;
+  };
   const messageLog: unknown[] = [];
   let getCount = 0;
   let optionsOpens = 0;
@@ -401,10 +412,22 @@ export const installChromeStub = (): ChromeStub => {
             changes[key] = { oldValue: store.get(key) };
             store.delete(key);
           }
-          queueMicrotask(() => {
+          const announce = () => {
             if (Object.keys(changes).length > 0) listeners.forEach((l) => l(changes, 'sync'));
-            cb?.();
+          };
+          if (!cb) {
+            return new Promise<void>((resolve) =>
+              queueMicrotask(() => {
+                announce();
+                resolve();
+              }),
+            );
+          }
+          queueMicrotask(() => {
+            announce();
+            cb();
           });
+          return undefined;
         },
       },
       local: {
@@ -515,15 +538,14 @@ export const installChromeStub = (): ChromeStub => {
           scheduledTime: createInfo.when ?? Date.now() + (delayMinutes as number) * 60_000,
           periodInMinutes: createInfo.periodInMinutes,
         });
-        queueMicrotask(() => cb?.());
+        return reply(undefined, cb);
       },
       get: (name: string | undefined, cb: (alarm?: Alarm) => void) =>
         queueMicrotask(() => cb(alarmRegistry.get(name ?? ''))),
       getAll: (cb: (alarms: Alarm[]) => void) =>
         queueMicrotask(() => cb([...alarmRegistry.values()])),
       clear: (name: string | undefined, cb?: (wasCleared: boolean) => void) => {
-        const cleared = alarmRegistry.delete(name ?? '');
-        queueMicrotask(() => cb?.(cleared));
+        return reply(alarmRegistry.delete(name ?? ''), cb);
       },
       onAlarm: {
         addListener: (l: AlarmListener) => alarmListeners.add(l),
@@ -616,7 +638,7 @@ export const installChromeStub = (): ChromeStub => {
           );
         }
         notifications.push(options);
-        queueMicrotask(() => cb?.(id));
+        return reply(id, cb);
       },
     },
     permissions: {

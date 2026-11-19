@@ -74,7 +74,11 @@ const writeMigration = (before: StoredSettings, migrated: MigrationResult) => {
   if (!writes) return;
   chrome.storage.sync.set(writes.set, () => {
     if (chrome.runtime.lastError || writes.remove.length === 0) return;
-    chrome.storage.sync.remove(writes.remove);
+    // A refused removal only leaves the keys the migration dropped behind;
+    // logged rather than left as an unhandled rejection.
+    chrome.storage.sync
+      .remove(writes.remove)
+      .catch((error) => console.error('Failed to remove migrated settings keys:', error));
   });
 };
 

@@ -31,16 +31,6 @@ const FAILURE_REASONS: readonly MemosFailureReason[] = [
   'server',
 ];
 
-declare const chrome: {
-  storage: {
-    local: {
-      get: (keys: string[], cb: (items: Record<string, unknown>) => void) => void;
-      set: (items: Record<string, unknown>, cb?: () => void) => void;
-      remove: (keys: string[], cb?: () => void) => void;
-    };
-  };
-};
-
 const readLocal = (key: string): Promise<unknown> =>
   new Promise((resolve) => chrome.storage.local.get([key], (items) => resolve(items[key])));
 

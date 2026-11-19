@@ -42,7 +42,10 @@ const scheduleAlarm = () => {
   // would push the prefetch permanently out of reach for anyone who restarts
   // Chrome daily — so only create the alarm when it is genuinely missing.
   chrome.alarms.get(PREFETCH_ALARM, (existing) => {
-    if (!existing) chrome.alarms.create(PREFETCH_ALARM, { periodInMinutes: 24 * 60 });
+    if (existing) return;
+    chrome.alarms
+      .create(PREFETCH_ALARM, { periodInMinutes: 24 * 60 })
+      .catch((error) => console.error('Failed to schedule the background prefetch:', error));
   });
 };
 
@@ -132,12 +135,27 @@ const notify = (phase: PomodoroPhase, language: string) => {
   if (typeof chrome === 'undefined' || !chrome.notifications) return;
 
   const strings = pomodoroStrings(language);
-  chrome.notifications.create(`hub-pomodoro-${Date.now()}`, {
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: strings.notificationTitle,
-    message: phase === 'break' ? strings.breakStarted : strings.workStarted,
-  });
+  chrome.notifications
+    .create(`hub-pomodoro-${Date.now()}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: strings.notificationTitle,
+      message: phase === 'break' ? strings.breakStarted : strings.workStarted,
+    })
+    .catch((error) => console.error('Failed to raise the Pomodoro notification:', error));
+};
+
+/**
+ * Issued, not awaited: each caller has just written the state, and the checks
+ * around it (`sessionCommands`, the epoch) are ordered against exactly the
+ * awaits that are there now. A refused alarm is logged instead of surfacing as
+ * an unhandled rejection; the state already written is what the next wake-up's
+ * `rehydratePomodoro` repairs from.
+ */
+const schedulePomodoroAlarm = (when: number) => {
+  chrome.alarms
+    .create(POMODORO_ALARM, { when })
+    .catch((error) => console.error('Failed to schedule the Pomodoro alarm:', error));
 };
 
 /**
@@ -175,7 +193,7 @@ const startPomodoro = async () => {
   if (sessionCommands !== command) return;
 
   await writePomodoroState({ phase: 'work', endsAt, running: true, epoch: current.epoch + 1 });
-  chrome.alarms.create(POMODORO_ALARM, { when: endsAt });
+  schedulePomodoroAlarm(endsAt);
 };
 
 const resetPomodoro = async () => {
@@ -187,7 +205,11 @@ const resetPomodoro = async () => {
   // flight in some later worker, so Reset cannot be undone by a phase change
   // that started before it.
   await writePomodoroState({ ...IDLE_POMODORO, epoch: current.epoch + 1 });
-  chrome.alarms.clear(POMODORO_ALARM);
+  // Not awaited, like `schedulePomodoroAlarm`. A leftover alarm is harmless:
+  // `runAdvance` returns on the idle state it finds.
+  chrome.alarms
+    .clear(POMODORO_ALARM)
+    .catch((error) => console.error('Failed to clear the Pomodoro alarm:', error));
 };
 
 /**
@@ -249,7 +271,7 @@ const runAdvance = async () => {
   if (sessionCommands !== command) return;
 
   await writePomodoroState({ phase: upcoming, endsAt, running: true, epoch: state.epoch + 1 });
-  chrome.alarms.create(POMODORO_ALARM, { when: endsAt });
+  schedulePomodoroAlarm(endsAt);
 
   // One more await has passed, so one more chance for a Reset. It wins the state
   // — last writer wins, by design — but the phase it cancelled must not still be
@@ -289,7 +311,7 @@ const rehydratePomodoro = async () => {
     return;
   }
 
-  chrome.alarms.create(POMODORO_ALARM, { when: state.endsAt });
+  schedulePomodoroAlarm(state.endsAt);
 };
 
 /* -------------------------------------------------------------------------- */

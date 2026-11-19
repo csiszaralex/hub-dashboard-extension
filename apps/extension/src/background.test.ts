@@ -299,12 +299,13 @@ describe('background service worker — Pomodoro', () => {
     const chromeStub = installChromeStub();
     await loadBackground();
 
-    const alarms = chrome.alarms as unknown as { create: (...args: unknown[]) => void };
+    const alarms = chrome.alarms as unknown as { create: (...args: unknown[]) => unknown };
     const create = alarms.create.bind(alarms);
     const stateAtSchedule: unknown[] = [];
     alarms.create = (...args: unknown[]) => {
       stateAtSchedule.push(readState(chromeStub));
-      create(...args);
+      // Passed through: the worker chains `.catch` on the Promise it returns.
+      return create(...args);
     };
 
     send({ type: 'pomodoro/start' });

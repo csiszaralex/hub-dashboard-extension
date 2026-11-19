@@ -6,14 +6,6 @@
  * set and exactly one origin out of it is requested at runtime — a user who
  * never configures the widget grants nothing.
  */
-declare const chrome: {
-  permissions: {
-    contains: (options: { origins: string[] }, cb: (result: boolean) => void) => void;
-    request: (options: { origins: string[] }, cb: (granted: boolean) => void) => void;
-    remove: (options: { origins: string[] }, cb: (removed: boolean) => void) => void;
-  };
-};
-
 export const hasOriginPermission = (pattern: string): Promise<boolean> =>
   new Promise((resolve) => chrome.permissions.contains({ origins: [pattern] }, resolve));
 

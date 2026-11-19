@@ -49,7 +49,9 @@ describe('QuickNote — clearing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(screen.getByRole('status')).toBeTruthy();
 
-    act(() => vi.advanceTimersByTime(UNDO_WINDOW_MS));
+    act(() => {
+      vi.advanceTimersByTime(UNDO_WINDOW_MS);
+    });
 
     expect(screen.queryByRole('status')).toBeNull();
     expect(localStorage.getItem(NOTE_KEY)).toBe('');

@@ -19,7 +19,31 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      parserOptions: {
+        // Finds `tsconfig.app.json` or `tsconfig.node.json` per file through
+        // the references in `tsconfig.json`.
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
+    // Not the whole `recommendedTypeChecked` preset: its `no-unsafe-*` family
+    // is a separate cleanup. These are the rules that catch a promise nobody
+    // waits for or handles — in a codebase built on async `chrome.*` calls.
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      // `checksVoidReturn` stays fully on, JSX attributes included: a handler
+      // starts async work as `onClick={() => void run()}`, with `run` handling
+      // its own failure, rather than handing React a promise it will drop.
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/require-await': 'error',
+    },
+  },
+  {
+    // An `async` mock or stub stands in for an async API without having to
+    // await anything itself.
+    files: ['**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: { '@typescript-eslint/require-await': 'off' },
   },
   {
     files: ['**/*.tsx'],

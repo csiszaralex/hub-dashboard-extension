@@ -299,7 +299,7 @@ describe('useBackground', () => {
     // to block this, but the hook must not depend on that: a stale key resolving to
     // nothing must clear whatever the previous key left behind.
     await act(async () => {
-      saveSettings({ backgroundSource: 'custom' });
+      void saveSettings({ backgroundSource: 'custom' });
       await new Promise((resolve) => queueMicrotask(() => resolve(null)));
     });
 
@@ -336,7 +336,7 @@ describe('useBackground', () => {
     }) as Cache['match'];
 
     act(() => {
-      result.current.refreshBackground();
+      void result.current.refreshBackground();
     });
 
     // bgData has moved on to the new photo, so the cache key has already
@@ -585,7 +585,7 @@ describe('useBackground image source', () => {
     // Not awaited inside `act`: an async `act` would batch the whole refresh
     // into one render and hide the frames in between, which are the point.
     act(() => {
-      result.current.refreshBackground();
+      void result.current.refreshBackground();
     });
     await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh 2'));
     await waitFor(() => expect(result.current.imageSrc).not.toBe(firstSrc));
@@ -624,7 +624,7 @@ describe('useBackground image source', () => {
       const before = result.current.imageSrc;
       // Not awaited inside `act`, so every intermediate frame really renders.
       act(() => {
-        result.current.refreshBackground();
+        void result.current.refreshBackground();
       });
       await waitFor(() => expect(result.current.bgData.photographer).toBe(photographer));
       await waitFor(() => expect(result.current.imageSrc).not.toBe(before));

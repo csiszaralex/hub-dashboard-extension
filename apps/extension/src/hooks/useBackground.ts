@@ -128,14 +128,26 @@ export const useBackground = () => {
     [settings.backgroundSource, settings.unsplashQuery],
   );
 
+  // Every caller starts the load and moves on. `fetchNewImage` handles a failed
+  // fetch itself, but the prefetch adoption path runs before its `try`, so a
+  // failure there (a rejected `pruneImageCache`, say) is logged here instead
+  // of going unhandled.
+  const loadImage = useCallback(
+    (force: boolean, currentQuery: string) =>
+      fetchNewImage(force, currentQuery).catch((error) =>
+        console.error('Failed to fetch background:', error),
+      ),
+    [fetchNewImage],
+  );
+
   useEffect(() => {
     if (!isLoaded) return;
     if (settings.backgroundSource === 'custom') return;
 
     // No force flag needed: the cache packet stores the query it was built for,
     // so a changed query is already a cache miss inside fetchNewImage.
-    fetchNewImage(false, settings.unsplashQuery);
-  }, [fetchNewImage, isLoaded, settings.backgroundSource, settings.unsplashQuery]);
+    void loadImage(false, settings.unsplashQuery);
+  }, [loadImage, isLoaded, settings.backgroundSource, settings.unsplashQuery]);
 
   const custom = settings.backgroundSource === 'custom';
   // Nothing is looked up before the settings arrive: until then `custom` reads
@@ -150,7 +162,8 @@ export const useBackground = () => {
 
     let cancelled = false;
 
-    getCachedImageSrc(cacheKey).then((objectUrl) => {
+    // `getCachedImageSrc` answers a failed lookup with null rather than rejecting.
+    void getCachedImageSrc(cacheKey).then((objectUrl) => {
       if (cancelled) {
         // Superseded before it was ever shown, so nothing else will revoke it.
         if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -191,7 +204,7 @@ export const useBackground = () => {
   return {
     bgData: custom ? EMPTY_BG_DATA : bgData,
     imageSrc: objectUrl ?? remoteFallback,
-    refreshBackground: () => fetchNewImage(true, settings.unsplashQuery),
+    refreshBackground: () => loadImage(true, settings.unsplashQuery),
     loading,
     isSettingsLoaded: isLoaded,
   };

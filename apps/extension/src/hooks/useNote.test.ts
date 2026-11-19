@@ -31,7 +31,9 @@ describe('useNote', () => {
     act(() => result.current.setNote('first draft'));
     expect(localStorage.getItem(KEY)).toBeNull();
 
-    act(() => vi.advanceTimersByTime(500));
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     expect(localStorage.getItem(KEY)).toBe('first draft');
   });
 

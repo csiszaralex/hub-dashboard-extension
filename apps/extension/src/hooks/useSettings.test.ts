@@ -48,7 +48,7 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current[0].isLoaded).toBe(true));
 
     await act(async () => {
-      result.current[0].saveSettings({ locationCity: 'Debrecen' });
+      void result.current[0].saveSettings({ locationCity: 'Debrecen' });
       await new Promise((resolve) => queueMicrotask(() => resolve(null)));
     });
 
@@ -75,7 +75,7 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
     await act(async () => {
-      result.current.saveSettings({
+      void result.current.saveSettings({
         backgroundDim: -50,
         hiddenWidgets: ['note', 'ghost-widget'],
       } as unknown as Partial<HubSettings>);
@@ -108,7 +108,7 @@ describe('useSettings', () => {
     await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
     await act(async () => {
-      result.current.saveSettings({
+      void result.current.saveSettings({
         pomodoroWorkMinutes: 0,
       } as unknown as Partial<HubSettings>);
       await new Promise((resolve) => queueMicrotask(() => resolve(null)));
@@ -146,7 +146,7 @@ describe('useSettings', () => {
     expect(result.current.settings.memosUrl).toBe('https://old.example.com');
 
     await act(async () => {
-      result.current.saveSettings({
+      void result.current.saveSettings({
         memosUrl: 42,
       } as unknown as Partial<HubSettings>);
       await new Promise((resolve) => queueMicrotask(() => resolve(null)));
@@ -181,7 +181,7 @@ describe('useSettings', () => {
     expect(result.current.settings.memosTag).toBe('todo');
 
     await act(async () => {
-      result.current.saveSettings({
+      void result.current.saveSettings({
         memosTag: 42,
       } as unknown as Partial<HubSettings>);
       await new Promise((resolve) => queueMicrotask(() => resolve(null)));
@@ -215,7 +215,7 @@ describe('useSettings', () => {
     expect(result.current.settings.backgroundSource).toBe('custom');
 
     await act(async () => {
-      result.current.saveSettings({
+      void result.current.saveSettings({
         selectedCalendars: 'primary',
         backgroundSource: 'bing',
       } as unknown as Partial<HubSettings>);

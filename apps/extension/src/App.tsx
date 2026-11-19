@@ -201,7 +201,7 @@ function App() {
           {/* HÁTTÉR FRISSÍTŐ GOMB — a custom background has no rotating pool to refresh */}
           {settings.backgroundSource !== 'custom' && (
             <button
-              onClick={() => refreshBackground()}
+              onClick={() => void refreshBackground()}
               disabled={bgLoading}
               className='p-2 rounded-full bg-black/20 hover:bg-white/20 backdrop-blur-sm transition-all disabled:opacity-50 group'
               title={t('app.newBackground')}

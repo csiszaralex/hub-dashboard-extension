@@ -1,6 +1,13 @@
 # Hub API
 
-A Cloudflare Worker that serves random background images from Unsplash with KV-based caching. Built with [Hono](https://hono.dev/).
+A Cloudflare Worker that serves random background images from Unsplash and daily quotes from several sources, both with KV-based caching, plus a health endpoint for an uptime monitor. Built with [Hono](https://hono.dev/).
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/background` | One random photo, from a cached pool per tag set |
+| `GET /api/quote` | The day's quote for one source and language |
+| `GET /api/quote/sources` | The quote sources this deployment can serve |
+| `GET /api/health` | Whether the background fallbacks can serve, for a monitor |
 
 ## How it works
 
@@ -302,8 +309,12 @@ export CLOUDFLARE_API_TOKEN=your_token
 export CLOUDFLARE_ACCOUNT_ID=your_account_id
 
 cd apps/api
-pnpm deploy
+pnpm run deploy
 ```
+
+Use `pnpm run deploy` (or `pnpm nx run api:deploy` from the root), not `pnpm deploy`:
+that one is pnpm's own experimental command for deploying a workspace package
+to a directory, and does not run Wrangler.
 
 ### Automated deployment (GitHub Actions)
 
@@ -317,7 +328,9 @@ pnpm deploy
    git push origin api@1.0.6
    ```
 
-GitHub Actions runs `.github/workflows/deploy-api.yml`, which runs `pnpm nx deploy api`.
+Normally you do not push the tag yourself: a push to `main` runs the Check workflow, and when it passes `release.yml` cuts the tags.
+
+GitHub Actions runs `.github/workflows/deploy-api.yml`, which runs `pnpm run check` and then `pnpm nx deploy api`.
 
 ## Configuration
 
@@ -333,7 +346,7 @@ id = "<production-kv-id>"
 preview_id = "<dev-kv-id>"
 ```
 
-The KV namespace IDs point to Cloudflare KV stores used to cache image pools. Update these if you fork the project.
+The KV namespace IDs point to Cloudflare KV stores used to cache image and quote pools and the hourly and daily call counters. Update these if you fork the project. The excerpt above omits the `[observability]` blocks described under [Logging](#logging).
 
 ## Stack
 
@@ -341,7 +354,7 @@ The KV namespace IDs point to Cloudflare KV stores used to cache image pools. Up
 | --------------------------------------------------------------- | ------------------ |
 | [Hono](https://hono.dev/)                                       | Web framework      |
 | [Cloudflare Workers](https://workers.cloudflare.com/)           | Serverless runtime |
-| [Cloudflare KV](https://developers.cloudflare.com/kv/)          | Image pool cache   |
+| [Cloudflare KV](https://developers.cloudflare.com/kv/)          | Image and quote pool cache |
 | [Wrangler](https://developers.cloudflare.com/workers/wrangler/) | CLI and dev server |
 | TypeScript                                                      | Language           |
 

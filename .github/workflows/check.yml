@@ -39,6 +39,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Not an Nx project, so neither `affected` nor `run-many` reaches it; it
+      # is small enough to test on every run.
+      - name: Test workflow scripts
+        run: node --test .github/scripts/*.test.mjs
+
       # A pull request only checks what it touched; a push to main checks
       # everything, because release.yml starts from this run's success and
       # tags the commit it passed.

@@ -1,7 +1,7 @@
 import { Sparkles, X } from 'lucide-react';
 import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { parseHeading, releasesSince, stripMarkdown } from '../utils/changelog';
+import { CHANGELOG, parseHeading, releasesSince, stripMarkdown } from '../utils/changelog';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -24,9 +24,10 @@ interface Props {
    * The release notes to draw from. Defaults to the recent slice of
    * `CHANGELOG.md` that `vite.config.ts` injects at build time, which is what
    * the app always wants; the parameter exists so a test can supply its own.
-   * `__CHANGELOG__` is a compile-time substitution rather than a global, so it
-   * cannot be stubbed — under Vitest it is replaced with the empty string, and
-   * without this the modal has no reachable state in which it renders an entry.
+   * `CHANGELOG` (`utils/changelog.ts`) is a compile-time substitution rather
+   * than a global, so it cannot be stubbed — under Vitest it is the empty
+   * string, and without this the modal has no reachable state in which it
+   * renders an entry.
    */
   changelog?: string;
 }
@@ -35,7 +36,7 @@ export const WhatsNewModal = ({
   version,
   lastSeenVersion,
   onClose,
-  changelog = __CHANGELOG__,
+  changelog = CHANGELOG,
 }: Props) => {
   const { t } = useTranslation();
   const releases = releasesSince(changelog, lastSeenVersion, version);

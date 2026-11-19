@@ -1,3 +1,12 @@
+/**
+ * The recent slice of `CHANGELOG.md` that `vite.config.ts` injects.
+ *
+ * Read through this one constant rather than `__CHANGELOG__` at each use: a
+ * `define` is substituted textually wherever it appears, so two use sites put
+ * the whole release notes into the page's bundle twice.
+ */
+export const CHANGELOG: string = __CHANGELOG__;
+
 export interface ChangelogSection {
   heading: string;
   items: string[];

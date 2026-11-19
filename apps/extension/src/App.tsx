@@ -66,6 +66,21 @@ function App() {
         className='absolute inset-0 bg-black pointer-events-none transition-opacity duration-1000'
         style={{ opacity: uiVisible ? dimToOpacity(settings.backgroundDim) : 0 }}
       />
+      {/*
+        Scrims behind the two bands of text that sit straight on the photo:
+        the clock and countdown at the top, the quote and credits at the
+        bottom. The uniform dim above is the user's to set, down to zero, and a
+        bright sky or snow field then leaves white text on near-white. These
+        stay with the UI and fade out with it when it is hidden.
+      */}
+      <div
+        aria-hidden
+        className={`absolute inset-x-0 top-0 h-48 bg-linear-to-b from-black/35 to-transparent pointer-events-none transition-opacity duration-1000 ${uiVisible ? 'opacity-100' : 'opacity-0'}`}
+      />
+      <div
+        aria-hidden
+        className={`absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-black/45 to-transparent pointer-events-none transition-opacity duration-1000 ${uiVisible ? 'opacity-100' : 'opacity-0'}`}
+      />
 
       {/*
         `inert` while hidden: the fade only made the widgets invisible, so Tab
@@ -175,7 +190,7 @@ function App() {
         )}
 
         {/* ALSÓ SÁV */}
-        <div className='absolute bottom-4 left-4 flex items-end gap-3'>
+        <div className='absolute bottom-4 left-4 flex items-end gap-3 text-legible'>
           {/* HÁTTÉR FRISSÍTŐ GOMB — a custom background has no rotating pool to refresh */}
           {settings.backgroundSource !== 'custom' && (
             <button
@@ -228,7 +243,7 @@ function App() {
           )}
         </div>
 
-        <p className='absolute bottom-4 right-4 text-[10px] text-white/30 select-none'>
+        <p className='absolute bottom-4 right-4 text-[10px] text-white/50 select-none text-legible'>
           {t('app.toggleHint')}
         </p>
       </div>

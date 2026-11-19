@@ -154,7 +154,10 @@ export default defineConfig(({ mode }) => {
         clientPort: 5173,
       },
       cors: {
-        origin: '*',
+        // The dev build's pages load their modules from this server, and they
+        // run on the extension's own origin. `*` let any site open in the same
+        // browser read the dev sources while `extension:dev` was running.
+        origin: /^chrome-extension:\/\//,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
       },

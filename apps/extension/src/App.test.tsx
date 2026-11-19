@@ -85,6 +85,55 @@ describe('App — settings entry point', () => {
   });
 });
 
+describe('App — first run', () => {
+  // `setup.ts` starts every test with empty `localStorage` and sync storage:
+  // exactly a first install.
+  const renderFirstRun = async () => {
+    const chromeStub = installChromeStub();
+    serveQuote(QUOTE_WITHOUT_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+    render(<App />);
+    const welcome = await screen.findByRole('region', { name: 'Welcome to Hub' });
+    return { chromeStub, welcome };
+  };
+
+  it('welcomes a new user beside the dashboard instead of showing release notes', async () => {
+    await renderFirstRun();
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // Non-blocking: the quote, which a long release would hide, stays.
+    await waitFor(() => expect(screen.getByText(/Be one\./)).not.toBeNull());
+  });
+
+  it("opens the settings from the welcome's button", async () => {
+    const { chromeStub } = await renderFirstRun();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+
+    expect(chromeStub.optionsPageOpens()).toBe(1);
+  });
+
+  it('closes the welcome with its button', async () => {
+    await renderFirstRun();
+    fireEvent.click(screen.getByRole('button', { name: 'Close welcome' }));
+    expect(screen.queryByRole('region', { name: 'Welcome to Hub' })).toBeNull();
+  });
+
+  it('closes the welcome with Escape, but not the press that brings the UI back', async () => {
+    await renderFirstRun();
+
+    // Trying the shortcut the card teaches must not take the card away.
+    fireEvent.keyDown(window, { key: '.' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Welcome to Hub' })).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Welcome to Hub' })).toBeNull();
+    expect(localStorage.getItem('hub_last_seen_version')).toBe(__APP_VERSION__);
+  });
+});
+
 describe('App — double-click toggle', () => {
   beforeEach(() => {
     installChromeStub();

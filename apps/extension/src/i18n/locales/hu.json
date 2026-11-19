@@ -169,6 +169,14 @@
       "updatedDependencies": "Frissített függőségek"
     }
   },
+  "welcome": {
+    "title": "Üdv a Hubban",
+    "settings": "A bal alsó sarokban lévő fogaskerék gomb nyitja meg a beállításokat.",
+    "toggle": "A . elrejti a felületet, az Esc visszahozza.",
+    "connect": "A Google Naptárt és a Memost a beállításokban kapcsolhatod be.",
+    "openSettings": "Beállítások megnyitása",
+    "close": "Üdvözlés bezárása"
+  },
   "background": {
     "photographerLabel": "{{name}} fotója az Unsplashen"
   },

@@ -18,6 +18,15 @@ export type { HubSettings } from '../utils/settingsSchema';
 interface SettingsState {
   settings: HubSettings;
   isLoaded: boolean;
+  /**
+   * Whether `chrome.storage.sync` held any setting when this page first read
+   * it: the sign that the extension was used before, on this machine or on
+   * another one the account syncs with. Fixed at that first read, so a setting
+   * saved while the page is open does not change what the page decided at
+   * load. `settingsVersion` does not count: `writeMigration` records it on the
+   * very first page of a fresh install, so it proves nothing about earlier use.
+   */
+  hadStoredSettings: boolean;
 }
 
 /**
@@ -31,7 +40,11 @@ interface SettingsState {
  * policy (`applyStoredSettings`): an invalid stored value reaches the widgets
  * as its default, never as stored.
  */
-let state: SettingsState = { settings: DEFAULT_SETTINGS, isLoaded: false };
+let state: SettingsState = {
+  settings: DEFAULT_SETTINGS,
+  isLoaded: false,
+  hadStoredSettings: false,
+};
 const listeners = new Set<() => void>();
 let started = false;
 
@@ -47,7 +60,7 @@ const applyChanges = (changes: Record<string, chrome.storage.StorageChange>) => 
   // `settingsVersion` and other non-settings keys change nothing on the page.
   if (Object.keys(stored).length === 0) return;
 
-  state = { settings: applyStoredSettings(state.settings, stored), isLoaded: state.isLoaded };
+  state = { ...state, settings: applyStoredSettings(state.settings, stored) };
   emit();
 };
 
@@ -73,7 +86,11 @@ const start = () => {
   // no longer a setting, such as the old name of a renamed one.
   chrome.storage.sync.get(null, (stored: StoredSettings) => {
     const migrated = migrateStoredSettings(stored);
-    state = { settings: readSettings(migrated.stored), isLoaded: true };
+    state = {
+      settings: readSettings(migrated.stored),
+      isLoaded: true,
+      hadStoredSettings: SETTING_KEYS.some((key) => key in migrated.stored),
+    };
     emit();
     writeMigration(stored, migrated);
   });
@@ -112,6 +129,6 @@ export const saveSettings = (newSettings: Partial<HubSettings>): Promise<void> =
   });
 
 export const useSettings = () => {
-  const { settings, isLoaded } = useSyncExternalStore(subscribe, getSnapshot);
-  return { settings, isLoaded, saveSettings };
+  const { settings, isLoaded, hadStoredSettings } = useSyncExternalStore(subscribe, getSnapshot);
+  return { settings, isLoaded, hadStoredSettings, saveSettings };
 };

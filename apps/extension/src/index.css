@@ -7,6 +7,18 @@
   font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
 }
 
+/* For text drawn straight onto the photo: a tight shadow that outlines each
+   glyph plus a soft one that darkens the area behind it, so white text stays
+   readable over snow, sky or a bright upload even with the dim set to zero.
+   `drop-shadow-*` was used before, and its large offset at low alpha did next
+   to nothing for legibility. `text-shadow` is inherited, so it goes on the
+   container of the text, not on every span. */
+@utility text-legible {
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 0.55),
+    0 0 14px rgb(0 0 0 / 0.35);
+}
+
 @layer base {
   body {
     @apply antialiased text-white;

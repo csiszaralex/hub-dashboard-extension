@@ -24,14 +24,14 @@ export const Clock = () => {
   };
 
   return (
-    <div className='flex flex-col items-center select-none cursor-default group'>
+    <div className='flex flex-col items-center select-none cursor-default group text-legible'>
       {/* Greeting - fading effect */}
       <div className='h-6 mb-1 text-lg font-light text-white/60 tracking-wider opacity-0 group-hover:opacity-100 transition-opacity duration-500'>
         {getGreeting()}
       </div>
 
       {/* Clock - symmetric layout */}
-      <div className='flex items-end leading-none tabular-nums drop-shadow-2xl'>
+      <div className='flex items-end leading-none tabular-nums'>
         <span className='text-8xl md:text-9xl font-bold tracking-tighter text-white'>
           {format(time, 'HH')}
         </span>

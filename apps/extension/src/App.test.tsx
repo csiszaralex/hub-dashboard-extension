@@ -90,7 +90,7 @@ describe('App — double-click toggle', () => {
     installChromeStub();
   });
 
-  /** The layer that fades out when the UI is hidden: `main`'s second child. */
+  /** The layer that fades out when the UI is hidden: `main`'s positioned (`relative`) child. */
   const renderApp = async () => {
     serveQuote(QUOTE_WITHOUT_SOURCE);
     await import('./i18n/i18n');
@@ -98,7 +98,7 @@ describe('App — double-click toggle', () => {
     const { container } = render(<App />);
     await waitFor(() => expect(screen.getByText(/Be one\./)).not.toBeNull());
     const main = container.querySelector('main') as HTMLElement;
-    const layer = main.children[1] as HTMLElement;
+    const layer = main.querySelector(':scope > .relative') as HTMLElement;
     const hidden = () => layer.className.includes('opacity-0');
     return { main, layer, hidden };
   };

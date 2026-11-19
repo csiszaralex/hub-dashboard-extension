@@ -1,12 +1,7 @@
+import type { HealthReport } from '@hub/shared';
 import { Hono } from 'hono';
 import { readFallbackPool } from './background';
 import { Bindings } from './bindings';
-
-/** What `GET /api/health` answers, with 200 when `ok` and 503 when not. */
-export interface HealthReport {
-  ok: boolean;
-  backgrounds: boolean;
-}
 
 /**
  * Whether `GET /api/background` has a fallback to serve when Unsplash is down

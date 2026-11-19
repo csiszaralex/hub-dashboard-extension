@@ -230,6 +230,18 @@ An unknown path answers `404` with `Not found`; an unhandled exception answers
 `500` with `Internal error` and logs the error. CORS headers are present on both
 under `/api/*`, so the extension can read the body cross-origin.
 
+## API compatibility
+
+The worker deploys as soon as an `api@*` tag is cut, while installed
+extensions update only once the Chrome Web Store publishes a new version, so
+they lag behind the worker by days to weeks. A response may therefore only gain
+optional fields; renaming, removing or retyping a field, or making a new one
+required, needs a new endpoint version that the old one keeps answering beside.
+The shapes and the guards the extension reads them with live in `@hub/shared`
+(`packages/shared/src/index.ts`), and
+[`src/contract.test.ts`](src/contract.test.ts) runs every endpoint through those
+guards, so a breaking change fails there first.
+
 ## Logging
 
 `[observability]` in `wrangler.toml` turns on

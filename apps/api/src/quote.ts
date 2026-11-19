@@ -1,4 +1,4 @@
-import { QuoteData } from '@hub/shared';
+import { QuoteData, type ErrorBody } from '@hub/shared';
 import { Hono } from 'hono';
 import { Bindings } from './bindings';
 import { MAX_QUOTE_LENGTH, normalizeCategory } from './citatum';
@@ -95,7 +95,7 @@ quoteRoutes.get('/api/quote', async (c) => {
       console.error('Stale-quote read failed:', kvError);
     }
 
-    return c.json({ error: 'No quote available' }, 503);
+    return c.json({ error: 'No quote available' } satisfies ErrorBody, 503);
   }
 
   // Caching is best-effort: a good quote we just resolved is still the right

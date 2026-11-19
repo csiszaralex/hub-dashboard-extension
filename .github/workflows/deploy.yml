@@ -41,10 +41,13 @@ jobs:
         run: pnpm nx run extension:pack
 
       - name: Upload to Chrome Web Store
-        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4 # v6.0.0
+        uses: mnao305/chrome-extension-upload@f549d5d654694a7722d6abfa64c97409ad5e64c1 # v7.0.0
         with:
           file-path: apps/extension/extension-release.zip
           extension-id: ${{ secrets.EXTENSION_ID }}
+          # Chrome Web Store API v2 addresses items under their publisher. An
+          # identifier, not a credential, so it is a variable, not a secret.
+          publisher-id: ${{ vars.CWS_PUBLISHER_ID }}
           client-id: ${{ secrets.CLIENT_ID }}
           client-secret: ${{ secrets.CLIENT_SECRET }}
           refresh-token: ${{ secrets.REFRESH_TOKEN }}

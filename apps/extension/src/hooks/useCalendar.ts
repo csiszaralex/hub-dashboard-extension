@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CalendarEvent } from '../types/calendar';
 import type { ICalendarList } from '../types/calendarList';
+import { schedulePageRefresh } from '../utils/pageRefresh';
 import {
   ask,
   CALENDAR_API,
@@ -11,6 +12,9 @@ import {
 
 /** How often an open tab asks Google again. */
 const REFRESH_MS = 30 * 60 * 1000;
+
+/** How old the events may be when a hidden tab becomes visible before it asks again. */
+const STALE_AFTER_MS = 5 * 60 * 1000;
 
 const DEFAULT_COLOR = '#3b82f6';
 
@@ -102,11 +106,14 @@ export const useCalendar = (
   const hasLoaded = useRef(false);
   /** Bumped by every round, so only the latest one commits — the timer, a retry and a login can overlap. */
   const roundId = useRef(0);
+  /** When the last successful round committed; 0 while there is none to rely on. */
+  const lastLoadedAt = useRef(0);
 
   /** Puts a finished round on screen; the only place that touches this hook's state. */
   const commit = useCallback((round: Round | NoToken, interactive: boolean) => {
     if (round.kind === 'ok') {
       hasLoaded.current = true;
+      lastLoadedAt.current = Date.now();
       setEvents(round.events);
       setRefreshFailed(false);
       setStatus('ready');
@@ -121,6 +128,7 @@ export const useCalendar = (
     if (round.kind === 'no-token' && interactive) return;
 
     hasLoaded.current = false;
+    lastLoadedAt.current = 0;
     setEvents([]);
     setRefreshFailed(false);
     // A timer finding no token after a rejection keeps saying why, rather than
@@ -151,10 +159,20 @@ export const useCalendar = (
       const round = await fetchCalendar(false, selectedCalendars);
       if (id === rounds.current) commit(round, false);
     };
+    // A new tab always loads once: nothing is kept between pages, because the
+    // privacy policy promises calendar data never reaches disk.
     void load();
-    const interval = setInterval(() => void load(), REFRESH_MS);
+    // Hidden tabs sit out the interval; a tab coming back asks again only when
+    // its last successful load is old enough to matter.
+    const stopRefreshing = schedulePageRefresh(
+      REFRESH_MS,
+      () => void load(),
+      () => {
+        if (Date.now() - lastLoadedAt.current > STALE_AFTER_MS) void load();
+      },
+    );
     return () => {
-      clearInterval(interval);
+      stopRefreshing();
       // An answer for the calendars being replaced must not land afterwards.
       rounds.current++;
     };

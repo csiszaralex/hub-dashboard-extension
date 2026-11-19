@@ -11,6 +11,7 @@ import { PomodoroWidget } from './components/PomodoroWidget';
 import { QuickNote } from './components/QuickNote';
 import { QuoteWidget } from './components/QuoteWidget';
 import { WeatherWidget } from './components/WeatherWidget';
+import { WelcomeCard } from './components/WelcomeCard';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { useBackground } from './hooks/useBackground';
 import { useQuote } from './hooks/useQuote';
@@ -26,16 +27,18 @@ function App() {
   const showWidget = (id: WidgetId) => isWidgetVisible(settings.hiddenWidgets, id);
   const { bgData, imageSrc, refreshBackground, loading: bgLoading } = useBackground();
   const { uiVisible, toggle } = useUiVisibility();
-  const { shouldShow, currentVersion, lastSeenVersion, dismiss } = useWhatsNew();
+  const { announcement, currentVersion, lastSeenVersion, dismiss } = useWhatsNew();
+  const showsReleaseNotes = announcement === 'releaseNotes';
   const { quote, refresh: refreshQuote, loading: quoteLoading } = useQuote();
   const { t } = useTranslation();
 
   // Counted out here rather than inside the modal: the clock and the quote are
   // siblings of that slot, not children of it. Over the same range the modal
   // will render, not the whole injected changelog — a user one small release
-  // behind should not have the dashboard blanked for two lines of fixes.
+  // behind should not have the dashboard blanked for two lines of fixes. The
+  // welcome card never hides them: it is short by design.
   const hidesBackdrop =
-    shouldShow &&
+    showsReleaseNotes &&
     countEntries(releasesSince(CHANGELOG, lastSeenVersion, currentVersion)) >=
       LONG_RELEASE_ENTRIES;
 
@@ -114,13 +117,17 @@ function App() {
             slot would keep the countdown, the timer and, for a long release,
             the clock and quote off the page.
           */}
-          {shouldShow ? (
+          {showsReleaseNotes ? (
             <ErrorBoundary name='WhatsNewModal' onError={dismiss}>
               <WhatsNewModal
                 version={currentVersion}
                 lastSeenVersion={lastSeenVersion}
                 onClose={dismiss}
               />
+            </ErrorBoundary>
+          ) : announcement === 'welcome' ? (
+            <ErrorBoundary name='WelcomeCard' onError={dismiss}>
+              <WelcomeCard onClose={dismiss} />
             </ErrorBoundary>
           ) : (
             <>

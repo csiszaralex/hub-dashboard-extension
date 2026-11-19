@@ -169,6 +169,14 @@
       "updatedDependencies": "Updated dependencies"
     }
   },
+  "welcome": {
+    "title": "Welcome to Hub",
+    "settings": "The gear button in the bottom left corner opens the settings.",
+    "toggle": "Press . to hide the interface and Esc to bring it back.",
+    "connect": "Connect your Google Calendar and Memos from the settings.",
+    "openSettings": "Open settings",
+    "close": "Close welcome"
+  },
   "background": {
     "photographerLabel": "Photo by {{name}} on Unsplash"
   },

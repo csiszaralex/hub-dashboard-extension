@@ -1,3 +1,9 @@
+## 2.10.2 (2026-11-19)
+
+### 🩹 Fixes
+
+- **extension:** stop hidden tabs from refetching weather and calendar ([2b15dfc](https://github.com/csiszaralex/hub-dashboard-extension/commit/2b15dfc))
+
 ## 2.10.1 (2026-11-19)
 
 ### 🩹 Fixes

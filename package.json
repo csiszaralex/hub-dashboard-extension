@@ -17,9 +17,9 @@
     "affected": "nx affected -t typecheck lint test build"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.5.0",
-    "@commitlint/config-nx-scopes": "^20.5.0",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@commitlint/config-nx-scopes": "^21.2.3",
     "@nx/js": "^22.6.1",
     "husky": "^9.1.7",
     "nx": "^23.1.0"

@@ -1,3 +1,9 @@
+## 2.12.4 (2026-11-20)
+
+### 🩹 Fixes
+
+- **extension:** set no state synchronously inside effects ([441978a](https://github.com/csiszaralex/hub-dashboard-extension/commit/441978a))
+
 ## 2.12.3 (2026-11-19)
 
 ### 🩹 Fixes

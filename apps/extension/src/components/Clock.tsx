@@ -36,11 +36,8 @@ export const Clock = () => {
           {hour}
         </span>
 
-        <span className='text-6xl md:text-7xl font-light text-white/50 mb-2 mx-1 animate-pulse'>
-          {/* : */}
-        </span>
-
-        <span className='text-8xl md:text-9xl font-light tracking-tighter text-white/90'>
+        {/* No separator glyph between the two: the gap alone splits hour and minute. */}
+        <span className='ml-2 text-8xl md:text-9xl font-light tracking-tighter text-white/90'>
           {minute}
         </span>
 

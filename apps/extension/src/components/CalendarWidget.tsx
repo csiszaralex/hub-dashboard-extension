@@ -85,7 +85,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
 
         {/* Bottom row: Time & Location */}
         <div
-          className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${isCurrent ? 'text-indigo-300' : isNext ? 'text-blue-300' : 'text-white/50'} truncate`}
+          className={`flex items-center gap-2 text-2xs font-bold uppercase tracking-wider ${isCurrent ? 'text-indigo-300' : isNext ? 'text-blue-300' : 'text-white/50'} truncate`}
         >
           <span className='shrink-0'>{timeDisplay}</span>
 
@@ -147,7 +147,7 @@ export const CalendarWidget = () => {
   if (status === 'needs-sign-in' || status === 'failed') {
     const needsSignIn = status === 'needs-sign-in';
     return (
-      <div className='absolute top-8 left-8 flex items-center gap-3 px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl'>
+      <div className='absolute top-edge left-edge flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
         <div className='p-1.5 bg-white/5 rounded-full text-amber-300'>
           <Calendar className='w-4 h-4' />
         </div>
@@ -169,17 +169,17 @@ export const CalendarWidget = () => {
   // A `status`, not an `alert`: the events are still on screen, so this
   // qualifies them rather than reporting that something is missing.
   const staleNote = refreshFailed && (
-    <p role='status' className='text-[10px] text-white/40'>
+    <p role='status' className='text-2xs text-white/40'>
       {t('calendar.refreshFailed')}
     </p>
   );
 
   if (status === 'signed-out') {
     return (
-      <div className='absolute top-8 left-8'>
+      <div className='absolute top-edge left-edge'>
         <button
           onClick={login}
-          className='flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all text-sm font-medium shadow-lg'
+          className='flex items-center gap-2 px-4 py-2 glass rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all text-sm font-medium shadow-lg'
         >
           <Calendar className='w-4 h-4' />
           <span>{t('calendar.attach')}</span>
@@ -190,13 +190,13 @@ export const CalendarWidget = () => {
 
   if (events.length === 0) {
     return (
-      <div className='absolute top-8 left-8 flex items-center gap-3 px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl'>
+      <div className='absolute top-edge left-edge flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
         <div className='p-1.5 bg-white/5 rounded-full text-emerald-400'>
           <Calendar className='w-4 h-4' />
         </div>
         <div>
           <p className='text-sm font-bold text-white/90'>{t('calendar.empty')}</p>
-          <p className='text-[10px] text-white/50 uppercase tracking-wider'>{t('calendar.flowState')}</p>
+          <p className='text-2xs text-white/50 uppercase tracking-wider'>{t('calendar.flowState')}</p>
           {staleNote}
         </div>
       </div>
@@ -204,7 +204,7 @@ export const CalendarWidget = () => {
   }
 
   return (
-    <div className='absolute top-8 left-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-2'>
+    <div className='absolute top-edge left-edge w-72 glass shadow-2xl p-3 flex flex-col gap-2'>
       {/* 1. ALL-DAY EVENTS */}
       {allDayEvents.length > 0 && (
         <div className='flex flex-wrap gap-1.5 pb-2 border-b border-white/5'>
@@ -218,7 +218,7 @@ export const CalendarWidget = () => {
                 className='w-1.5 h-1.5 rounded-full shrink-0'
                 style={{ backgroundColor: e.calendarColor }}
               ></div>
-              <span className='text-[11px] font-medium text-white/80 truncate' title={e.summary}>
+              <span className='text-2xs font-medium text-white/80 truncate' title={e.summary}>
                 {e.summary}
               </span>
             </div>

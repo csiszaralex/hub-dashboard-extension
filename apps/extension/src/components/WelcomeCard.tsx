@@ -41,7 +41,7 @@ export const WelcomeCard = ({ onClose }: Props) => {
     <section
       ref={cardRef}
       aria-labelledby={titleId}
-      className='flex flex-col gap-3 bg-black/20 backdrop-blur-md px-5 py-4 rounded-3xl border border-white/10 shadow-2xl max-w-md w-full'
+      className='flex flex-col gap-3 glass-subtle px-5 py-4 shadow-2xl max-w-md w-full'
     >
       <div className='flex items-center justify-between gap-6'>
         <div className='flex items-center gap-2.5'>

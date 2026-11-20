@@ -4,7 +4,8 @@ import type { HubSettings } from '../hooks/useSettings';
 import { toLanguage } from '../i18n/language';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { hintId } from './ariaIds';
-import { Field, inputCls } from './Field';
+import { inputCls } from './controlStyles';
+import { Field } from './Field';
 import { useSave } from './saveStatus';
 
 interface GeocodingAnswer {
@@ -92,7 +93,7 @@ export function WeatherSection({ settings }: { settings: HubSettings }) {
   };
 
   return (
-    <Field id='city' label={t('popup.weatherLocation')} hint={cityError ?? t('popup.weatherLocationHint')}>
+    <Field id='city' label={t('popup.weatherLocation')} hint={t('popup.weatherLocationHint')} error={cityError}>
       <input
         id='city'
         aria-describedby={hintId('city')}

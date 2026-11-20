@@ -13,7 +13,7 @@ export const WeatherWidget = () => {
 
   if (loading && !data) {
     return (
-      <div className='absolute top-8 right-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-3 animate-pulse'>
+      <div className='absolute top-edge right-edge w-72 glass shadow-2xl p-3 flex flex-col gap-3 animate-pulse'>
         {/* Header skeleton */}
         <div className='flex items-center gap-1.5 px-1'>
           <div className='w-3 h-3 bg-white/10 rounded-full' />
@@ -65,10 +65,10 @@ export const WeatherWidget = () => {
   const dateLocale = DATE_LOCALES[language];
 
   return (
-    <div className='group absolute top-8 right-8 w-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
+    <div className='group absolute top-edge right-edge w-72 glass shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
       {/* 1. SECTION: Header (Location & Refresh) */}
       <div className='flex justify-between items-center px-1'>
-        <div className='flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/50'>
+        <div className='flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wider text-white/50'>
           <MapPin className='w-3 h-3' />
           <span className='truncate max-w-40' title={data.city}>
             {data.city}
@@ -107,10 +107,10 @@ export const WeatherWidget = () => {
           <div className='flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/[0.07] transition-colors'>
             <Wind className='w-3.5 h-3.5 text-blue-300 shrink-0' />
             <div className='flex flex-col'>
-              <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
+              <span className='text-3xs uppercase font-bold text-white/40 tracking-wider'>
                 {t('weather.wind')}
               </span>
-              <span className='text-[11px] font-medium text-white/90'>
+              <span className='text-2xs font-medium text-white/90'>
                 {t('weather.windSpeed', { value: formatNumber(data.windSpeed, language) })}
               </span>
             </div>
@@ -120,10 +120,10 @@ export const WeatherWidget = () => {
           <div className='flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/[0.07] transition-colors'>
             <SolarIcon className={`w-3.5 h-3.5 shrink-0 ${nextSolarEvent.color}`} />
             <div className='flex flex-col'>
-              <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
+              <span className='text-3xs uppercase font-bold text-white/40 tracking-wider'>
                 {nextSolarEvent.label}
               </span>
-              <span className='text-[11px] font-medium text-white/90'>
+              <span className='text-2xs font-medium text-white/90'>
                 {formatTime(nextSolarEvent.time, language)}
               </span>
             </div>
@@ -134,10 +134,10 @@ export const WeatherWidget = () => {
         <div className='flex items-center gap-2.5 p-2 rounded-lg bg-white/5 hover:bg-white/[0.07] transition-colors'>
           <Umbrella className='w-3.5 h-3.5 text-indigo-300 shrink-0' />
           <div className='flex flex-col min-w-0'>
-            <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
+            <span className='text-3xs uppercase font-bold text-white/40 tracking-wider'>
               {t('weather.precipitation')}
             </span>
-            <span className='text-[11px] font-medium text-white/90 truncate'>
+            <span className='text-2xs font-medium text-white/90 truncate'>
               {!hasRain ? (
                 t('weather.noPrecipitation')
               ) : (
@@ -166,11 +166,11 @@ export const WeatherWidget = () => {
                 className='flex flex-col items-center gap-1 p-1.5 rounded-lg bg-white/5 hover:bg-white/[0.07] transition-colors'
                 title={format(parseISO(day.date), 'PPP', { locale: dateLocale })}
               >
-                <span className='text-[9px] uppercase font-bold text-white/40 tracking-wider'>
+                <span className='text-3xs uppercase font-bold text-white/40 tracking-wider'>
                   {format(parseISO(day.date), 'EEEEEE', { locale: dateLocale })}
                 </span>
                 <div className='scale-[0.7]'>{getWeatherIcon(day.code, true)}</div>
-                <span className='text-[10px] font-medium text-white/90'>
+                <span className='text-2xs font-medium text-white/90'>
                   {day.max}° <span className='text-white/40'>{day.min}°</span>
                 </span>
               </div>

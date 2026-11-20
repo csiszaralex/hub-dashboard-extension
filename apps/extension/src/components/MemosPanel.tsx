@@ -17,7 +17,7 @@ import {
 } from '../utils/memosFailureMessage';
 import { UndoLine } from './UndoLine';
 
-const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] text-white/50';
+const CHIP = 'shrink-0 px-1.5 py-0.5 rounded-full bg-white/10 text-2xs text-white/50';
 
 /**
  * A memo's own tags, beside its text.
@@ -151,7 +151,7 @@ export function MemosPanel({
       role='region'
       aria-label={t('memos.title')}
       tabIndex={-1}
-      className='w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col'
+      className='w-80 glass shadow-2xl overflow-hidden flex flex-col'
     >
       <div className='flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5'>
         <span className='text-xs font-bold text-white/70 uppercase tracking-widest'>
@@ -197,7 +197,7 @@ export function MemosPanel({
             type='button'
             aria-pressed={activeTag === null}
             onClick={() => onTagChange(null)}
-            className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
+            className={`px-2 py-0.5 rounded-full text-2xs transition-colors ${
               activeTag === null ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
             }`}
           >
@@ -209,7 +209,7 @@ export function MemosPanel({
               type='button'
               aria-pressed={activeTag === tag}
               onClick={() => onTagChange(tag)}
-              className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
+              className={`px-2 py-0.5 rounded-full text-2xs transition-colors ${
                 activeTag === tag ? 'bg-white text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
               }`}
             >
@@ -220,16 +220,11 @@ export function MemosPanel({
       )}
 
       {/*
-        Styled through the standard `scrollbar-width` and `scrollbar-color`
-        properties, as `WhatsNewModal` does. The `scrollbar-thin` and
-        `scrollbar-thumb-*` classes this carried before come from a Tailwind
-        plugin this project does not have, so they named nothing and the panel
-        fell back to the platform scrollbar: an opaque light-grey bar with a
-        solid track, the one piece of unstyled OS chrome in a translucent dark
-        interface. The rows keep their own `px-4`, so the bar still sits
-        against the panel edge.
+        `scrollbar-subtle` (index.css), the same scrollbar as `WhatsNewModal`.
+        The rows keep their own `px-4`, so the bar still sits against the panel
+        edge.
       */}
-      <div className='max-h-64 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'>
+      <div className='max-h-64 overflow-y-auto scrollbar-subtle'>
         {hasRows ? (
           rows.map((row) => {
             if (row.kind === 'archived') {
@@ -280,7 +275,7 @@ export function MemosPanel({
         in the compact view they have since left behind by expanding.
       */}
       {failure && (
-        <p role='alert' className='px-4 py-1.5 text-[10px] text-white/40 border-t border-white/5'>
+        <p role='alert' className='px-4 py-1.5 text-2xs text-white/40 border-t border-white/5'>
           {t(failureMessageKey(failure, hasRows))}
         </p>
       )}
@@ -291,7 +286,7 @@ export function MemosPanel({
         leave a failed Add looking exactly like nothing happened.
       */}
       {writeFailure && (
-        <p role='alert' className='px-4 py-1.5 text-[10px] text-white/60 border-t border-white/5'>
+        <p role='alert' className='px-4 py-1.5 text-2xs text-white/60 border-t border-white/5'>
           {t(writeFailureMessageKey(writeFailure))}
         </p>
       )}
@@ -314,7 +309,7 @@ export function MemosPanel({
         className='flex items-center gap-2 px-3 py-2.5 border-t border-white/5 bg-white/5'
       >
         {activeTag && (
-          <span className='shrink-0 px-1.5 py-0.5 rounded bg-white/15 text-[10px] text-white/70'>
+          <span className='shrink-0 px-1.5 py-0.5 rounded bg-white/15 text-2xs text-white/70'>
             {activeTag}
           </span>
         )}
@@ -330,7 +325,7 @@ export function MemosPanel({
         <button
           type='submit'
           disabled={submitting || !draft.trim()}
-          className='shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/60 hover:text-white disabled:opacity-30 transition-colors'
+          className='shrink-0 text-2xs font-semibold uppercase tracking-wide text-white/60 hover:text-white disabled:opacity-30 transition-colors'
         >
           {submitting ? t('memos.submitting') : t('memos.submit')}
         </button>

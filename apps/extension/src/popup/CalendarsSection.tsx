@@ -6,7 +6,7 @@ import {
   type CalendarListEntry,
   type CalendarListResult,
 } from '../utils/googleCalendar';
-import { labelCls, sectionCls } from './Field';
+import { checkboxCls, errorCls, hintCls, labelCls, sectionCls } from './controlStyles';
 import { useSave } from './saveStatus';
 
 /**
@@ -82,20 +82,19 @@ export function CalendarsSection({ settings }: { settings: HubSettings }) {
         <button
           type='button'
           onClick={() => void signIn()}
-          className='text-[10px] font-medium bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded transition-colors shrink-0'
+          className='text-2xs font-medium bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded transition-colors shrink-0'
         >
           {t('popup.googleLogin')}
         </button>
       </div>
+      {/* An alert: a failed list or sign-in is reported nowhere else. */}
       {list.kind === 'error' && (
-        <p className='text-[10px] text-red-400 bg-red-500/10 p-2 rounded'>{list.message}</p>
+        <p role='alert' className={errorCls}>
+          {list.message}
+        </p>
       )}
-      {list.kind === 'loading' && (
-        <p className='text-[10px] text-white/40 italic'>{t('popup.loadingCalendars')}</p>
-      )}
-      {list.kind === 'signed-out' && (
-        <p className='text-[10px] text-white/40'>{t('popup.calendarsSignedOut')}</p>
-      )}
+      {list.kind === 'loading' && <p className={`${hintCls} italic`}>{t('popup.loadingCalendars')}</p>}
+      {list.kind === 'signed-out' && <p className={hintCls}>{t('popup.calendarsSignedOut')}</p>}
       {list.kind === 'ready' && (
         <div className='flex flex-col gap-0.5 min-w-0'>
           {list.calendars.map((cal) => (
@@ -107,7 +106,7 @@ export function CalendarsSection({ settings }: { settings: HubSettings }) {
                 type='checkbox'
                 checked={selected.includes(cal.id)}
                 onChange={() => toggle(cal.id)}
-                className='accent-white/70 w-3.5 h-3.5 rounded border-white/20 bg-zinc-900 cursor-pointer shrink-0'
+                className={checkboxCls}
               />
               <div
                 className='w-2.5 h-2.5 rounded-full shrink-0'

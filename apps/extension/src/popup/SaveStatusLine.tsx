@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { errorCls } from './controlStyles';
 import type { SaveStatus } from './saveStatus';
 
 /**
@@ -17,12 +18,12 @@ import type { SaveStatus } from './saveStatus';
 export function SaveStatusLine({ status }: { status: SaveStatus }) {
   const { t } = useTranslation();
   return (
-    <div className='sticky bottom-0 min-h-5 bg-zinc-950 py-1 text-[10px]'>
+    <div className='sticky bottom-0 min-h-5 bg-zinc-950 py-1 text-2xs'>
       <p role='status' aria-live='polite' className='text-emerald-300/80'>
         {status.kind === 'saved' ? t('popup.saved') : ''}
       </p>
       {status.kind === 'error' && (
-        <p role='alert' className='text-red-300/80'>
+        <p role='alert' className={errorCls}>
           {status.message}
         </p>
       )}

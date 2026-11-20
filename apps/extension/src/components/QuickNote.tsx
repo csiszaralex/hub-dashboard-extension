@@ -28,7 +28,7 @@ export const QuickNote = () => {
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className='absolute bottom-8 right-8 z-30 flex flex-col items-end'>
+    <div ref={containerRef} className='absolute bottom-edge right-edge z-30 flex flex-col items-end'>
       {/*
         Note panel (animated appearance). `inert` while closed, because the
         fade leaves the textarea and the delete button in the Tab order and in
@@ -38,7 +38,7 @@ export const QuickNote = () => {
         id={panelId}
         inert={!isOpen}
         className={`
-          mb-4 w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right
+          mb-4 w-80 glass shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right
           ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none absolute'}
         `}
       >

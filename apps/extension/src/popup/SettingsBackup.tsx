@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { buildBackup, countChangedSettings, parseBackup } from '../utils/settingsBackup';
+import { buttonCls as baseButtonCls } from './controlStyles';
 import { Field } from './Field';
 
-const buttonCls =
-  'flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-colors bg-white/10 hover:bg-white/20';
+const buttonCls = `${baseButtonCls} flex-1`;
 
 interface Props {
   settings: HubSettings;
@@ -89,7 +89,9 @@ export function SettingsBackup({ settings, onImport }: Props) {
   };
 
   return (
-    <Field label={t('popup.backup')} hint={error ?? t('popup.backupHint')}>
+    // An alert of its own: an import goes through `onImport`, not `useSave`,
+    // so the status line never hears of its failure.
+    <Field label={t('popup.backup')} hint={t('popup.backupHint')} error={error} announceError>
       <div className='flex gap-2'>
         <button type='button' onClick={handleExport} className={buttonCls}>
           {t('popup.backupExport')}

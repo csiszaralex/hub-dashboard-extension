@@ -112,7 +112,7 @@ export const WhatsNewModal = ({
       aria-labelledby={`${titleId} ${versionId}`}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
-      className='flex flex-col bg-black/20 backdrop-blur-md py-4 rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full max-h-[calc(100vh-5rem)]'
+      className='flex flex-col glass-subtle py-4 shadow-2xl max-w-lg w-full max-h-[calc(100vh-5rem)]'
     >
       {/* Header */}
       <div className='flex items-center justify-between gap-6 px-5'>
@@ -152,12 +152,8 @@ export const WhatsNewModal = ({
         // push the modal past its own `max-h` instead of scrolling inside it.
         // The same rule that clipped the settings tab strip, one axis over.
         //
-        // The scrollbar is styled through the standard `scrollbar-width` and
-        // `scrollbar-color` properties rather than `::-webkit-scrollbar`:
-        // Chrome has supported them since 121 and they need no vendor-prefixed
-        // pseudo-element rules in the stylesheet. Left at the platform default
-        // it renders as an opaque light-grey bar with a solid track — the one
-        // piece of unstyled OS chrome in a translucent, dark interface.
+        // The scrollbar is `scrollbar-subtle` (index.css), shared with the
+        // Memos panel.
         //
         // `pl-5` matches the header; `pr-1.5` is all that separates the
         // scrollbar from the panel edge, which is the point of moving the
@@ -179,12 +175,12 @@ export const WhatsNewModal = ({
             role='region'
             aria-labelledby={`${titleId} ${versionId}`}
             tabIndex={0}
-            className='pt-3 space-y-4 min-h-0 overflow-y-auto pl-5 pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]'
+            className='pt-3 space-y-4 min-h-0 overflow-y-auto pl-5 pr-1.5 scrollbar-subtle'
           >
             {releases.map((release) => (
               <div key={release.version} className='space-y-3'>
                 {showVersions && (
-                  <p className='text-[11px] font-bold text-white/70 tracking-wide'>
+                  <p className='text-2xs font-bold text-white/70 tracking-wide'>
                     {`v${release.version}`}
                   </p>
                 )}

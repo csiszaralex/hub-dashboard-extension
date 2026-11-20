@@ -7,6 +7,47 @@
   font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
 }
 
+/* Values that were typed per component and had drifted apart. Each one here
+   generates its utilities (`text-2xs`, `top-edge`, ...), so a widget names the
+   step instead of choosing a number. */
+@theme {
+  /* Two steps below `text-xs` (12px) for labels, chips and status lines: 10px
+     for most of them, 9px for the densest (the popup's tab labels, the weather
+     tiles' captions). The line height is the 1.5 the arbitrary sizes inherited
+     from the root, so replacing them moves nothing vertically. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 1.5;
+  --text-3xs: 0.5625rem;
+  --text-3xs--line-height: 1.5;
+
+  /* How far the corner widgets (calendar, weather, note, memos) sit from the
+     viewport edge. */
+  --spacing-edge: 2rem;
+}
+
+/* The two translucent surfaces every panel on the new tab page is made of.
+   `glass` for the corner widgets' panels, `glass-subtle` for the cards in the
+   top slot (countdown, focus timer, welcome, release notes), which sit over
+   the clock area and are lighter so the photo still reads through. Elevation
+   (`shadow-*`) stays with each component, since it varies with the panel's
+   size. */
+@utility glass {
+  @apply bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl;
+}
+
+@utility glass-subtle {
+  @apply bg-black/20 backdrop-blur-md border border-white/10 rounded-3xl;
+}
+
+/* A thin, translucent scrollbar for the scrolling panels. Tailwind's
+   `scrollbar-*` utilities set the standard `scrollbar-width` and
+   `scrollbar-color` properties (Chrome 121+). Left at the platform default it
+   is an opaque light-grey bar with a solid track, the one piece of unstyled OS
+   chrome in a dark, translucent interface. */
+@utility scrollbar-subtle {
+  @apply scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent;
+}
+
 /* For text drawn straight onto the photo: a tight shadow that outlines each
    glyph plus a soft one that darkens the area behind it, so white text stays
    readable over snow, sky or a bright upload even with the dim set to zero.

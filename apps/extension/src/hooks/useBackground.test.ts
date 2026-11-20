@@ -9,6 +9,22 @@ const CACHE_KEY = 'daily_bg_data';
 // same clean slate a fresh page load would give it.
 const loadUseBackground = async () => (await import('./useBackground')).useBackground;
 
+/**
+ * Every test here runs on a 1920×1080 @1 screen, which `widthBucketFor` puts in
+ * the 1920 bucket, so a URL the page downloads or caches carries these values.
+ * Written out rather than computed with `backgroundImageUrl`, so a change to
+ * the rewrite cannot also change what these tests expect.
+ */
+const sized = (url: string) => `${url}?w=1920&q=80`;
+const PREFETCHED_URL = sized('https://images.unsplash.com/prefetched');
+
+const stubScreen = (width: number, devicePixelRatio: number) => {
+  vi.stubGlobal('screen', { width, height: Math.round((width * 9) / 16) });
+  vi.stubGlobal('devicePixelRatio', devicePixelRatio);
+};
+
+beforeEach(() => stubScreen(1920, 1));
+
 const today = () => new Date().toISOString().split('T')[0];
 
 const tomorrow = () => {
@@ -84,7 +100,7 @@ const stubOfflineFetch = () =>
  * Puts a prefetched image's bytes into the cache, the way the service worker
  * does before it writes the pointer. A packet without them is not adoptable.
  */
-const seedPrefetchedBytes = async (url = 'https://images.unsplash.com/prefetched') => {
+const seedPrefetchedBytes = async (url = PREFETCHED_URL) => {
   const { IMAGE_CACHE_NAME } = await import('../utils/imageCache');
   const cache = await caches.open(IMAGE_CACHE_NAME);
   await cache.put(url, new Response(new Blob(['image-bytes'], { type: 'image/jpeg' })));
@@ -153,6 +169,9 @@ describe('useBackground when the worker never answers', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.bgData.url).toContain('images.unsplash.com');
+    // The fallback is sized for the screen like every other photo.
+    const params = new URL(result.current.bgData.url).searchParams;
+    expect([params.get('w'), params.get('q')]).toEqual(['1920', '80']);
     expect(result.current.bgData.photographer).toBe('');
   });
 });
@@ -366,7 +385,7 @@ describe('useBackground', () => {
         date: today(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -391,7 +410,7 @@ describe('useBackground', () => {
         date: today(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -415,7 +434,7 @@ describe('useBackground', () => {
         date: today(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -442,7 +461,7 @@ describe('useBackground', () => {
         date: today(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -473,7 +492,7 @@ describe('useBackground', () => {
         date: today(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -507,7 +526,7 @@ describe('useBackground', () => {
         date: today(),
         query: DEFAULT_SETTINGS.unsplashQuery,
         data: {
-          url: 'https://images.unsplash.com/prefetched',
+          url: PREFETCHED_URL,
           location: null,
           photographer: 'Prefetched',
           photographerUrl: '',
@@ -536,7 +555,7 @@ describe('useBackground', () => {
         date: tomorrow(),
         query: 'forest',
         data: {
-          url: 'https://images.unsplash.com/tomorrow',
+          url: sized('https://images.unsplash.com/tomorrow'),
           location: null,
           photographer: 'Tomorrow',
           photographerUrl: '',
@@ -546,17 +565,80 @@ describe('useBackground', () => {
     stubFetch();
     const { IMAGE_CACHE_NAME } = await import('../utils/imageCache');
     const cache = await caches.open(IMAGE_CACHE_NAME);
-    await cache.put('https://images.unsplash.com/tomorrow', new Response(new Blob(['bytes'])));
+    await cache.put(sized('https://images.unsplash.com/tomorrow'), new Response(new Blob(['bytes'])));
     const useBackground = await loadUseBackground();
 
     const { result } = renderHook(() => useBackground());
 
     await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
     await waitFor(async () =>
-      expect(await cache.match('https://images.unsplash.com/fresh')).toBeDefined(),
+      expect(await cache.match(sized('https://images.unsplash.com/fresh'))).toBeDefined(),
     );
-    expect(await cache.match('https://images.unsplash.com/tomorrow')).toBeDefined();
+    expect(await cache.match(sized('https://images.unsplash.com/tomorrow'))).toBeDefined();
     expect(chromeStub.readLocal('prefetched_bg')).toBeTruthy();
+  });
+
+  it('adopts what the service worker prefetched without downloading the image again', async () => {
+    // The real prefetch, not a hand-built packet: the URL the worker caches and
+    // the one the page looks up are produced by two call sites, and only
+    // running both shows they agree.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({ bg_width_bucket: 1920 });
+    const fetchMock = stubFetch();
+    const { prefetchBackground } = await import('../utils/prefetch');
+    expect(await prefetchBackground('forest', today())).toBe(true);
+    const downloadsBefore = fetchMock.mock.calls.length;
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.url).toBe(sized('https://images.unsplash.com/fresh')));
+    await waitFor(() => expect(isLocal(result.current.imageSrc)).toBe(true));
+    expect(fetchMock.mock.calls.length).toBe(downloadsBefore);
+    expect(chromeStub.readLocal('prefetched_bg')).toBeUndefined();
+  });
+
+  it.each([
+    ['another bucket', 'https://images.unsplash.com/prefetched?w=3840&q=85'],
+    ['a version that predates the buckets', 'https://images.unsplash.com/prefetched?w=3840&q=90&fm=jpg&fit=crop'],
+  ])('does not adopt a prefetched image sized for %s', async (_label, url) => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest' });
+    chromeStub.seedLocal({
+      prefetched_bg: {
+        date: today(),
+        query: 'forest',
+        data: { url, location: null, photographer: 'Prefetched', photographerUrl: '' },
+      },
+    });
+    const cache = await seedPrefetchedBytes(url);
+    const fetchMock = stubFetch();
+    const useBackground = await loadUseBackground();
+
+    const { result } = renderHook(() => useBackground());
+
+    await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh'));
+    expect(backgroundRequests(fetchMock)).toHaveLength(1);
+    await waitFor(() => expect(chromeStub.readLocal('prefetched_bg')).toBeUndefined());
+    // The oversized copy goes the ordinary way, with the next prune.
+    await waitFor(async () => expect(await cache.match(url)).toBeUndefined());
+  });
+
+  it.each([
+    [1366, 1, 1920],
+    [1920, 1, 1920],
+    [1440, 2, 3840],
+    [1280, 1, 1280],
+  ])('records the bucket of a %ipx @%i screen for the service worker', async (width, ratio, bucket) => {
+    stubScreen(width, ratio);
+    const chromeStub = installChromeStub();
+    stubFetch();
+    const useBackground = await loadUseBackground();
+
+    renderHook(() => useBackground());
+
+    await waitFor(() => expect(chromeStub.readLocal('bg_width_bucket')).toBe(bucket));
   });
 });
 
@@ -595,7 +677,7 @@ describe('useBackground image source', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every(isLocal)).toBe(true);
     // Downloaded once, for the cache, rather than a second time for display.
-    expect(requestsFor(fetchMock, 'https://images.unsplash.com/rotation-2')).toHaveLength(1);
+    expect(requestsFor(fetchMock, sized('https://images.unsplash.com/rotation-2'))).toHaveLength(1);
   });
 
   it('revokes every object URL exactly once, after its replacement is on screen, and on unmount', async () => {
@@ -668,7 +750,7 @@ describe('useBackground image source', () => {
 
     await waitFor(() => expect(result.current.bgData.photographer).toBe('Fresh 1'));
     await waitFor(() =>
-      expect(result.current.imageSrc).toBe('https://images.unsplash.com/rotation-1'),
+      expect(result.current.imageSrc).toBe(sized('https://images.unsplash.com/rotation-1')),
     );
   });
 

@@ -33,7 +33,8 @@ describe('prefetchBackground', () => {
     expect(await readPrefetch()).toEqual({
       date: '2026-08-01',
       query: 'forest',
-      data: metadata,
+      // Sized for `DEFAULT_WIDTH_BUCKET`: nothing recorded a bucket here.
+      data: { ...metadata, url: `${metadata.url}?w=1920&q=80` },
     });
   });
 
@@ -44,7 +45,36 @@ describe('prefetchBackground', () => {
 
     await prefetchBackground('forest', '2026-08-01');
 
-    expect(fetchMock.mock.calls.some(([i]) => String(i) === metadata.url)).toBe(true);
+    expect(fetchMock.mock.calls.some(([i]) => String(i) === `${metadata.url}?w=1920&q=80`)).toBe(
+      true,
+    );
+  });
+
+  it('caches, and points the page at, the image sized for the recorded bucket', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedLocal({ bg_width_bucket: 3840 });
+    const fetchMock = stubFetch();
+    const { prefetchBackground, readPrefetch } = await load();
+    const { IMAGE_CACHE_NAME } = await import('./imageCache');
+
+    await prefetchBackground('forest', '2026-08-01');
+
+    const sized = `${metadata.url}?w=3840&q=85`;
+    expect((await readPrefetch())?.data.url).toBe(sized);
+    expect(await (await caches.open(IMAGE_CACHE_NAME)).match(sized)).toBeDefined();
+    // Only the sized copy is downloaded, never the URL the API answered with.
+    expect(fetchMock.mock.calls.some(([i]) => String(i) === metadata.url)).toBe(false);
+  });
+
+  it('ignores a stored bucket that is not one of the buckets', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedLocal({ bg_width_bucket: 99999 });
+    stubFetch();
+    const { prefetchBackground, readPrefetch } = await load();
+
+    await prefetchBackground('forest', '2026-08-01');
+
+    expect((await readPrefetch())?.data.url).toBe(`${metadata.url}?w=1920&q=80`);
   });
 
   it.each([

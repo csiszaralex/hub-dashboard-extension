@@ -143,12 +143,32 @@ describe('background service worker', () => {
       date: tomorrow(),
       query: 'forest',
       data: {
-        url: 'https://images.unsplash.com/tomorrow',
+        // No page has recorded a width bucket yet, so the worker sizes for
+        // `DEFAULT_WIDTH_BUCKET`.
+        url: 'https://images.unsplash.com/tomorrow?w=1920&q=80',
         location: null,
         photographer: 'Tomorrow',
         photographerUrl: '',
       },
     });
+  });
+
+  it('prefetches at the width bucket a page recorded', async () => {
+    // The worker has no screen of its own; the bucket is the page's to measure.
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ unsplashQuery: 'forest', backgroundSource: 'unsplash' });
+    chromeStub.seedLocal({ bg_width_bucket: 2560 });
+    const fetchMock = stubFetch();
+    await loadBackground();
+    chromeStub.fireInstalled('install');
+    await settle();
+
+    chromeStub.fireAlarm(PREFETCH_ALARM);
+    await settle();
+
+    const sizedUrl = 'https://images.unsplash.com/tomorrow?w=2560&q=80';
+    expect(chromeStub.readLocal(PREFETCH_KEY)).toMatchObject({ data: { url: sizedUrl } });
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === sizedUrl)).toBe(true);
   });
 
   it('prefetches with the default query when the settings were never saved', async () => {

@@ -36,7 +36,7 @@ Hub uses your browser's storage to save:
 
 - Your preferences — background search tags, background source (Unsplash photos or a custom image), background dimming level, weather location, selected calendars, countdown target, focus timer lengths, which widgets are hidden, language, the quote source and quote category you chose, any quotes of your own that you entered, and the Memos server address and default Memos tag — via `chrome.storage.sync`, which Chrome synchronises across devices where you are signed in.
 - Your quick notes, in `localStorage` on the device only.
-- Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
+- Cached content in `localStorage` (the daily quote, weather, and background image metadata) and the background image itself in the browser's Cache storage, to avoid re-downloading it. Which of four image widths (1280, 1920, 2560 or 3840 pixels) suits your screen is kept in `chrome.storage.local` on the device only, so the daily prefetch downloads the image at that size. If you choose to use your own image as the background instead of an Unsplash photo, that file is stored in this same Cache storage, entirely on your device, and is never uploaded anywhere.
 - If you connect the Memos widget, in `chrome.storage.local` on that device only: up to 200 of your own most recent memos, including their content, so the widget can show them when your Memos server cannot be reached; any memo you wrote that could not be sent, kept as a draft; the name of the Memos account you connected, the address of the server it is connected to, and a note of when that server was last contacted and whether the attempt failed. These sit alongside the access token described in section 6 and, like it, are never synchronised.
 
 Hub does not store any API keys of its own on your device; the only credential it keeps is the Memos access token you enter yourself, described in section 6. This data is stored solely on your device (plus Chrome Sync, for preferences) and can be cleared at any time by uninstalling the extension or clearing your browser data.
@@ -77,7 +77,7 @@ Daily quotes come through the same Worker, unless you chose to show your own quo
 
 Hub interacts with the following third-party APIs to fetch content. When the extension itself makes a request to one of these services, your IP address and standard browser headers are exposed to it as part of normal web traffic:
 
-- **Unsplash:** Background images. The extension downloads the image files from `images.unsplash.com`; the search itself goes through the Hub API described above.
+- **Unsplash:** Background images. The extension downloads the image files from `images.unsplash.com`, asking for one of four widths chosen from your screen size so that a smaller screen downloads a smaller file; the search itself goes through the Hub API described above.
 - **Google Calendar API:** Used to fetch your schedule.
 - **Open-Meteo:** Weather forecasts, and city lookup when you type a city name in the settings.
 - **BigDataCloud:** Turns coordinates into a place name for the weather widget.

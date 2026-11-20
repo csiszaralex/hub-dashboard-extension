@@ -22,7 +22,38 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+    # A package joins the first group that matches it. The toolchain that
+    # builds, tests and ships the code gets its own pull request, so a change
+    # there is reviewed on its own instead of hiding among routine bumps; the
+    # first run bundled the CRXJS beta-to-stable move with 28 small updates.
     groups:
+      toolchain:
+        patterns:
+          - 'vite'
+          - '@vitejs/*'
+          - '@crxjs/*'
+          - 'vitest'
+          - 'happy-dom'
+          - 'typescript'
+          - 'typescript-eslint'
+          - 'eslint'
+          - '@eslint/*'
+          - 'nx'
+          - '@nx/*'
+          - 'wrangler'
+          - '@cloudflare/*'
+      runtime:
+        # What ships to users: a change here is seen on every new tab.
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - 'i18next'
+          - 'react-i18next'
+          - 'lucide-react'
+          - 'date-fns'
+          - 'tailwindcss'
+          - '@tailwindcss/*'
+          - 'hono'
       dependencies:
         patterns: ['*']
     commit-message:

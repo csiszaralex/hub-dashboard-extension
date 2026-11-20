@@ -113,43 +113,46 @@ export default defineConfig(({ mode }) => {
       // Preloading buys almost nothing here anyway: these are local files read
       // off disk, with no network round trip to hide.
       modulePreload: false,
-    },
-    esbuild: {
-      // `drop: ['console']` used to sit here, and it took `console.error` and
-      // `console.warn` with it: every defensive path in `imageCache`,
-      // `prefetch`, `useBackground`, `useQuote`, `useWeather` and the service
-      // worker went silent in exactly the build where a fault is hardest to
-      // reproduce. A user reporting a blank background could not tell us why,
-      // and neither could their console.
-      //
-      // `pure` expresses the distinction `drop` cannot. It marks these calls as
-      // free of side effects, so the minifier removes every one whose result is
-      // unused — which is all of them — while `console.error` and
-      // `console.warn`, deliberately absent from the list, survive into the
-      // shipped bundle. This does lean on minification: it is on for
-      // `vite build` (`build.minify` defaults to esbuild) and off for
-      // `vite serve`, where every level should be logging anyway.
-      drop: ['debugger'],
-      pure: [
-        'console.log',
-        'console.debug',
-        'console.info',
-        'console.trace',
-        'console.dir',
-        'console.table',
-        'console.group',
-        'console.groupCollapsed',
-        'console.groupEnd',
-        'console.time',
-        'console.timeEnd',
-        'console.timeLog',
-        'console.count',
-      ],
+      rolldownOptions: {
+        treeshake: {
+          // `drop: ['console']` used to sit in the esbuild options, and it took
+          // `console.error` and `console.warn` with it: every defensive path in
+          // `imageCache`, `prefetch`, `useBackground`, `useQuote`, `useWeather`
+          // and the service worker went silent in exactly the build where a
+          // fault is hardest to reproduce. A user reporting a blank background
+          // could not tell us why, and neither could their console.
+          //
+          // Marking these calls pure expresses the distinction `drop` cannot:
+          // the bundler removes every one whose result is unused — which is all
+          // of them — while `console.error` and `console.warn`, deliberately
+          // absent from the list, survive into the shipped bundle. Vite 8 no
+          // longer passes `esbuild.pure` to anything, so the list lives here,
+          // where Rolldown applies it on `vite build` only; `vite serve`, where
+          // every level should be logging anyway, never bundles. The old
+          // `drop: ['debugger']` needs no successor: the Oxc minifier drops
+          // `debugger` statements by default.
+          manualPureFunctions: [
+            'console.log',
+            'console.debug',
+            'console.info',
+            'console.trace',
+            'console.dir',
+            'console.table',
+            'console.group',
+            'console.groupCollapsed',
+            'console.groupEnd',
+            'console.time',
+            'console.timeEnd',
+            'console.timeLog',
+            'console.count',
+          ],
+        },
+      },
     },
     server: {
       port: 5173,
       strictPort: true,
-      hmr: {
+      ws: {
         port: 5173,
         clientPort: 5173,
       },

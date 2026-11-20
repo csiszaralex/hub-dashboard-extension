@@ -173,4 +173,5 @@ Unsplash's API guidelines are load-bearing here: the worker pings each photo's `
 - Use `nx-workspace` skill to explore projects and targets
 - Use `nx-generate` skill before any scaffolding task
 - Never guess CLI flags — check `--help` or `nx_docs` first
+- Run `nx migrate --run-migrations` with `--agentic=false --create-commits=false`. From Nx 24 it switches to an agent mode by default when it detects an AI agent, and that mode commits on its own (`chore: [nx migration] checkpoint`, untracked files included), which skips the commit review this repo relies on.
 - See `AGENTS.md` for full Nx guidelines

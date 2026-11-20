@@ -222,9 +222,10 @@ export function MemosPanel({
       {/*
         `scrollbar-subtle` (index.css), the same scrollbar as `WhatsNewModal`.
         The rows keep their own `px-4`, so the bar still sits against the panel
-        edge.
+        edge. Shorter in a short window (`short`, index.css), where the full
+        list would push the dashboard's rows past the bottom of the screen.
       */}
-      <div className='max-h-64 overflow-y-auto scrollbar-subtle'>
+      <div className='max-h-64 short:max-h-32 overflow-y-auto scrollbar-subtle'>
         {hasRows ? (
           rows.map((row) => {
             if (row.kind === 'archived') {

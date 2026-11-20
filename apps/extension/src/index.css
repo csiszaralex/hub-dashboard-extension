@@ -21,8 +21,49 @@
   --text-3xs--line-height: 1.5;
 
   /* How far the corner widgets (calendar, weather, note, memos) sit from the
-     viewport edge. */
+     viewport edge: the padding of the wide layout shell (`shell-grid`). */
   --spacing-edge: 2rem;
+
+  /* Where the new tab page switches from one scrolling column to the three
+     columns of `shell-grid`. Two 20rem side columns and two `edge` insets
+     leave 36rem for the centre at 80rem, enough for the countdown card (about
+     32rem from its classes) between the calendar and the weather. Any
+     narrower and the card would reach into them. */
+  --breakpoint-wide: 80rem;
+}
+
+/* A short window (a laptop with the browser's own chrome, a half-height tile):
+   panels that can grow tall cap themselves so the row they sit in does not
+   push the rest of the dashboard off the screen. */
+@custom-variant short (@media (height < 700px));
+
+/* The new tab page's layout shell (`App`). Each widget sits in a named area
+   instead of pinning itself to a corner, so two widgets can no longer be drawn
+   over each other: a taller one pushes its row instead. The area names here
+   and `ShellArea` in `App.tsx` must agree; a cell whose name matches no area
+   is auto-placed at the end.
+
+   Narrow: one column, in the order a small window should show things, clock
+   first. It scrolls inside the layer, and the credits stay below it. */
+@utility shell-stack {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'clock' 'top' 'calendar' 'weather' 'memos' 'note' 'quote';
+}
+
+/* Wide: three columns and four rows. The side columns are as wide as the
+   widest corner panel (`w-80`: the open Memos panel and note) and equal, so
+   the clock stays on the page's centre line whatever opens beside it. The
+   two `1fr` rows share the height left over by the clock and the credits
+   evenly, which centres the clock; calendar and weather span down beside it,
+   so a long event list does not push it. */
+@utility shell-grid {
+  grid-template-columns: 20rem minmax(0, 1fr) 20rem;
+  grid-template-rows: 1fr auto 1fr auto;
+  grid-template-areas:
+    'calendar top   weather'
+    'calendar clock weather'
+    'memos    quote note'
+    'credits  quote hint';
 }
 
 /* The two translucent surfaces every panel on the new tab page is made of.

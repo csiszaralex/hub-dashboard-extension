@@ -20,7 +20,7 @@ export const QuoteWidget = ({ quote, loading, onRefresh }: Props) => {
   if (!quote) return null;
 
   return (
-    <div className='absolute bottom-5 left-1/2 -translate-x-1/2 text-center max-w-3xl w-full px-6 group cursor-default select-none text-legible'>
+    <div className='text-center max-w-3xl w-full px-6 group cursor-default select-none text-legible'>
       <p className='text-xl md:text-2xl font-light text-white/90 leading-relaxed tracking-wide italic transition-all duration-500 group-hover:text-white'>
         {/* The marks are the language's own: Hungarian opens low, „like this”. */}
         {t('quote.quoted', { text: quote.text })}

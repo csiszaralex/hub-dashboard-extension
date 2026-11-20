@@ -69,7 +69,7 @@ export function TabNav({ active, onChange }: { active: TabId; onChange: (tab: Ta
     // `min-w-0` on each cell is what makes that permanent rather than lucky. A
     // grid item's `min-width: auto` also resolves to its min-content width, so
     // without the override the widest label still governs the column: at
-    // `text-[9px]` "BACKGROUND" is about 62px inside a ~69px cell, and a single
+    // `text-3xs` (9px) "BACKGROUND" is about 62px inside a ~69px cell, and a single
     // longer translation puts the row back over the edge and straight back
     // under this `overflow-hidden` — the exact failure that hid the Widgets tab,
     // and with it the whole widget-visibility feature, until a user reported it.
@@ -98,7 +98,7 @@ export function TabNav({ active, onChange }: { active: TabId; onChange: (tab: Ta
           tabIndex={active === id ? 0 : -1}
           onClick={() => onChange(id)}
           onKeyDown={(event) => handleKeyDown(event, index)}
-          className={`flex flex-col items-center gap-1 py-2 px-1 min-w-0 transition-colors text-[9px] font-semibold tracking-wide uppercase ${
+          className={`flex flex-col items-center gap-1 py-2 px-1 min-w-0 transition-colors text-3xs font-semibold tracking-wide uppercase ${
             active === id
               ? 'bg-white/15 text-white'
               : 'text-white/35 hover:text-white/60 hover:bg-white/5'

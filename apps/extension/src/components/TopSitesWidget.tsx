@@ -7,10 +7,10 @@ export const TopSitesWidget = () => {
 
   return (
     // Pozicionálás: Alul, középen, fixen. Z-index, hogy a háttér fölött legyen.
-    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
+    <div className="absolute bottom-edge left-1/2 -translate-x-1/2 z-20">
 
       {/* A "Dock" konténer */}
-      <div className="flex items-center gap-4 px-6 py-3 bg-black/20 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
+      <div className="flex items-center gap-4 px-6 py-3 glass-subtle rounded-full shadow-2xl">
 
         {sites.map((site) => (
           <a

@@ -250,7 +250,7 @@ function App() {
           )}
         </div>
 
-        <p className='absolute bottom-4 right-4 text-[10px] text-white/50 select-none text-legible'>
+        <p className='absolute bottom-4 right-4 text-2xs text-white/50 select-none text-legible'>
           {t('app.toggleHint')}
         </p>
       </div>

@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { clampPomodoroMinutes, DEFAULT_BREAK_MINUTES, DEFAULT_WORK_MINUTES } from '../utils/pomodoro';
-import { Field, inputCls } from './Field';
+import { inputCls } from './controlStyles';
+import { Field } from './Field';
 import { PomodoroSession } from './PomodoroSession';
 import { useDraftSetting } from './useDraftSetting';
 

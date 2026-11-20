@@ -1,10 +1,6 @@
 import { useId } from 'react';
 import { hintId } from './ariaIds';
-
-export const inputCls =
-  'w-full min-w-0 px-3 py-2 rounded bg-black/40 border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all text-sm';
-export const labelCls = 'text-xs font-semibold text-white/60 uppercase tracking-wider';
-export const sectionCls = 'bg-white/5 border border-white/5 p-3 rounded-lg flex flex-col gap-2 min-w-0';
+import { errorCls, hintCls, labelCls, sectionCls } from './controlStyles';
 
 /**
  * One setting: a label, its control, and an optional hint below.
@@ -17,30 +13,52 @@ export const sectionCls = 'bg-white/5 border border-white/5 p-3 rounded-lg flex 
  * nothing. The legend is floated because a fieldset draws a non-floated legend
  * into its top border, and this one has to sit in the flex column like the
  * label does.
+ *
+ * `error` takes the hint's place, under the same id so the control's
+ * description follows it, in the error style rather than the hint's.
+ * `announceError` makes it an alert; leave it off when the message also goes
+ * to the status line through `useSave().report`, which announces it already,
+ * and a second alert would read it twice.
  */
 export function Field({
   id,
   label,
   hint,
+  error,
+  announceError = false,
   children,
 }: {
   id?: string;
   label: string;
   hint?: React.ReactNode;
+  error?: string | null;
+  announceError?: boolean;
   children: React.ReactNode;
 }) {
   const groupHintId = useId();
+  const describedById = id ? hintId(id) : groupHintId;
+
+  // Keyed apart so an error is a new element rather than the hint's `<p>`
+  // reused: an alert is announced when it is inserted, not reliably when an
+  // existing node gains the role.
+  const description = error ? (
+    <p key='error' id={describedById} role={announceError ? 'alert' : undefined} className={errorCls}>
+      {error}
+    </p>
+  ) : (
+    hint && (
+      <p key='hint' id={describedById} className={hintCls}>
+        {hint}
+      </p>
+    )
+  );
 
   if (!id) {
     return (
-      <fieldset className={sectionCls} aria-describedby={hint ? groupHintId : undefined}>
+      <fieldset className={sectionCls} aria-describedby={error || hint ? groupHintId : undefined}>
         <legend className={`${labelCls} float-left w-full`}>{label}</legend>
         {children}
-        {hint && (
-          <p id={groupHintId} className='text-[10px] text-white/40'>
-            {hint}
-          </p>
-        )}
+        {description}
       </fieldset>
     );
   }
@@ -51,11 +69,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint && (
-        <p id={hintId(id)} className='text-[10px] text-white/40'>
-          {hint}
-        </p>
-      )}
+      {description}
     </div>
   );
 }

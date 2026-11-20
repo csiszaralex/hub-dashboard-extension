@@ -47,7 +47,7 @@ export const CountdownWidget = () => {
   if (!settings.countdownTarget || !timeLeft) return null;
 
   return (
-    <div className='flex items-center justify-center gap-6 text-white/90 bg-black/20 backdrop-blur-md px-10 py-5 rounded-3xl border border-white/10 shadow-2xl'>
+    <div className='flex items-center justify-center gap-6 text-white/90 glass-subtle px-10 py-5 shadow-2xl'>
       <div className='flex flex-col items-center min-w-16'>
         <span className='text-5xl font-bold tabular-nums'>{timeLeft.days}</span>
         <span className='text-xs uppercase tracking-widest text-white/50 mt-1'>{t('countdown.days')}</span>

@@ -16,7 +16,8 @@ import {
   serializeCustomQuotes,
 } from '../utils/customQuotes';
 import { hintId } from './ariaIds';
-import { Field, inputCls } from './Field';
+import { hintCls, inputCls } from './controlStyles';
+import { Field } from './Field';
 import { useSave } from './saveStatus';
 import { useDraftSetting } from './useDraftSetting';
 
@@ -149,7 +150,7 @@ export function QuoteSourceSection({
             onBlur={quotesText.flush}
             className={inputCls}
           />
-          <p className='text-[10px] text-white/40'>
+          <p className={hintCls}>
             {t('popup.customQuotesCount', { count: fitted.kept.length })}
             {fitted.dropped > 0 && (
               <span className='ml-1 text-amber-300/80'>

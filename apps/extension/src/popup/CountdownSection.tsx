@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { hintId } from './ariaIds';
-import { Field, inputCls } from './Field';
+import { inputCls } from './controlStyles';
+import { Field } from './Field';
 import { useDraftSetting } from './useDraftSetting';
 
 /**

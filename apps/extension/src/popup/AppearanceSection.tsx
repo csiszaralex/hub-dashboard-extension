@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { clampDim, MAX_DIM } from '../utils/dim';
 import { hintId } from './ariaIds';
-import { Field, inputCls } from './Field';
+import { inputCls } from './controlStyles';
+import { Field } from './Field';
 import { useSave } from './saveStatus';
 import { useDraftSetting } from './useDraftSetting';
 
@@ -85,7 +86,7 @@ export function AppearanceSection({ settings }: { settings: HubSettings }) {
       </Field>
 
       {source === 'custom' && (
-        <Field id='upload' label={t('popup.upload')} hint={uploadError ?? t('popup.uploadHint')}>
+        <Field id='upload' label={t('popup.upload')} hint={t('popup.uploadHint')} error={uploadError}>
           <input
             id='upload'
             aria-describedby={hintId('upload')}

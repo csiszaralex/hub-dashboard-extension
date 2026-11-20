@@ -1,10 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { usePomodoro } from '../hooks/usePomodoro';
 import { formatRemaining } from '../utils/pomodoro';
+import { buttonCls } from './controlStyles';
 import { Field } from './Field';
-
-const buttonCls =
-  'px-3 py-1.5 rounded text-xs font-semibold transition-colors bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10';
 
 /**
  * Start and Reset for the session the service worker owns.
@@ -43,7 +41,7 @@ export function PomodoroSession() {
             reports the phase that is next up, which is always Focus, so there
             is no third "stopped" vocabulary to learn.
           */}
-          <span className='text-[10px] uppercase tracking-wider text-white/50 truncate'>
+          <span className='text-2xs uppercase tracking-wider text-white/50 truncate'>
             {t(phase === 'work' ? 'pomodoro.work' : 'pomodoro.break')}
           </span>
         </div>

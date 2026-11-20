@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HubSettings } from '../hooks/useSettings';
 import { WIDGET_IDS, type WidgetId } from '../widgets';
-import { labelCls, sectionCls } from './Field';
+import { checkboxCls, labelCls, sectionCls } from './controlStyles';
 import { useSave } from './saveStatus';
 
 export function WidgetsSection({ settings }: { settings: HubSettings }) {
@@ -29,7 +29,7 @@ export function WidgetsSection({ settings }: { settings: HubSettings }) {
               type='checkbox'
               checked={!hidden.includes(id)}
               onChange={() => toggle(id)}
-              className='accent-white/70 w-3.5 h-3.5 rounded border-white/20 bg-zinc-900 cursor-pointer shrink-0'
+              className={checkboxCls}
             />
             <span className='text-sm text-white/90 truncate select-none min-w-0 flex-1'>
               {t(`widgets.${id}`)}

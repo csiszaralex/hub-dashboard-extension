@@ -14,7 +14,8 @@ import {
   setUser,
 } from '../utils/memosStorage';
 import { hintId } from './ariaIds';
-import { Field, inputCls } from './Field';
+import { errorCls, inputCls } from './controlStyles';
+import { Field } from './Field';
 import { useDraftSetting } from './useDraftSetting';
 
 /**
@@ -335,15 +336,18 @@ export function MemosSection({
       </button>
 
       {state.kind === 'ok' && (
-        <p className='text-[10px] text-emerald-300/80'>
+        <p className='text-2xs text-emerald-300/80'>
           {t('popup.memosConnected', { version: state.version })}
         </p>
       )}
       {state.kind === 'error' && (
-        <p className='text-[10px] text-red-300/80'>{t(CONNECT_ERROR_KEY[state.reason])}</p>
+        // An alert: a failed Connect is reported nowhere else.
+        <p role='alert' className={errorCls}>
+          {t(CONNECT_ERROR_KEY[state.reason])}
+        </p>
       )}
       {state.kind === 'disconnected' && (
-        <p className='text-[10px] text-white/50'>{t('popup.memosDisconnected')}</p>
+        <p className='text-2xs text-white/50'>{t('popup.memosDisconnected')}</p>
       )}
 
       {/*

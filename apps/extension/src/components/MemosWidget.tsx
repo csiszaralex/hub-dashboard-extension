@@ -58,7 +58,7 @@ export function MemosWidget() {
   // never configures it, and a nudge on every new tab would be theirs forever.
   if (status === 'loading' || status === 'off') return null;
 
-  const wrapper = 'absolute bottom-20 left-8 z-20 flex flex-col items-start gap-2';
+  const wrapper = 'absolute bottom-20 left-edge z-20 flex flex-col items-start gap-2';
 
   if (status === 'unconfigured') {
     return (
@@ -169,7 +169,7 @@ export function MemosWidget() {
         ref={toggleRef}
         type='button'
         onClick={() => toggle(true)}
-        className='text-[10px] text-white/35 hover:text-white/70 transition-colors'
+        className='text-2xs text-white/35 hover:text-white/70 transition-colors'
       >
         {hidden > 0 ? t('memos.more', { count: hidden }) : t('memos.title')}
       </button>
@@ -181,7 +181,7 @@ export function MemosWidget() {
         "showing cached memos" would assert a cache that does not exist.
       */}
       {failure && (
-        <p role='alert' className='text-[10px] text-white/30'>
+        <p role='alert' className='text-2xs text-white/30'>
           {t(failureMessageKey(failure, hasRows))}
         </p>
       )}
@@ -191,7 +191,7 @@ export function MemosWidget() {
         too — on its own line, since the load's line may already be showing.
       */}
       {writeFailure && (
-        <p role='alert' className='text-[10px] text-white/50'>
+        <p role='alert' className='text-2xs text-white/50'>
           {t(writeFailureMessageKey(writeFailure))}
         </p>
       )}

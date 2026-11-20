@@ -26,6 +26,13 @@ A Cloudflare Worker that serves random background images from Unsplash and daily
 
 `tags` defaults to `landscape,forest,mountain,fog,nature view` when omitted.
 
+`url` asks for 3840 pixels, but the extension does not download it as it is:
+`backgroundImageUrl` in `apps/extension/src/utils/backgroundImageSize.ts`
+replaces its `w` and `q` query parameters with a width matched to the screen,
+which Unsplash's image URLs allow without another API call. Keep `url` an
+`images.unsplash.com` URL whose size is set by those two parameters; anything
+else is passed through unchanged and downloaded at whatever size it names.
+
 ### Tag normalisation
 
 Tags are lowercased, stripped of anything outside `[a-z0-9 -]`, deduplicated,

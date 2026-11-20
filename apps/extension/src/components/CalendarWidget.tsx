@@ -147,7 +147,7 @@ export const CalendarWidget = () => {
   if (status === 'needs-sign-in' || status === 'failed') {
     const needsSignIn = status === 'needs-sign-in';
     return (
-      <div className='absolute top-edge left-edge flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
+      <div className='flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
         <div className='p-1.5 bg-white/5 rounded-full text-amber-300'>
           <Calendar className='w-4 h-4' />
         </div>
@@ -176,7 +176,7 @@ export const CalendarWidget = () => {
 
   if (status === 'signed-out') {
     return (
-      <div className='absolute top-edge left-edge'>
+      <div>
         <button
           onClick={login}
           className='flex items-center gap-2 px-4 py-2 glass rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all text-sm font-medium shadow-lg'
@@ -190,7 +190,7 @@ export const CalendarWidget = () => {
 
   if (events.length === 0) {
     return (
-      <div className='absolute top-edge left-edge flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
+      <div className='flex items-center gap-3 px-4 py-2.5 glass shadow-xl'>
         <div className='p-1.5 bg-white/5 rounded-full text-emerald-400'>
           <Calendar className='w-4 h-4' />
         </div>
@@ -204,7 +204,7 @@ export const CalendarWidget = () => {
   }
 
   return (
-    <div className='absolute top-edge left-edge w-72 glass shadow-2xl p-3 flex flex-col gap-2'>
+    <div className='w-72 glass shadow-2xl p-3 flex flex-col gap-2'>
       {/* 1. ALL-DAY EVENTS */}
       {allDayEvents.length > 0 && (
         <div className='flex flex-wrap gap-1.5 pb-2 border-b border-white/5'>

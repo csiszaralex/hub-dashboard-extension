@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChromeStub } from './test/chromeStub';
 import { warmUp } from './test/warmUp';
@@ -139,7 +139,7 @@ describe('App — double-click toggle', () => {
     installChromeStub();
   });
 
-  /** The layer that fades out when the UI is hidden: `main`'s positioned (`relative`) child. */
+  /** `layer` is the one that fades out when the UI is hidden. */
   const renderApp = async () => {
     serveQuote(QUOTE_WITHOUT_SOURCE);
     await import('./i18n/i18n');
@@ -147,9 +147,10 @@ describe('App — double-click toggle', () => {
     const { container } = render(<App />);
     await waitFor(() => expect(screen.getByText(/Be one\./)).not.toBeNull());
     const main = container.querySelector('main') as HTMLElement;
-    const layer = main.querySelector(':scope > .relative') as HTMLElement;
+    const shell = (name: string) => container.querySelector(`[data-shell="${name}"]`) as HTMLElement;
+    const layer = shell('layer');
     const hidden = () => layer.className.includes('opacity-0');
-    return { main, layer, hidden };
+    return { main, layer, shell, hidden };
   };
 
   it('hides and restores the UI on a double-click on the background', async () => {
@@ -169,6 +170,76 @@ describe('App — double-click toggle', () => {
     // Selecting a word in the quote is the case that used to hide everything.
     fireEvent.doubleClick(screen.getByText(/Be one\./));
     expect(hidden()).toBe(false);
+  });
+
+  // A cell stretches over its whole grid area, so a click on the photo beside
+  // a widget lands on the cell, or on the narrow layout's column and footer,
+  // rather than on the layer the toggle used to check for.
+  it.each(['stack', 'footer', 'note', 'clock'])(
+    'counts the empty part of the %s box as background',
+    async (name) => {
+      const { shell, hidden } = await renderApp();
+
+      fireEvent.doubleClick(shell(name));
+      expect(hidden()).toBe(true);
+    },
+  );
+
+  it('leaves the UI alone for a double-click on a control inside a cell', async () => {
+    const { hidden } = await renderApp();
+
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'Open notes' }));
+    expect(hidden()).toBe(false);
+  });
+});
+
+/**
+ * Where each widget lands in the layout shell. happy-dom does no layout and
+ * Vitest hands CSS files over empty, so this holds the structure (which cell
+ * each widget is in), not where anything ends up on screen or whether the
+ * area names match the grid templates in index.css.
+ */
+describe('App — layout shell', () => {
+  beforeEach(() => {
+    installChromeStub();
+  });
+
+  const renderShell = async () => {
+    serveQuote(QUOTE_WITH_SOURCE);
+    await import('./i18n/i18n');
+    const App = (await import('./App')).default;
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText(/Üres fejjel/)).not.toBeNull());
+    const cell = (area: string) => container.querySelector(`[data-shell="${area}"]`) as HTMLElement;
+    return { cell };
+  };
+
+  it('puts each widget in its own area', async () => {
+    const { cell } = await renderShell();
+
+    // A first run, so the welcome card holds the top slot.
+    expect(within(cell('top')).getByRole('region', { name: 'Welcome to Hub' })).not.toBeNull();
+    expect(cell('clock').querySelector('.tabular-nums')).not.toBeNull();
+    expect(within(cell('quote')).getByText(/Üres fejjel/)).not.toBeNull();
+    expect(within(cell('note')).getByRole('button', { name: 'Open notes' })).not.toBeNull();
+    expect(within(cell('credits')).getByRole('button', { name: 'Settings' })).not.toBeNull();
+    expect(within(cell('credits')).getByRole('link', { name: 'Source' })).not.toBeNull();
+    expect(within(cell('hint')).getByText(/Press \. to hide/)).not.toBeNull();
+    expect(
+      await within(cell('calendar')).findByRole('button', { name: 'Connect calendar' }),
+    ).not.toBeNull();
+    // No Memos server is set, so the widget renders nothing and its cell
+    // stays empty, which `empty:hidden` takes out of the narrow column.
+    expect(cell('memos').childElementCount).toBe(0);
+  });
+
+  it('keeps every cell inside the inert layer while the UI is hidden', async () => {
+    const { cell } = await renderShell();
+
+    fireEvent.keyDown(window, { key: '.' });
+    for (const area of ['calendar', 'top', 'clock', 'quote', 'note', 'credits', 'hint']) {
+      expect(cell(area).closest('[inert]')).not.toBeNull();
+    }
   });
 });
 

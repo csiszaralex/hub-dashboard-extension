@@ -58,7 +58,8 @@ export function MemosWidget() {
   // never configures it, and a nudge on every new tab would be theirs forever.
   if (status === 'loading' || status === 'off') return null;
 
-  const wrapper = 'absolute bottom-20 left-edge z-20 flex flex-col items-start gap-2';
+  // Placed by the layout shell in `App`, not positioned here.
+  const wrapper = 'flex flex-col items-start gap-2';
 
   if (status === 'unconfigured') {
     return (

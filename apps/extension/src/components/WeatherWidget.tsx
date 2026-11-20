@@ -13,7 +13,7 @@ export const WeatherWidget = () => {
 
   if (loading && !data) {
     return (
-      <div className='absolute top-edge right-edge w-72 glass shadow-2xl p-3 flex flex-col gap-3 animate-pulse'>
+      <div className='w-72 glass shadow-2xl p-3 flex flex-col gap-3 animate-pulse'>
         {/* Header skeleton */}
         <div className='flex items-center gap-1.5 px-1'>
           <div className='w-3 h-3 bg-white/10 rounded-full' />
@@ -65,7 +65,7 @@ export const WeatherWidget = () => {
   const dateLocale = DATE_LOCALES[language];
 
   return (
-    <div className='group absolute top-edge right-edge w-72 glass shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
+    <div className='group w-72 glass shadow-2xl p-3 flex flex-col gap-2 font-sans text-white'>
       {/* 1. SECTION: Header (Location & Refresh) */}
       <div className='flex justify-between items-center px-1'>
         <div className='flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wider text-white/50'>

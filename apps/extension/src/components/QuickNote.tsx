@@ -28,18 +28,23 @@ export const QuickNote = () => {
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className='absolute bottom-edge right-edge z-30 flex flex-col items-end'>
+    // Placed by the layout shell in `App`; `relative` only anchors the closed
+    // panel below.
+    <div ref={containerRef} className='relative flex flex-col items-end'>
       {/*
         Note panel (animated appearance). `inert` while closed, because the
         fade leaves the textarea and the delete button in the Tab order and in
-        the accessibility tree of a panel nobody can see.
+        the accessibility tree of a panel nobody can see. Closed, it is taken
+        out of the flow and held above the button, where it opens: left at its
+        static position it would hang below the button and, in the
+        scrolling narrow layout, add an empty stretch to the column.
       */}
       <div
         id={panelId}
         inert={!isOpen}
         className={`
           mb-4 w-80 glass shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right
-          ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none absolute'}
+          ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none absolute bottom-full right-0'}
         `}
       >
         {/* Header */}

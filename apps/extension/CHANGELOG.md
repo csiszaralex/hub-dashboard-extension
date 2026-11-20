@@ -1,3 +1,9 @@
+## 2.13.0 (2026-11-20)
+
+### 🚀 Features
+
+- **extension:** download background photos at the width of the screen ([ae43aae](https://github.com/csiszaralex/hub-dashboard-extension/commit/ae43aae))
+
 ## 2.12.4 (2026-11-20)
 
 ### 🩹 Fixes

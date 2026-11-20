@@ -57,11 +57,12 @@ export const useWeather = () => {
     return null;
   });
 
-  const fetchWeather = useCallback(
-    async (force = false) => {
-      if (!isLoaded) return;
-      setLoading(true);
-
+  // Touches the localStorage cache and the network but no React state: each
+  // caller applies the answer in a callback (`applyWeather`), so the effect
+  // below never updates state synchronously in its body. Resolves to null when
+  // the load failed and the forecast on screen should stay.
+  const loadWeather = useCallback(
+    async (force: boolean): Promise<WeatherData | null> => {
       try {
         //TODO type
         let cachedData = null;
@@ -82,9 +83,7 @@ export const useWeather = () => {
               : true;
 
           if (isTimeValid && isSettingsValid) {
-            setData({ ...cachedData.weather, daily: cachedData.weather.daily ?? [] });
-            setLoading(false);
-            return;
+            return { ...cachedData.weather, daily: cachedData.weather.daily ?? [] };
           }
         }
 
@@ -183,26 +182,53 @@ export const useWeather = () => {
             cacheLon: roundCoord(lon),
           }),
         );
-        setData(weather);
+        return weather;
       } catch (error) {
         console.error('Weather fetch failed:', error);
-      } finally {
-        setLoading(false);
+        return null;
       }
     },
-    [isLoaded, settings.locationCity, settings.locationLat, settings.locationLon],
+    [settings.locationCity, settings.locationLat, settings.locationLon],
   );
 
+  const applyWeather = useCallback((weather: WeatherData | null) => {
+    if (weather) setData(weather);
+    setLoading(false);
+  }, []);
+
+  // For the refresh button and the timer, which run outside render and may
+  // raise the spinner directly. Never rejects: `loadWeather` catches.
+  const fetchWeather = useCallback(
+    (force: boolean): Promise<void> => {
+      if (!isLoaded) return Promise.resolve();
+      setLoading(true);
+      return loadWeather(force).then(applyWeather);
+    },
+    [isLoaded, loadWeather, applyWeather],
+  );
+
+  // The effect below starts a new load whenever the settings it depends on
+  // change. The spinner for that load is raised here, during render, when the
+  // change is seen, instead of by a synchronous update in the effect. Before
+  // the settings land nothing loads, and `loading` is still its initial true.
+  const loadFor = isLoaded
+    ? `${settings.locationCity}|${settings.locationLat}|${settings.locationLon}`
+    : null;
+  const [loadingFor, setLoadingFor] = useState(loadFor);
+  if (loadingFor !== loadFor) {
+    setLoadingFor(loadFor);
+    if (loadFor !== null) setLoading(true);
+  }
+
   useEffect(() => {
-    // Never rejects: everything after the loaded check runs inside its try.
-    void fetchWeather(false);
+    if (isLoaded) void loadWeather(false).then(applyWeather);
 
     // Not forced: the cache is shared by every tab, so a tab whose cache another
     // tab has just refreshed makes no request. Hidden tabs skip the tick and
     // catch up through the same path when they become visible.
     const refreshIfStale = () => void fetchWeather(false);
     return schedulePageRefresh(CHECK_INTERVAL, refreshIfStale, refreshIfStale);
-  }, [fetchWeather]);
+  }, [isLoaded, loadWeather, applyWeather, fetchWeather]);
 
   return { data, loading, refresh: () => fetchWeather(true) };
 };

@@ -1,5 +1,6 @@
 import type { BackgroundData } from '@hub/shared';
 import { backgroundRequestUrl, isUsableBackground } from './api';
+import { backgroundImageUrl, readWidthBucket } from './backgroundImageSize';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { cacheImage } from './imageCache';
 
@@ -57,9 +58,13 @@ export const prefetchBackground = async (query: string, date: string): Promise<b
     // A packet without a usable URL would be adopted by the page as the day's
     // background and suppress its own fetch until midnight.
     if (!isUsableBackground(data)) return false;
-    if (!(await cacheImage(data.url))) return false;
 
-    await savePrefetch({ date, query, data });
+    // Resized with the bucket the page stored, so the URL cached here is the
+    // one the page's `hasCachedImage` asks for when it adopts the packet.
+    const sized = { ...data, url: backgroundImageUrl(data.url, await readWidthBucket()) };
+    if (!(await cacheImage(sized.url))) return false;
+
+    await savePrefetch({ date, query, data: sized });
     return true;
   } catch (error) {
     console.error('Background prefetch failed:', error);

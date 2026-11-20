@@ -1,6 +1,12 @@
 import type { BackgroundData } from '@hub/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { backgroundRequestUrl, isUsableBackground } from '../utils/api';
+import {
+  backgroundImageUrl,
+  recordWidthBucket,
+  widthBucketFor,
+  type WidthBucket,
+} from '../utils/backgroundImageSize';
 import { getDailyData, getStaleData, setDailyData } from '../utils/dailyStorage';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import {
@@ -14,8 +20,15 @@ import { clearPrefetch, readPrefetch, type PrefetchPacket } from '../utils/prefe
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
-const FALLBACK_BG_URL =
+// Shown straight from its remote URL, never cached through `cacheImage`, so
+// `auto=format` is harmless here: the browser that negotiates the format is
+// the one that decodes it.
+const FALLBACK_BG_BASE_URL =
   'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=90&w=3840&auto=format&fit=crop';
+
+/** This device's bucket, from the screen rather than the window, so resizing never refetches. */
+const currentWidthBucket = (): WidthBucket =>
+  widthBucketFor({ width: screen.width, devicePixelRatio: globalThis.devicePixelRatio });
 
 const EMPTY_BG_DATA: BackgroundData = {
   url: '',
@@ -50,16 +63,23 @@ export const useBackground = () => {
   const fetchNewImage = useCallback(
     async (force: boolean, currentQuery: string, prefetched: PrefetchPacket | null) => {
       let packet = prefetched;
+      const bucket = currentWidthBucket();
 
       // The worker may already have today's image cached.
       if (!force && packet && packet.date === todayIso() && packet.query === currentQuery) {
+        // The worker sized the URL with the bucket a page recorded. A packet
+        // sized for another one (the screen changed since, or no page had
+        // recorded a bucket yet) is the wrong size for this screen, and is
+        // dropped below like a pointer whose image is gone.
+        const sizedForThisScreen = backgroundImageUrl(packet.data.url, bucket) === packet.data.url;
+
         // The pointer alone is not enough. The worker writes it only after the
         // bytes land in the Cache API, but Chrome can evict that bucket later
         // without touching `chrome.storage.local` — and adopting an image that
         // is no longer there would write the daily cache, suppress every retry
         // until midnight and leave nothing to render offline. Checking is one
         // local cache lookup; being wrong costs a whole day.
-        if (await hasCachedImage(packet.data.url)) {
+        if (sizedForThisScreen && (await hasCachedImage(packet.data.url))) {
           setBgData(packet.data);
           setDailyData(CACHE_KEY, packet.data, currentQuery);
           await clearPrefetch();
@@ -70,8 +90,9 @@ export const useBackground = () => {
           return;
         }
 
-        // The pointer outlived its image. Drop it rather than re-examine it on
-        // every load, and fetch the day's background the ordinary way.
+        // The pointer outlived its image, or names one of the wrong size. Drop
+        // it rather than re-examine it on every load, and fetch the day's
+        // background the ordinary way.
         await clearPrefetch();
         packet = null;
       }
@@ -86,7 +107,9 @@ export const useBackground = () => {
             // Thrown into the failure path below rather than stored: the daily
             // cache would otherwise hold an image-less entry until midnight.
             if (!isUsableBackground(body)) throw new Error('Worker answered without an image URL');
-            return body;
+            // Resized before anything stores it, so the cached bytes, the daily
+            // metadata and the lookup below all name the same URL.
+            return { ...body, url: backgroundImageUrl(body.url, bucket) };
           },
         );
         // Download before publishing. The lookup effect below resolves whatever
@@ -111,7 +134,9 @@ export const useBackground = () => {
         }
       } catch (error) {
         console.error('Failed to fetch background:', error);
-        setBgData((prev) => (prev.url ? prev : { ...EMPTY_BG_DATA, url: FALLBACK_BG_URL }));
+        setBgData((prev) =>
+          prev.url ? prev : { ...EMPTY_BG_DATA, url: backgroundImageUrl(FALLBACK_BG_BASE_URL, bucket) },
+        );
       } finally {
         setLoading(false);
       }
@@ -148,6 +173,12 @@ export const useBackground = () => {
     },
     [fetchNewImage, settings.backgroundSource],
   );
+
+  // The service worker has no screen to measure, so it prefetches at whatever
+  // bucket a page last recorded here.
+  useEffect(() => {
+    void recordWidthBucket(currentWidthBucket());
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;

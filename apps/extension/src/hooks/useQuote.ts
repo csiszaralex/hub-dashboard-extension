@@ -1,5 +1,5 @@
 import { isQuoteData, type QuoteData } from '@hub/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toLanguage } from '../i18n/language';
 import { quoteRequestUrl } from '../utils/api';
 import { CUSTOM_QUOTE_SOURCE, pickCustomQuote } from '../utils/customQuotes';
@@ -59,31 +59,48 @@ export const useQuote = () => {
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => setIndex(0), [selection]);
+  // The reset happens during render rather than in an effect, so the request
+  // effect below never sees the new selection paired with the old index.
+  const [indexSelection, setIndexSelection] = useState(selection);
+  if (indexSelection !== selection) {
+    setIndexSelection(selection);
+    setIndex(0);
+  }
+
+  // Settings arrive a microtask after first render; acting before they land
+  // would ask for the default source and cache the answer under it.
+  const requestKey = isLoaded && !custom ? `${selection}#${index}` : null;
+
+  // Only the first entry is worth caching for the day: the rest are what the
+  // user asked to see instead of it, and storing them would mean tomorrow
+  // opening on whatever they last skipped to.
+  const cacheable = index === 0;
+
+  // A cache hit is adopted during render, once per request, for the same
+  // reason as the index reset: no extra render pass after the effect. The
+  // effect then finds the same entry and makes no request.
+  const [cacheCheckedFor, setCacheCheckedFor] = useState<string | null>(null);
+  if (cacheCheckedFor !== requestKey) {
+    setCacheCheckedFor(requestKey);
+    const cached = requestKey && cacheable ? getDailyData<QuoteData>(CACHE_KEY, selection) : null;
+    if (cached) setQuote(cached);
+  }
+
+  // The user's own list never leaves the browser: no request, no cache entry.
+  // Derived rather than stored, so an edit in the popup shows up at once
+  // rather than after the daily cache expires. Memoised so the day is read
+  // when the list or the position changes, as it was when an effect set it.
+  const customQuote = useMemo<QuoteData | null>(
+    () =>
+      isLoaded && custom
+        ? (pickCustomQuote(settings.customQuotes, todayIso(), index) ?? pickFallbackQuote(todayIso()))
+        : null,
+    [isLoaded, custom, settings.customQuotes, index],
+  );
 
   useEffect(() => {
-    // Settings arrive a microtask after first render; fetching before they land
-    // would ask for the default source and cache the answer under it.
-    if (!isLoaded) return;
-
-    // The user's own list never leaves the browser: no request, no cache entry,
-    // and it re-reads on every edit so a change in the popup shows up at once
-    // rather than after the daily cache expires.
-    if (custom) {
-      setQuote(
-        pickCustomQuote(settings.customQuotes, todayIso(), index) ?? pickFallbackQuote(todayIso()),
-      );
-      return;
-    }
-
-    // Only the first entry is worth caching for the day: the rest are what the
-    // user asked to see instead of it, and storing them would mean tomorrow
-    // opening on whatever they last skipped to.
-    const cached = index === 0 ? getDailyData<QuoteData>(CACHE_KEY, selection) : null;
-    if (cached) {
-      setQuote(cached);
-      return;
-    }
+    if (!requestKey) return;
+    if (cacheable && getDailyData<QuoteData>(CACHE_KEY, selection)) return;
 
     const fetchQuote = async () => {
       try {
@@ -100,7 +117,7 @@ export const useQuote = () => {
         );
         if (!data.text) throw new Error('Quote API returned no text');
 
-        if (index === 0) setDailyData(CACHE_KEY, data, selection);
+        if (cacheable) setDailyData(CACHE_KEY, data, selection);
         setQuote(data);
       } catch (error) {
         // The bundled set is already showing; nothing else to do.
@@ -111,10 +128,10 @@ export const useQuote = () => {
     };
 
     void fetchQuote();
-  }, [isLoaded, custom, index, selection, settings.customQuotes, settings.quoteSource, settings.quoteQuery, language]);
+  }, [requestKey, cacheable, index, selection, settings.quoteSource, settings.quoteQuery, language]);
 
   return {
-    quote,
+    quote: customQuote ?? quote,
     loading,
     /** Walks the day's pool. Costs no upstream call — the worker cached it. */
     refresh: () => setIndex((n) => n + 1),

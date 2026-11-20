@@ -32,7 +32,7 @@ const EventRow = ({ event, state }: EventRowProps) => {
   const isNext = state === 'next';
   const diff = differenceInMinutes(start, new Date());
 
-  let timeDisplay = '';
+  let timeDisplay: string;
   if (isCurrent) {
     timeDisplay = `${time(start)} - ${time(end)}`;
   } else if (isNext && isToday(start) && diff < 60 && diff > 0) {

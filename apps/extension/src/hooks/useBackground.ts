@@ -10,7 +10,7 @@ import {
   hasCachedImage,
   pruneImageCache,
 } from '../utils/imageCache';
-import { clearPrefetch, readPrefetch } from '../utils/prefetch';
+import { clearPrefetch, readPrefetch, type PrefetchPacket } from '../utils/prefetch';
 import { useSettings } from './useSettings';
 
 const CACHE_KEY = 'daily_bg_data';
@@ -45,20 +45,11 @@ export const useBackground = () => {
     null,
   );
 
+  // Continues a load once the service worker's hand-off slot has been read, so
+  // every state update here comes after an await. Only `loadImage` calls it.
   const fetchNewImage = useCallback(
-    async (force = false, currentQuery = settings.unsplashQuery) => {
-      // Guard the fetch itself, not just its callers: `refreshBackground` and the
-      // revalidation effect both funnel through here, and a custom background must
-      // never be silently replaced by a real Unsplash photo fetched under its cover
-      // (that photo would render via `cachedSrc` with `bgData` still reporting
-      // `EMPTY_BG_DATA`, i.e. an Unsplash image on screen with no attribution).
-      if (settings.backgroundSource === 'custom') return;
-      if (!force && getDailyData(CACHE_KEY, currentQuery)) return;
-
-      // Read the service worker's hand-off slot once. It decides whether this
-      // load can skip the network entirely, and — when it cannot — its image
-      // still has to survive the prune further down.
-      let packet = await readPrefetch();
+    async (force: boolean, currentQuery: string, prefetched: PrefetchPacket | null) => {
+      let packet = prefetched;
 
       // The worker may already have today's image cached.
       if (!force && packet && packet.date === todayIso() && packet.query === currentQuery) {
@@ -125,19 +116,37 @@ export const useBackground = () => {
         setLoading(false);
       }
     },
-    [settings.backgroundSource, settings.unsplashQuery],
+    [],
   );
 
   // Every caller starts the load and moves on. `fetchNewImage` handles a failed
   // fetch itself, but the prefetch adoption path runs before its `try`, so a
   // failure there (a rejected `pruneImageCache`, say) is logged here instead
   // of going unhandled.
+  //
+  // The guards are synchronous and set no state; everything that does runs in
+  // the callback of the hand-off read. That keeps the revalidation effect from
+  // updating state synchronously in its body (`react-hooks/set-state-in-effect`).
   const loadImage = useCallback(
-    (force: boolean, currentQuery: string) =>
-      fetchNewImage(force, currentQuery).catch((error) =>
-        console.error('Failed to fetch background:', error),
-      ),
-    [fetchNewImage],
+    async (force: boolean, currentQuery: string) => {
+      try {
+        // Guard the load itself, not just its callers: `refreshBackground` and the
+        // revalidation effect both funnel through here, and a custom background must
+        // never be silently replaced by a real Unsplash photo fetched under its cover
+        // (that photo would render via `cachedSrc` with `bgData` still reporting
+        // `EMPTY_BG_DATA`, i.e. an Unsplash image on screen with no attribution).
+        if (settings.backgroundSource === 'custom') return;
+        if (!force && getDailyData(CACHE_KEY, currentQuery)) return;
+
+        // Read the service worker's hand-off slot once. It decides whether this
+        // load can skip the network entirely, and — when it cannot — its image
+        // still has to survive the prune further down.
+        await readPrefetch().then((packet) => fetchNewImage(force, currentQuery, packet));
+      } catch (error) {
+        console.error('Failed to fetch background:', error);
+      }
+    },
+    [fetchNewImage, settings.backgroundSource],
   );
 
   useEffect(() => {

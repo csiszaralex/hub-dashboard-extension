@@ -746,6 +746,8 @@ export const installChromeStub = (): ChromeStub => {
       // Chrome never delivers an alarm nobody scheduled, so neither do we: a
       // test that fires one proves the scheduling happened.
       if (!alarm) throw new Error(`No alarm named "${name}" is scheduled`);
+      // A one-shot alarm is gone once delivered; only a periodic one stays.
+      if (alarm.periodInMinutes === undefined) alarmRegistry.delete(name);
       alarmListeners.forEach((l) => l(alarm));
     },
     fireInstalled: (reason) => installedListeners.forEach((l) => l({ reason })),

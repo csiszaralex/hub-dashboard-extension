@@ -1,7 +1,5 @@
-import type { Language } from '@hub/shared';
 import { resolveLanguage } from './i18n/language';
-import en from './i18n/locales/en.json';
-import hu from './i18n/locales/hu.json';
+import { POMODORO_NOTIFICATIONS } from './i18n/notifications';
 import { deleteObsoleteImageCaches } from './utils/imageCache';
 import { nextPhase, phaseDurationMs, type PomodoroPhase } from './utils/pomodoro';
 import {
@@ -104,28 +102,11 @@ const readPomodoroSettings = (): Promise<PomodoroSettings> =>
   });
 
 /**
- * The two notification strings, read straight out of the locale files.
- *
- * The page resolves strings through `i18n/i18n.ts`, and the worker deliberately
- * does not import it: that module installs the `react-i18next` binding, so
- * importing it drags React into a worker Chrome restarts for every alarm, and
- * it applies the saved language asynchronously — one storage round-trip after
- * `init` resolves — so a cold-started worker could notify in the wrong language
- * before that landed. The strings themselves still live only in `en.json` and
- * `hu.json`; only the lookup is local.
- *
- * ADDING A LOCALE: the map is still maintained by hand, because the worker
- * cannot go through `i18n/i18n.ts`. What changed is that forgetting it no
- * longer ships: `Record<Language, …>` ties it to `SUPPORTED_LANGUAGES`, so a
- * language added there without an entry here fails the build naming the missing
- * code. It used to fall through to English silently, leaving a user with the
- * whole interface translated and notifications in the wrong language — caught
- * only by a test someone had thought to write.
+ * The same language choice the page makes, through the same `resolveLanguage`.
+ * Why the strings live in `i18n/notifications.ts` and not in the locale files
+ * is explained at `POMODORO_NOTIFICATIONS`.
  */
-const LOCALES: Record<Language, typeof en.pomodoro> = { en: en.pomodoro, hu: hu.pomodoro };
-
-/** The same choice the page makes, through the same `resolveLanguage`. */
-const pomodoroStrings = (language: string) => LOCALES[resolveLanguage(language)];
+const pomodoroStrings = (language: string) => POMODORO_NOTIFICATIONS[resolveLanguage(language)];
 
 const notify = (phase: PomodoroPhase, language: string) => {
   // `notifications` is declared in manifest.json, so this API is present in
@@ -139,7 +120,7 @@ const notify = (phase: PomodoroPhase, language: string) => {
     .create(`hub-pomodoro-${Date.now()}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
-      title: strings.notificationTitle,
+      title: strings.title,
       message: phase === 'break' ? strings.breakStarted : strings.workStarted,
     })
     .catch((error) => console.error('Failed to raise the Pomodoro notification:', error));

@@ -73,6 +73,7 @@
   },
   "popup": {
     "title": "Hub Dashboard",
+    "feedback": "Send feedback",
     "loading": "Loading...",
     "appearance": "Appearance & Background",
     "appearancePlaceholder": "e.g. landscape, dark, city",

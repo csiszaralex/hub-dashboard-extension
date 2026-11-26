@@ -649,6 +649,9 @@ describe('background service worker — Pomodoro', () => {
     await expirePhase();
 
     chromeStub.fireAlarm(POMODORO_ALARM);
+    // A delivered one-shot alarm is gone, so the second delivery needs one put
+    // back first: a leftover from before a restart, still in the same round.
+    chromeStub.seedAlarm(POMODORO_ALARM, Date.now() - 1);
     chromeStub.fireAlarm(POMODORO_ALARM);
     await settle();
 

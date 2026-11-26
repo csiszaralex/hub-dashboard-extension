@@ -1,3 +1,9 @@
+## 2.13.1 (2026-11-26)
+
+### 🩹 Fixes
+
+- **extension:** lay the dashboard out on a grid that adapts to the window ([98ab077](https://github.com/csiszaralex/hub-dashboard-extension/commit/98ab077))
+
 ## 2.13.0 (2026-11-20)
 
 ### 🚀 Features

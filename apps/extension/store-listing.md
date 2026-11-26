@@ -64,7 +64,8 @@ Questions or ideas: hub@csalex.dev
 1280×800 PNG, five of them, taken from a profile with **invented calendar
 entries and notes only**: the screenshots are public and stay up for years.
 
-1. The whole page at 1920 wide, daytime photo, every widget on: the first look.
+1. The whole page, daytime photo, every widget on: the first look. 1280 is exactly
+   the `wide` breakpoint, so the three-column layout shows at the store's size.
 2. The calendar and weather side by side, with a few made-up meetings.
 3. The focus timer running, and the notification it raises.
 4. The Memos panel open with three or four sample notes.

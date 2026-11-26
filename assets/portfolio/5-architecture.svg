@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Hub architecture: the Chrome extension, the Hub API worker and the services each one calls</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b6470"/>
+    </marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2f7d5b"/>
+    </marker>
+    <style>
+      .group { fill: #ffffff; stroke: #c9ccd1; stroke-width: 1.5; }
+      .box { fill: #f3f4f6; stroke: #d5d8dd; stroke-width: 1; }
+      .worker { fill: #fff7ed; stroke: #f0b47a; stroke-width: 1.5; }
+      .kv { fill: #ffffff; stroke: #f0c9a0; stroke-width: 1; }
+      .accent { fill: #ecf7f1; stroke: #2f7d5b; stroke-width: 1.5; }
+      .h1 { font-size: 30px; font-weight: 700; fill: #1f2328; }
+      .h2 { font-size: 22px; font-weight: 700; fill: #1f2328; }
+      .h3 { font-size: 17px; font-weight: 650; fill: #1f2328; }
+      .t { font-size: 15px; fill: #4b5260; }
+      .small { font-size: 13px; fill: #5b6470; }
+      .label { font-size: 14px; fill: #3b4250; font-weight: 600; }
+      .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; fill: #6b7280; }
+      .line { stroke: #5b6470; stroke-width: 2; fill: none; }
+      .line-accent { stroke: #2f7d5b; stroke-width: 2.5; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#f7f6f3"/>
+
+  <text x="40" y="62" class="h1">Hub: how the pieces fit</text>
+  <text x="40" y="92" class="t">Keys live in the Worker. Notes, calendar and location never pass through it.</text>
+
+  <!-- Chrome extension -->
+  <rect x="40" y="120" width="620" height="840" rx="18" class="group"/>
+  <text x="68" y="158" class="eyebrow">CHROME EXTENSION · MANIFEST V3</text>
+
+  <rect x="68" y="178" width="564" height="230" rx="12" class="box"/>
+  <text x="92" y="214" class="h2">New tab page</text>
+  <text x="92" y="240" class="t">React 19 · each widget in its own error boundary</text>
+  <text x="92" y="282" class="t">Clock · Weather · Calendar · Quote · Countdown</text>
+  <text x="92" y="306" class="t">Focus timer · Quick note · Memos</text>
+  <text x="92" y="348" class="small">Settings page writes every change as it is made,</text>
+  <text x="92" y="368" class="small">through one schema that validates each field.</text>
+
+  <rect x="68" y="430" width="564" height="200" rx="12" class="box"/>
+  <text x="92" y="466" class="h2">Service worker</text>
+  <text x="92" y="500" class="h3">Daily alarm</text>
+  <text x="92" y="522" class="t">fetches tomorrow's photo, so a new tab never waits</text>
+  <text x="92" y="560" class="h3">Focus timer</text>
+  <text x="92" y="582" class="t">one deadline and one notification for every open tab,</text>
+  <text x="92" y="604" class="t">still running with no tab open</text>
+
+  <text x="68" y="672" class="eyebrow">ON THE DEVICE</text>
+  <rect x="68" y="690" width="176" height="160" rx="12" class="box"/>
+  <text x="84" y="722" class="h3">storage.sync</text>
+  <text x="84" y="748" class="small">settings, versioned</text>
+  <text x="84" y="768" class="small">and migrated; synced</text>
+  <text x="84" y="788" class="small">by Chrome</text>
+
+  <rect x="262" y="690" width="176" height="160" rx="12" class="box"/>
+  <text x="278" y="722" class="h3">storage.local</text>
+  <text x="278" y="748" class="small">worker-to-page hand-off,</text>
+  <text x="278" y="768" class="small">timer state, Memos token</text>
+  <text x="278" y="788" class="small">(never exported)</text>
+
+  <rect x="456" y="690" width="176" height="160" rx="12" class="box"/>
+  <text x="472" y="722" class="h3">Cache API</text>
+  <text x="472" y="748" class="small">photo bytes and your</text>
+  <text x="472" y="768" class="small">own upload, kept across</text>
+  <text x="472" y="788" class="small">cache version bumps</text>
+
+  <text x="68" y="900" class="small">Worker and page share data only through chrome.storage:</text>
+  <text x="68" y="920" class="small">a service worker has no window, document or localStorage.</text>
+
+  <!-- Hub API -->
+  <rect x="780" y="120" width="420" height="510" rx="18" class="worker"/>
+  <text x="808" y="158" class="eyebrow">CLOUDFLARE WORKER · HONO</text>
+  <text x="808" y="196" class="h2">Hub API</text>
+  <text x="808" y="224" class="t">Holds the Unsplash and quote keys,</text>
+  <text x="808" y="246" class="t">so none ship inside the extension</text>
+
+  <rect x="808" y="272" width="364" height="190" rx="12" class="kv"/>
+  <text x="828" y="304" class="h3">Workers KV</text>
+  <text x="828" y="332" class="t">30-photo pool per tag set, 3 days</text>
+  <text x="828" y="358" class="t">a day's quote pool per source</text>
+  <text x="828" y="384" class="t">hourly Unsplash budget</text>
+  <text x="828" y="420" class="small">Tags normalised and capped at 5,</text>
+  <text x="828" y="440" class="small">so callers cannot inflate the key space</text>
+
+  <text x="808" y="500" class="h3">Never a blank background</text>
+  <text x="808" y="526" class="small">own pool → Unsplash → default pool</text>
+  <text x="808" y="546" class="small">→ last good copy → bundled pool</text>
+  <text x="808" y="590" class="small">GET /api/health for the uptime monitor</text>
+
+  <!-- Upstreams of the Worker -->
+  <rect x="1290" y="150" width="270" height="110" rx="12" class="box"/>
+  <text x="1310" y="188" class="h3">Unsplash API</text>
+  <text x="1310" y="214" class="small">photo search, download pings,</text>
+  <text x="1310" y="234" class="small">attribution links</text>
+
+  <rect x="1290" y="300" width="270" height="110" rx="12" class="box"/>
+  <text x="1310" y="338" class="h3">Quote sources</text>
+  <text x="1310" y="364" class="small">Stoic · Citatum · built-in lists</text>
+  <text x="1310" y="384" class="small">(your own list stays local)</text>
+
+  <path d="M1200,205 L1286,205" class="line" marker-end="url(#arrow)"/>
+  <path d="M1200,355 L1286,355" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Extension to Worker -->
+  <path d="M632,290 L776,290" class="line" marker-end="url(#arrow)"/>
+  <text x="646" y="278" class="label">/api/background</text>
+  <text x="646" y="314" class="label">/api/quote</text>
+  <path d="M632,530 L776,530" class="line" marker-end="url(#arrow)"/>
+  <text x="646" y="518" class="label">tomorrow's</text>
+  <text x="646" y="552" class="label">photo</text>
+
+  <!-- Direct from the browser -->
+  <text x="780" y="690" class="eyebrow">CALLED DIRECTLY FROM THE BROWSER</text>
+  <rect x="780" y="708" width="180" height="142" rx="12" class="box"/>
+  <text x="796" y="740" class="h3">Photo bytes</text>
+  <text x="796" y="764" class="small">images.unsplash.com,</text>
+  <text x="796" y="784" class="small">sized to the screen</text>
+
+  <rect x="975" y="708" width="180" height="142" rx="12" class="box"/>
+  <text x="991" y="740" class="h3">Weather</text>
+  <text x="991" y="764" class="small">Open-Meteo,</text>
+  <text x="991" y="784" class="small">BigDataCloud, GeoJS</text>
+
+  <rect x="1170" y="708" width="180" height="142" rx="12" class="box"/>
+  <text x="1186" y="740" class="h3">Google Calendar</text>
+  <text x="1186" y="764" class="small">read-only scope,</text>
+  <text x="1186" y="784" class="small">events kept in memory</text>
+
+  <rect x="1365" y="708" width="195" height="142" rx="12" class="accent"/>
+  <text x="1381" y="740" class="h3">Your Memos server</text>
+  <text x="1381" y="764" class="small">self-hosted; the token</text>
+  <text x="1381" y="784" class="small">stays on this device</text>
+  <text x="1381" y="804" class="small">and never reaches</text>
+  <text x="1381" y="824" class="small">the Worker</text>
+
+  <path d="M660,880 L720,880 L720,779 L776,779" class="line" marker-end="url(#arrow)"/>
+  <path d="M660,940 L1462,940 L1462,854" class="line-accent" marker-end="url(#arrow-accent)"/>
+  <text x="980" y="930" class="label" style="fill:#2f7d5b">private notes: browser to your server, no proxy</text>
+</svg>

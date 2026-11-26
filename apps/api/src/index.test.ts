@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import app from './index';
-import { HOURLY_UNSPLASH_BUDGET } from './background';
+import { HOURLY_UNSPLASH_BUDGET, lowQuotaKey, UNSPLASH_RESERVE } from './background';
 import { UPSTREAM_TIMEOUT_MS } from './fetchWithTimeout';
 import { DEFAULT_POOL_KEY, LAST_GOOD_DEFAULT_POOL_KEY } from './tags';
 import { hangingFetch } from './test/hangingFetch';
@@ -143,6 +143,92 @@ describe('GET /api/background', () => {
     await app.request('/api/background?tags=forest', {}, env(kv), executionCtx());
 
     expect(downloadPings()).toHaveLength(1);
+  });
+
+  describe('the account quota the download pings spend', () => {
+    /** Keeps what `waitUntil` was handed, so a test can wait for the ping. */
+    const trackingCtx = () => {
+      const pending: Promise<unknown>[] = [];
+      const ctx = {
+        waitUntil: (p: Promise<unknown>) => void pending.push(p),
+        passThroughOnException: () => {},
+      } as unknown as ExecutionContext;
+      return { ctx, drain: () => Promise.all(pending) };
+    };
+
+    /** Unsplash's answers, each carrying the account's remaining calls. */
+    const answerWithRemaining = (remaining: number) =>
+      fetchMock.mockImplementation(async (input) => {
+        const headers = { 'X-Ratelimit-Remaining': String(remaining) };
+        return String(input).includes('/download')
+          ? new Response('{}', { headers })
+          : new Response(await unsplashResponse().text(), { headers });
+      });
+
+    const cachedDefault = [
+      {
+        url: 'https://images.unsplash.com/cached',
+        location: null,
+        photographer: 'Cached',
+        photographerUrl: 'https://unsplash.com/@cached',
+        downloadLocation: 'https://api.unsplash.com/photos/cached/download',
+      },
+    ];
+
+    it('stops fetching pools once a ping reports the hour nearly spent', async () => {
+      const { kv, seed } = createKvStub();
+      seed(DEFAULT_POOL_KEY, cachedDefault);
+      answerWithRemaining(UNSPLASH_RESERVE - 1);
+      const first = trackingCtx();
+
+      await app.request('/api/background', {}, env(kv), first.ctx);
+      await first.drain();
+      const before = unsplashCalls().length;
+      const res = await app.request('/api/background?tags=unseen', {}, env(kv), executionCtx());
+
+      expect(unsplashCalls()).toHaveLength(before);
+      await expect(res.json()).resolves.toMatchObject({ photographer: 'Cached' });
+      // The ping itself is never held back: the guidelines require one per photo.
+      expect(downloadPings()).toHaveLength(2);
+    });
+
+    it('keeps fetching while the reported remainder is at the reserve', async () => {
+      // Pins the boundary: `<` is the whole guard.
+      const { kv, seed } = createKvStub();
+      seed(DEFAULT_POOL_KEY, cachedDefault);
+      answerWithRemaining(UNSPLASH_RESERVE);
+      const first = trackingCtx();
+
+      await app.request('/api/background', {}, env(kv), first.ctx);
+      await first.drain();
+      const before = unsplashCalls().length;
+      await app.request('/api/background?tags=unseen', {}, env(kv), executionCtx());
+
+      expect(unsplashCalls()).toHaveLength(before + 1);
+    });
+
+    it('takes the remainder from a pool fetch as well', async () => {
+      const { kv } = createKvStub();
+      answerWithRemaining(UNSPLASH_RESERVE - 1);
+
+      await app.request('/api/background?tags=one', {}, env(kv), executionCtx());
+      await app.request('/api/background?tags=two', {}, env(kv), executionCtx());
+
+      expect(unsplashCalls()).toHaveLength(1);
+    });
+
+    it('writes nothing to KV for a response with room to spare', async () => {
+      // A write per photo handed out is what the header approach avoids.
+      const { kv, seed, keys } = createKvStub();
+      seed(DEFAULT_POOL_KEY, cachedDefault);
+      answerWithRemaining(900);
+      const first = trackingCtx();
+
+      await app.request('/api/background', {}, env(kv), first.ctx);
+      await first.drain();
+
+      expect(keys().filter((k) => k === lowQuotaKey())).toEqual([]);
+    });
   });
 
   it('serves the default pool when Unsplash accepts the request and never answers', async () => {

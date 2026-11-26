@@ -75,8 +75,10 @@ upstream is hit far less than once per user.
 
 ## Prerequisites
 
-- Node.js 24 (`.nvmrc`; CI uses the same)
-- pnpm 10.34.9, pinned by `packageManager` (`corepack enable` picks it up)
+- Node.js 26 LTS (`.nvmrc`; CI reads the same file)
+- pnpm 10.34.9, pinned by `packageManager`. Node 25 and later no longer bundle
+  corepack, so install pnpm itself (`npm i -g pnpm`); pnpm 10 switches to the
+  pinned version on its own
 
 ## Setup
 

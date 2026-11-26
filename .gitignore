@@ -37,3 +37,6 @@ extension-release.zip
 
 .claude/worktrees
 .claude/settings.local.json
+# Personal MCP servers (a private Kaneo board); nothing in it is usable from
+# another clone.
+.mcp.json

@@ -1,3 +1,9 @@
+## 2.15.0 (2026-11-26)
+
+### 🚀 Features
+
+- **extension:** ask for feedback from the settings and on uninstall ([6b7537f](https://github.com/csiszaralex/hub-dashboard-extension/commit/6b7537f))
+
 ## 2.14.0 (2026-11-26)
 
 ### 🚀 Features

@@ -9,7 +9,7 @@ A Chrome extension that replaces the new tab page with a minimalist dashboard. S
 - **Calendar** — next upcoming Google Calendar events (read-only OAuth)
 - **Quote** — a daily quote from the source you pick in settings (the list comes from the Hub API's `GET /api/quote/sources`, so only sources that deployment can serve appear), or your own list, which never touches the network. Quotes are cached by the Hub API, with a bundled Stoic fallback offline; a refresh button on the quote fetches another one
 - **Countdown** — custom target date configurable from settings
-- **Focus timer** — Pomodoro-style work/break timer owned by the service worker, so it keeps running with no tab open and raises exactly one notification per phase change
+- **Focus timer** — Pomodoro-style work/break timer owned by the service worker, so it keeps running with no tab open and raises exactly one notification per phase change; each Start runs one focus and one break, then waits for the next Start
 - **Quick note** — a scratchpad stored locally; clearing it can be undone for a few seconds
 - **Memos** — your notes from a self-hosted [Memos](https://usememos.com) instance (v0.30+), connected with an access token and a host permission granted for that one server at runtime. The token is kept in `chrome.storage.local`, never synced and never part of a settings backup
 - **Background** — a random Unsplash photo fetched from the Hub API and cached daily, or a custom image of your own; dimmable, with tomorrow's photo prefetched ahead of time

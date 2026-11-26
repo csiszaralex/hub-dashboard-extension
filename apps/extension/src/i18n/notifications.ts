@@ -3,8 +3,9 @@ import type { Language } from '@hub/shared';
 /** What the service worker says when a Pomodoro phase changes. */
 export interface PomodoroNotificationStrings {
   title: string;
-  workStarted: string;
   breakStarted: string;
+  /** The break ran out and the timer stopped; the next focus waits for the user. */
+  breakOver: string;
 }
 
 /**
@@ -25,12 +26,12 @@ export interface PomodoroNotificationStrings {
 export const POMODORO_NOTIFICATIONS: Record<Language, PomodoroNotificationStrings> = {
   en: {
     title: 'Hub',
-    workStarted: 'Focus time — back to it.',
     breakStarted: 'Break time — step away.',
+    breakOver: 'Break over. Start the next focus when you are ready.',
   },
   hu: {
     title: 'Hub',
-    workStarted: 'Fókuszidő: vissza a munkához.',
     breakStarted: 'Szünet: állj fel egy kicsit.',
+    breakOver: 'Vége a szünetnek. Indítsd a következő fókuszt, ha készen állsz.',
   },
 };

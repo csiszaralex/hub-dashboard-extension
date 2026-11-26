@@ -8,6 +8,7 @@ import {
   readPomodoroState,
   writePomodoroState,
   type PomodoroMessage,
+  type PomodoroState,
 } from './utils/pomodoroState';
 import { prefetchBackground } from './utils/prefetch';
 import { readSettings, type SettingKey } from './utils/settingsSchema';
@@ -108,6 +109,13 @@ const readPomodoroSettings = (): Promise<PomodoroSettings> =>
  */
 const pomodoroStrings = (language: string) => POMODORO_NOTIFICATIONS[resolveLanguage(language)];
 
+/** Marks the worker's notifications, so a click on one is recognised as ours. */
+const NOTIFICATION_PREFIX = 'hub-pomodoro-';
+
+/**
+ * Announces the phase that has just begun: a break, or, when a break ran out,
+ * the stop that follows it (`work` here means "back to work is up to you").
+ */
 const notify = (phase: PomodoroPhase, language: string) => {
   // `notifications` is declared in manifest.json, so this API is present in
   // every real extension context — but the alarm handler is the one path that
@@ -117,11 +125,11 @@ const notify = (phase: PomodoroPhase, language: string) => {
 
   const strings = pomodoroStrings(language);
   chrome.notifications
-    .create(`hub-pomodoro-${Date.now()}`, {
+    .create(`${NOTIFICATION_PREFIX}${Date.now()}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: strings.title,
-      message: phase === 'break' ? strings.breakStarted : strings.workStarted,
+      message: phase === 'break' ? strings.breakStarted : strings.breakOver,
     })
     .catch((error) => console.error('Failed to raise the Pomodoro notification:', error));
 };
@@ -232,7 +240,19 @@ const runAdvance = async () => {
 
   const settings = await readPomodoroSettings();
   const upcoming = nextPhase(state.phase);
-  const endsAt = Date.now() + phaseDurationMs(upcoming, settings.work, settings.break);
+  // A finished break ends the session instead of starting another focus. The
+  // next one is the user's to start: a session that went on by itself meant a
+  // forgotten timer raised a notification every phase for the rest of the day.
+  // The epoch still moves, so this counts as a transition for the checks below.
+  const next: PomodoroState =
+    upcoming === 'work'
+      ? { ...IDLE_POMODORO, epoch: state.epoch + 1 }
+      : {
+          phase: upcoming,
+          endsAt: Date.now() + phaseDurationMs(upcoming, settings.work, settings.break),
+          running: true,
+          epoch: state.epoch + 1,
+        };
 
   // Two checks, because they catch different things.
   //
@@ -251,8 +271,8 @@ const runAdvance = async () => {
   if (current.epoch !== state.epoch) return;
   if (sessionCommands !== command) return;
 
-  await writePomodoroState({ phase: upcoming, endsAt, running: true, epoch: state.epoch + 1 });
-  schedulePomodoroAlarm(endsAt);
+  await writePomodoroState(next);
+  if (next.endsAt !== null) schedulePomodoroAlarm(next.endsAt);
 
   // One more await has passed, so one more chance for a Reset. It wins the state
   // — last writer wins, by design — but the phase it cancelled must not still be
@@ -312,6 +332,20 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 chrome.runtime.onStartup.addListener(() => {
   scheduleAlarm();
   void rehydratePomodoro();
+});
+
+// A click on one of the Pomodoro notifications opens a new tab, which is the
+// Hub page with the timer on it, and takes the notification away. Opening one
+// rather than focusing an existing Hub tab is deliberate: finding that tab
+// means reading tab URLs, which needs the `tabs` permission.
+chrome.notifications?.onClicked.addListener((id) => {
+  if (!id.startsWith(NOTIFICATION_PREFIX)) return;
+  chrome.tabs
+    .create({})
+    .catch((error) => console.error('Failed to open a tab for the notification:', error));
+  chrome.notifications
+    .clear(id)
+    .catch((error) => console.error('Failed to clear the Pomodoro notification:', error));
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {

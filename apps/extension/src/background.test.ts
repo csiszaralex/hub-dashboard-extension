@@ -356,7 +356,9 @@ describe('background service worker — Pomodoro', () => {
     expect(scheduledPomodoro(chromeStub)?.scheduledTime).toBe(state?.endsAt);
   });
 
-  it('goes back to work after the break', async () => {
+  // A session used to go on by itself, so a forgotten one raised a
+  // notification every phase for the rest of the day.
+  it('stops after the break instead of starting the next focus', async () => {
     const chromeStub = installChromeStub();
     await loadBackground();
     send({ type: 'pomodoro/start' });
@@ -369,7 +371,67 @@ describe('background service worker — Pomodoro', () => {
     chromeStub.fireAlarm(POMODORO_ALARM);
     await settle();
 
-    expect(readState(chromeStub)).toMatchObject({ phase: 'work', running: true });
+    expect(readState(chromeStub)).toMatchObject({ phase: 'work', running: false, endsAt: null });
+    expect(scheduledPomodoro(chromeStub)).toBeUndefined();
+  });
+
+  it('starts the next focus only when asked to', async () => {
+    const chromeStub = installChromeStub();
+    await loadBackground();
+    send({ type: 'pomodoro/start' });
+    await settle();
+    await expirePhase();
+    chromeStub.fireAlarm(POMODORO_ALARM);
+    await settle();
+    await expirePhase();
+    chromeStub.fireAlarm(POMODORO_ALARM);
+    await settle();
+
+    send({ type: 'pomodoro/start' });
+    await settle();
+
+    const state = readState(chromeStub);
+    expect(state).toMatchObject({ phase: 'work', running: true });
+    expect(scheduledPomodoro(chromeStub)?.scheduledTime).toBe(state?.endsAt);
+    // Starting is the user's own act, so it is not announced.
+    expect(chromeStub.sentNotifications()).toHaveLength(2);
+  });
+
+  it('opens a Hub tab and dismisses the notification when it is clicked', async () => {
+    const chromeStub = installChromeStub();
+    await loadBackground();
+    send({ type: 'pomodoro/start' });
+    await settle();
+    await expirePhase();
+    chromeStub.fireAlarm(POMODORO_ALARM);
+    await settle();
+
+    const [id] = chromeStub.openNotificationIds();
+    chromeStub.clickNotification(id);
+    await settle();
+
+    // No URL: Chrome opens the new tab page, which is Hub.
+    expect(chromeStub.createdTabs()).toEqual([{}]);
+    expect(chromeStub.openNotificationIds()).toEqual([]);
+  });
+
+  it("leaves a click on another extension feature's notification alone", async () => {
+    const chromeStub = installChromeStub();
+    await loadBackground();
+    await new Promise<void>((resolve) =>
+      chrome.notifications.create('something-else', {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'x',
+        message: 'y',
+      }, () => resolve()),
+    );
+
+    chromeStub.clickNotification('something-else');
+    await settle();
+
+    expect(chromeStub.createdTabs()).toEqual([]);
+    expect(chromeStub.openNotificationIds()).toEqual(['something-else']);
   });
 
   // The property this whole task exists for. The old timer lived in the hook,
@@ -407,7 +469,7 @@ describe('background service worker — Pomodoro', () => {
 
     expect(chromeStub.sentNotifications().map((n) => n.message)).toEqual([
       'Break time — step away.',
-      'Focus time — back to it.',
+      'Break over. Start the next focus when you are ready.',
     ]);
   });
 

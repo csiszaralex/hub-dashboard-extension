@@ -1,8 +1,8 @@
 # Privacy Policy for Hub Extension
 
-**Effective Date:** November 18, 2026
+**Effective Date:** November 26, 2026
 
-This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data.
+This Privacy Policy describes how the Hub Chrome Extension ("Hub", "we", "us", or "our") handles your data. Hub is designed to be a privacy-first, local dashboard. We do not collect, store, or process your personal data. The one exception is what you choose to send through the feedback form, described under "Third-Party Services" (Tally) below.
 
 Hub operates one backend service of its own: the Hub API, a Cloudflare Worker that supplies background images and daily quotes. It is described under "Hub API" below. No personal data, calendar data, location, or note content is ever sent to it.
 
@@ -83,6 +83,7 @@ Hub interacts with the following third-party APIs to fetch content. When the ext
 - **BigDataCloud:** Turns coordinates into a place name for the weather widget.
 - **GeoJS:** Approximate location from your IP address, used only as a fallback when the settings and browser geolocation do not provide one.
 - **Stoic Quote API and Citatum:** Quote sources. Only the Hub API contacts them, as described above; the extension never does. A quote from Citatum is shown with a link to its page there, which opens like any other link if you click it.
+- **Tally (`tally.so`):** The feedback form, in English or Hungarian to match your interface language. The extension never contacts Tally by itself. The form opens in a tab only when you click **Send feedback** in the settings, or when you remove Hub, since Chrome then opens the page Hub registered for that moment. Its address carries three values: where it was opened from (the settings or the removal), the version of Hub, and the interface language. Nothing else from the extension is included. What you type into the form, including an email address if you choose to leave one, is stored by Tally and read only to answer you.
 
 These third-party services have their own privacy policies governing the data they process during API requests.
 

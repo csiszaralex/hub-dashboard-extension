@@ -142,6 +142,8 @@ Two invariants hold this widget together, and both are easy to undo by accident:
 - Google Calendar API — via OAuth identity permission (`calendar.readonly`)
 - The user's own Memos instance (`optional_host_permissions`, granted at runtime for one origin) — the Memos widget. **Deliberately not proxied through the Hub API:** the Worker cannot reach a LAN or Tailscale host, and routing private notes through a public, unauthenticated proxy — with the user's token as a Worker secret — is the wrong trust boundary. Requires Memos v0.30.0+; the adapter targets one API shape rather than a range. The one move it follows is 26.10's, which took the routes from `/api/v1/...` to `/api/...` (410 Gone on the old prefix) without changing the JSON: `memosClient` looks the prefix up once per page per server, from whether `GET /api/instance/profile` answers 404, and looks again on a 410.
 
+Not a consumed API, so not in `host_permissions`: the Tally feedback forms (`utils/feedback.ts`, one per language because Tally cannot translate a form's questions). The extension never requests them; it only opens one, from the popup's **Send feedback** link or as the uninstall page the worker registers with `runtime.setUninstallURL`, with `source`, `version` and `lang` in the address and nothing else.
+
 Changes to permissions, scopes or external hosts must be reflected in `privacy-policy.md`, which is what the Chrome Web Store review reads.
 
 ### API

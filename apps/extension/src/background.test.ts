@@ -924,3 +924,49 @@ describe('background service worker — notification locale parity', () => {
     expect(sent?.title, hint).toBe(expected.title);
   });
 });
+
+describe('background service worker — uninstall feedback', () => {
+  const params = (url: string | null) => Object.fromEntries(new URL(url ?? 'about:blank').searchParams);
+
+  it('points the uninstall page at the form in the saved language', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ language: 'hu' });
+    await loadBackground();
+    await settle();
+
+    const url = chromeStub.uninstallUrl();
+    expect(url).toMatch(/^https:\/\/tally\.so\/r\/gbGG2J\?/);
+    expect(params(url)).toEqual({ source: 'uninstall', version: '0.0.0-test', lang: 'hu' });
+  });
+
+  it('follows the browser when no language was saved', async () => {
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-GB']);
+    const chromeStub = installChromeStub();
+    await loadBackground();
+    await settle();
+
+    expect(chromeStub.uninstallUrl()).toMatch(/^https:\/\/tally\.so\/r\/rDPPM5\?/);
+  });
+
+  it('switches form when the language changes', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ language: 'en' });
+    await loadBackground();
+    await settle();
+
+    await new Promise<void>((resolve) => chrome.storage.sync.set({ language: 'hu' }, () => resolve()));
+    await settle();
+
+    expect(params(chromeStub.uninstallUrl()).lang).toBe('hu');
+    expect(chromeStub.uninstallUrl()).toMatch(/gbGG2J/);
+  });
+
+  it('carries nothing but where, which version and which language', async () => {
+    const chromeStub = installChromeStub();
+    chromeStub.seedSync({ language: 'en', city: 'Somewhere', memosUrl: 'https://memos.example' });
+    await loadBackground();
+    await settle();
+
+    expect(Object.keys(params(chromeStub.uninstallUrl())).sort()).toEqual(['lang', 'source', 'version']);
+  });
+});

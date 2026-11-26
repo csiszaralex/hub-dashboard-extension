@@ -10,6 +10,7 @@ import {
   type PomodoroMessage,
   type PomodoroState,
 } from './utils/pomodoroState';
+import { feedbackUrl } from './utils/feedback';
 import { prefetchBackground } from './utils/prefetch';
 import { readSettings, type SettingKey } from './utils/settingsSchema';
 
@@ -367,6 +368,29 @@ chrome.runtime.onMessage.addListener((message: PomodoroMessage) => {
   // effect. It bumps no command counter: this is not a user command.
   else if (message?.type === 'pomodoro/ping') void rehydratePomodoro();
 });
+
+/**
+ * Points Chrome's uninstall page at the feedback form, in the saved language.
+ *
+ * Chrome keeps the URL across restarts, but it is set again on every cold
+ * start rather than only on install: an update is what changes the version in
+ * it, and setting it costs nothing. A language change re-sets it below, since
+ * the form itself is per language.
+ */
+const syncUninstallUrl = () => {
+  chrome.storage.sync.get(['language'] satisfies SettingKey[], (stored) => {
+    const language = resolveLanguage(readSettings(stored).language);
+    chrome.runtime
+      .setUninstallURL(feedbackUrl('uninstall', language, __APP_VERSION__))
+      .catch((error) => console.error('Failed to set the uninstall URL:', error));
+  });
+};
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && 'language' in changes) syncUninstallUrl();
+});
+
+syncUninstallUrl();
 
 // Every cold start, whatever woke the worker — not only startup and install.
 // A worker torn down between `writePomodoroState` and `chrome.alarms.create`

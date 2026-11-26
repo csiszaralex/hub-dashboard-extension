@@ -73,6 +73,7 @@
   },
   "popup": {
     "title": "Hub Dashboard",
+    "feedback": "Visszajelzés küldése",
     "loading": "Betöltés...",
     "appearance": "Kinézet és háttér",
     "appearancePlaceholder": "pl. landscape, dark, city",

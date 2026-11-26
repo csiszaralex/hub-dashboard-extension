@@ -241,6 +241,8 @@ export interface ChromeStub {
   clickNotification: (id: string) => void;
   /** Every `tabs.create` call in order. */
   createdTabs: () => { url?: string }[];
+  /** What `runtime.setUninstallURL` last accepted, or `null`. */
+  uninstallUrl: () => string | null;
   /** Every `runtime.sendMessage` payload in order, whether or not anything received it. */
   sentMessages: () => unknown[];
 }
@@ -265,6 +267,7 @@ export const installChromeStub = (): ChromeStub => {
   const openNotifications = new Set<string>();
   const notificationClickListeners = new Set<(id: string) => void>();
   const tabLog: { url?: string }[] = [];
+  let uninstallUrl: string | null = null;
   /**
    * Chrome's two calling conventions: with a callback a call returns nothing
    * and hands the callback its result a microtask later; without one it
@@ -755,6 +758,16 @@ export const installChromeStub = (): ChromeStub => {
         messageLog.push(message);
         queueMicrotask(() => deliverMessage(message, cb));
       },
+      /**
+       * Chrome refuses a URL that is not http(s) or is longer than 1023
+       * characters, and keeps the previous one when it does.
+       */
+      setUninstallURL: async (url: string) => {
+        await Promise.resolve();
+        if (!/^https?:\/\//.test(url)) throw new Error('Invalid URL: only http and https are allowed.');
+        if (url.length > 1023) throw new Error('URL is too long; the limit is 1023 characters.');
+        uninstallUrl = url;
+      },
     },
   };
 
@@ -820,6 +833,7 @@ export const installChromeStub = (): ChromeStub => {
       notificationClickListeners.forEach((l) => l(id));
     },
     createdTabs: () => [...tabLog],
+    uninstallUrl: () => uninstallUrl,
     sentMessages: () => [...messageLog],
   };
 };

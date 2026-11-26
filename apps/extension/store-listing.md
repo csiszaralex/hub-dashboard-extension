@@ -19,6 +19,57 @@ download, for an image that never renders in the product. From the root it is
 still served by GitHub Pages for the project page, and still the file to upload
 to the dashboard, without riding along in the package.
 
+## Listing copy
+
+English, for the store's default listing. The **summary** is not repeated here:
+it is `description` in [`manifest.json`](manifest.json), which the store shows
+under the name and Chrome shows in `chrome://extensions`, capped at 132
+characters. The **detailed description** below is pasted into the dashboard as
+plain text (the store renders no Markdown, so bullets are `•`).
+
+The contact address everywhere (store, privacy policy, feedback) is
+`hub@csalex.dev`.
+
+```text
+Hub turns every new tab into a quiet dashboard over a fresh photograph: the time, the weather, your next meetings, a quote for the day, and the few tools you reach for between tasks.
+
+No account. No tracking. Your notes and settings stay in your browser, and the one widget that syncs notes talks only to a Memos server you run yourself.
+
+WHAT IT SHOWS
+• Clock and date, in 12- or 24-hour time as your language prefers
+• Weather now and for the next four days, for your city or your location
+• Upcoming events from the Google Calendars you pick (read-only access)
+• A daily quote: Stoic, Hungarian (Citatum), a built-in list, or your own
+• A countdown to a date you set
+• A focus timer: one focus and one break per start, with a single notification however many tabs are open
+• A quick note that stays on this device
+• Memos: your notes from your own self-hosted Memos server (v0.30 or newer)
+• A new background photo from Unsplash every day, picked by the topics you choose, or your own image
+
+MADE TO STAY OUT OF THE WAY
+• Hide any widget, dim the photo, or press "." or double-click to see only the photograph
+• Settings save as you change them; export them to a file and import them on another machine
+• Works in English and Hungarian
+• Tomorrow's photo is fetched in the background, so a new tab does not wait for it
+
+PRIVACY
+Hub has no account and no analytics. Calendar events are read with Google's read-only scope and never leave your browser. The Hub API receives only the photo topics and quote settings you chose, nothing that identifies you, and per-request logging is switched off. The full policy: https://csalex.in/hub-dashboard-extension/apps/extension/privacy-policy.html
+
+Open source: https://github.com/csiszaralex/hub-dashboard-extension
+Questions or ideas: hub@csalex.dev
+```
+
+### Screenshots
+
+1280×800 PNG, five of them, taken from a profile with **invented calendar
+entries and notes only**: the screenshots are public and stay up for years.
+
+1. The whole page at 1920 wide, daytime photo, every widget on: the first look.
+2. The calendar and weather side by side, with a few made-up meetings.
+3. The focus timer running, and the notification it raises.
+4. The Memos panel open with three or four sample notes.
+5. The settings page on the Appearance tab, showing the topics and the dim slider.
+
 ## Single purpose
 
 Hub replaces the new tab page with a dashboard: clock, weather, Google Calendar

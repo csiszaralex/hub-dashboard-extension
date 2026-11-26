@@ -56,10 +56,10 @@ importers:
         version: 8.73.0(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)
       vitest:
         specifier: ^5.1.0
-        version: 5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       wrangler:
         specifier: ^4.165.0
-        version: 4.165.0(@cloudflare/workers-types@5.20261104.1)(@types/node@24.10.10)(vitest@5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        version: 4.165.0(@cloudflare/workers-types@5.20261104.1)(@types/node@26.6.11)(vitest@5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
 
   apps/extension:
     dependencies:
@@ -90,13 +90,13 @@ importers:
     devDependencies:
       '@crxjs/vite-plugin':
         specifier: 3.0.0
-        version: 3.0.0(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 3.0.0(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.14.0(jiti@2.7.0))
       '@tailwindcss/vite':
         specifier: ^4.3.5
-        version: 4.3.5(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 4.3.5(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -107,8 +107,8 @@ importers:
         specifier: ^0.3.7
         version: 0.3.7
       '@types/node':
-        specifier: ^24.10.1
-        version: 24.10.10
+        specifier: ^26.6.11
+        version: 26.6.11
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
@@ -117,7 +117,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.2.1
-        version: 6.2.1(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 6.2.1(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       bestzip:
         specifier: ^4.0.3
         version: 4.0.3(bare-buffer@3.7.3)
@@ -150,10 +150,10 @@ importers:
         version: 8.73.0(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)
       vite:
         specifier: ^8.3.6
-        version: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+        version: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
       vitest:
         specifier: ^5.1.0
-        version: 5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+        version: 5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/shared:
     devDependencies:
@@ -1764,6 +1764,9 @@ packages:
 
   '@types/node@24.10.10':
     resolution: {integrity: sha512-+0/4J266CBGPUq/ELg7QUHhN25WYjE0wYTPSQJn1xeu8DOlIOPxXxrNGiLmfAWl7HMMgWFWXpt9IDjMWrF5Iow==}
+
+  '@types/node@26.6.11':
+    resolution: {integrity: sha512-uUyQ2XLEz+EXh34lmS3GhKrkqn/8FU7KUiKRpk347At2bmnMVWss45yz8b4FG/tUtmV1tV/+TVkITItPROyeeQ==}
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -3387,6 +3390,9 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
+
   undici@7.30.1:
     resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==}
     engines: {node: '>=20.18.1'}
@@ -4542,14 +4548,14 @@ snapshots:
 
   '@cloudflare/workers-types@5.20261104.1': {}
 
-  '@cloudflare/workers-utils@0.55.0(vitest@5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@cloudflare/workers-utils@0.55.0(vitest@5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))':
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       chalk: 5.3.0
       dotenv: 16.3.1
       undici: 7.30.1
     optionalDependencies:
-      vitest: 5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+      vitest: 5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
   '@commitlint/cli@21.2.4(conventional-commits-parser@7.1.4)(typescript@6.0.3)':
     dependencies:
@@ -4674,7 +4680,7 @@ snapshots:
 
   '@conventional-changelog/template@1.4.1': {}
 
-  '@crxjs/vite-plugin@3.0.0(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@crxjs/vite-plugin@3.0.0(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@webcomponents/custom-elements': 1.6.0
       acorn-walk: 8.3.5
@@ -4690,7 +4696,7 @@ snapshots:
       rollup: 2.80.0
       rxjs: 7.5.7
       tinyglobby: 0.2.17
-      vite: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -5259,12 +5265,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.5
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.5
 
-  '@tailwindcss/vite@4.3.5(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@tailwindcss/vite@4.3.5(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@tailwindcss/node': 4.3.5
       '@tailwindcss/oxide': 4.3.5
       tailwindcss: 4.3.5
-      vite: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
 
   '@testing-library/dom@10.4.2':
     dependencies:
@@ -5319,7 +5325,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 18.19.130
+      '@types/node': 24.10.10
       form-data: 4.0.6
 
   '@types/node@18.19.130':
@@ -5329,6 +5335,10 @@ snapshots:
   '@types/node@24.10.10':
     dependencies:
       undici-types: 7.16.0
+
+  '@types/node@26.6.11':
+    dependencies:
+      undici-types: 8.9.0
 
   '@types/parse-json@4.0.2': {}
 
@@ -5447,19 +5457,19 @@ snapshots:
       '@typescript-eslint/types': 8.73.0
       eslint-visitor-keys: 5.0.1
 
-  '@vitejs/plugin-react@6.2.1(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@vitejs/plugin-react@6.2.1(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@rolldown/pluginutils': 1.1.1
-      vite: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
 
-  '@vitest/mocker@5.1.0(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@vitest/mocker@5.1.0(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@vitest/spy': 5.1.0
       estree-walker: 3.0.3
       magic-string: 1.4.5
     optionalDependencies:
-      vite: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
 
   '@vitest/spy@5.1.0': {}
 
@@ -6454,10 +6464,10 @@ snapshots:
 
   mimic-fn@2.1.0: {}
 
-  miniflare@5.20261118.0-beta(@types/node@24.10.10):
+  miniflare@5.20261118.0-beta(@types/node@26.6.11):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
-      sharp: 0.35.5(@types/node@24.10.10)
+      sharp: 0.35.5(@types/node@26.6.11)
       undici: 7.30.1
       workerd: 1.20261118.1
       ws: 8.21.0
@@ -6844,7 +6854,7 @@ snapshots:
 
   semver@7.8.6: {}
 
-  sharp@0.35.5(@types/node@24.10.10):
+  sharp@0.35.5(@types/node@26.6.11):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -6875,7 +6885,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.5
       '@img/sharp-win32-ia32': 0.35.5
       '@img/sharp-win32-x64': 0.35.5
-      '@types/node': 24.10.10
+      '@types/node': 26.6.11
 
   shebang-command@2.0.0:
     dependencies:
@@ -7039,6 +7049,8 @@ snapshots:
 
   undici-types@7.16.0: {}
 
+  undici-types@8.9.0: {}
+
   undici@7.30.1: {}
 
   unenv@2.0.0-rc.24:
@@ -7076,7 +7088,7 @@ snapshots:
 
   verkit@0.5.0: {}
 
-  vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0):
+  vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -7084,16 +7096,16 @@ snapshots:
       rolldown: 1.2.19
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.10.10
+      '@types/node': 26.6.11
       esbuild: 0.28.2
       fsevents: 2.3.3
       jiti: 2.7.0
       yaml: 2.9.0
 
-  vitest@5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)):
+  vitest@5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)):
     dependencies:
       '@types/chai': 5.2.3
-      '@vitest/mocker': 5.1.0(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+      '@vitest/mocker': 5.1.0(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       chai: 6.3.0
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -7104,10 +7116,10 @@ snapshots:
       tinybench: 6.2.4
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
-      vite: 8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
+      vite: 8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
       why-is-node-running: 3.2.1
     optionalDependencies:
-      '@types/node': 24.10.10
+      '@types/node': 26.6.11
       happy-dom: 21.0.4
     transitivePeerDependencies:
       - msw
@@ -7147,17 +7159,17 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261118.1
       '@cloudflare/workerd-windows-64': 1.20261118.1
 
-  wrangler@4.165.0(@cloudflare/workers-types@5.20261104.1)(@types/node@24.10.10)(vitest@5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))):
+  wrangler@4.165.0(@cloudflare/workers-types@5.20261104.1)(@types/node@26.6.11)(vitest@5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.1
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261118.1)
-      '@cloudflare/workers-utils': 0.55.0(vitest@5.1.0(@types/node@24.10.10)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@cloudflare/workers-utils': 0.55.0(vitest@5.1.0(@types/node@26.6.11)(happy-dom@21.0.4)(vite@8.3.6(@types/node@26.6.11)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@cspotcode/source-map-support': 0.8.1
       '@types/yargs': 17.0.24
       cloudflare: 5.2.0
       devtools-protocol: 0.0.1182435
       esbuild: 0.28.2
-      miniflare: 5.20261118.0-beta(@types/node@24.10.10)
+      miniflare: 5.20261118.0-beta(@types/node@26.6.11)
       path-to-regexp: 6.3.0
       undici: 7.30.1
       unenv: 2.0.0-rc.24

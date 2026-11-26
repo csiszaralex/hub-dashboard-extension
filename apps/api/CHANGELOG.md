@@ -1,3 +1,9 @@
+## 1.4.5 (2026-11-26)
+
+### 🩹 Fixes
+
+- **api:** stop fetching pools when Unsplash reports the hour nearly spent ([8918691](https://github.com/csiszaralex/hub-dashboard-extension/commit/8918691))
+
 ## 1.4.4 (2026-11-19)
 
 ### 🧱 Updated Dependencies

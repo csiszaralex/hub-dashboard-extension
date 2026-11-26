@@ -7,14 +7,14 @@ this file and [`privacy-policy.md`](privacy-policy.md) are what the review reads
 
 ## Assets
 
-| Asset      | File                                          | Requirement            |
-| ---------- | --------------------------------------------- | ---------------------- |
-| Screenshot | [`../../assets/preview.png`](../../assets/preview.png) | 1280x800, PNG |
-| Icon       | [`icons/icon128.png`](icons/icon128.png)      | 128x128, PNG           |
+| Asset       | File                                                 | Requirement          |
+| ----------- | ---------------------------------------------------- | -------------------- |
+| Screenshots | [`../../assets/store/`](../../assets/store/)         | 1280x800, JPEG or PNG |
+| Icon        | [`icons/icon128.png`](icons/icon128.png)             | 128x128, PNG         |
 
-The screenshot lives at the repository root rather than in the extension's
-`public/` directory. It used to sit in `public/`, which meant Chrome packaged
-1.1 MB of store artwork into every install and every update — over half the
+The screenshots live at the repository root rather than in the extension's
+`public/` directory. Store artwork used to sit in `public/`, which meant Chrome
+packaged 1.1 MB of it into every install and every update — over half the
 download, for an image that never renders in the product. From the root it is
 still served by GitHub Pages for the project page, and still the file to upload
 to the dashboard, without riding along in the package.
@@ -61,15 +61,19 @@ Questions or ideas: hub@csalex.dev
 
 ### Screenshots
 
-1280×800 PNG, five of them, taken from a profile with **invented calendar
-entries and notes only**: the screenshots are public and stay up for years.
+Uploaded in this order from [`assets/store/`](../../assets/store/), 1280×800,
+scaled down from 2560×1600 captures (the full-size copies are in
+`assets/portfolio/`). Calendar entries and notes are invented, and the real
+Memos tags in the second one are blurred: the screenshots are public and stay
+up for years. 1280 is exactly the `wide` breakpoint, so the three-column layout
+shows at the store's size.
 
-1. The whole page, daytime photo, every widget on: the first look. 1280 is exactly
-   the `wide` breakpoint, so the three-column layout shows at the store's size.
-2. The calendar and weather side by side, with a few made-up meetings.
-3. The focus timer running, and the notification it raises.
-4. The Memos panel open with three or four sample notes.
-5. The settings page on the Appearance tab, showing the topics and the dim slider.
+| File               | Shows                                         | Caption                                                                                                   |
+| ------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `1-overview.jpg`   | Every widget on, with a countdown              | Everything at a glance: your next meetings, the weather, a countdown and today's quote over a fresh photo. |
+| `2-memos.jpg`      | The Memos panel open, filtered to one tag      | Your own notes, from your own server: browse by tag and add a memo without leaving the new tab.            |
+| `3-focus.jpg`      | The focus timer running                        | One focus timer for every tab: it runs in the background and notifies you once, even with no tab open.     |
+| `4-minimal.jpg`    | Widgets hidden, only the time and the quote    | Hide whatever you don't need. With every widget off, Hub is just the time and a photograph.                |
 
 ## Single purpose
 

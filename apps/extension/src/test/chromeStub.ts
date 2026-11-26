@@ -231,6 +231,16 @@ export interface ChromeStub {
   readSync: (key: string) => unknown;
   /** Every notification successfully created, in order. */
   sentNotifications: () => NotificationOptions[];
+  /** Ids of the notifications still on screen: created and not cleared. */
+  openNotificationIds: () => string[];
+  /**
+   * Delivers `notifications.onClicked` for a notification on screen. Throws for
+   * one that was never created or is already cleared, since Chrome cannot
+   * deliver a click on a notification nobody can see.
+   */
+  clickNotification: (id: string) => void;
+  /** Every `tabs.create` call in order. */
+  createdTabs: () => { url?: string }[];
   /** Every `runtime.sendMessage` payload in order, whether or not anything received it. */
   sentMessages: () => unknown[];
 }
@@ -252,6 +262,9 @@ export const installChromeStub = (): ChromeStub => {
   const startupListeners = new Set<() => void>();
   const messageListeners = new Set<MessageListener>();
   const notifications: NotificationOptions[] = [];
+  const openNotifications = new Set<string>();
+  const notificationClickListeners = new Set<(id: string) => void>();
+  const tabLog: { url?: string }[] = [];
   /**
    * Chrome's two calling conventions: with a callback a call returns nothing
    * and hands the callback its result a microtask later; without one it
@@ -638,7 +651,27 @@ export const installChromeStub = (): ChromeStub => {
           );
         }
         notifications.push(options);
+        openNotifications.add(id);
         return reply(id, cb);
+      },
+      /** Answers whether there was anything to clear, as the real API does. */
+      clear: (id: string, cb?: (wasCleared: boolean) => void) =>
+        reply(openNotifications.delete(id), cb),
+      onClicked: {
+        addListener: (listener: (id: string) => void) => {
+          notificationClickListeners.add(listener);
+        },
+      },
+    },
+    tabs: {
+      /**
+       * Without a `url` Chrome opens the new tab page, which this extension
+       * overrides, and that needs no `tabs` permission; only reading tabs'
+       * URLs does.
+       */
+      create: (properties: { url?: string }, cb?: (tab: { id: number }) => void) => {
+        tabLog.push({ ...properties });
+        return reply({ id: tabLog.length }, cb);
       },
     },
     permissions: {
@@ -781,6 +814,12 @@ export const installChromeStub = (): ChromeStub => {
     },
     readSync: (key) => store.get(key),
     sentNotifications: () => [...notifications],
+    openNotificationIds: () => [...openNotifications],
+    clickNotification: (id) => {
+      if (!openNotifications.has(id)) throw new Error(`No notification "${id}" is on screen`);
+      notificationClickListeners.forEach((l) => l(id));
+    },
+    createdTabs: () => [...tabLog],
     sentMessages: () => [...messageLog],
   };
 };

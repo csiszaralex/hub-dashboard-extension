@@ -1,3 +1,13 @@
+## 2.14.0 (2026-11-26)
+
+### 🚀 Features
+
+- **extension:** stop the focus timer after the break ([e2767bf](https://github.com/csiszaralex/hub-dashboard-extension/commit/e2767bf))
+
+### 🔥 Performance
+
+- **extension:** keep the service worker's strings out of the locale files ([38b42bb](https://github.com/csiszaralex/hub-dashboard-extension/commit/38b42bb))
+
 ## 2.13.1 (2026-11-26)
 
 ### 🩹 Fixes

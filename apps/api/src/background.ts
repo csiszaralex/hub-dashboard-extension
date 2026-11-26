@@ -35,7 +35,36 @@ const withUtm = (url: string): string => {
   return `${url}${url.includes('?') ? '&' : '?'}${UTM}`;
 };
 
-const budgetKey = () => `budget:${new Date().toISOString().slice(0, 13)}`;
+const currentHour = () => new Date().toISOString().slice(0, 13);
+const budgetKey = () => `budget:${currentHour()}`;
+
+/**
+ * Calls left in the account's hour below which no pool is fetched.
+ *
+ * Unsplash counts every request to `api.unsplash.com`, the download pings
+ * included, and those are not in `HOURLY_UNSPLASH_BUDGET`: there is one per
+ * photo handed out, so counting them in KV would cost a write per request. The
+ * pings are not capped either, since the API guidelines require one for every
+ * photo used. Instead each Unsplash response's `X-Ratelimit-Remaining` is read,
+ * and once it drops under this a flag stops pool fetches for the rest of the
+ * hour, which keeps the remaining calls for the pings. The flag is written only
+ * then, so ordinary traffic costs no KV write at all.
+ */
+export const UNSPLASH_RESERVE = 200;
+
+export const lowQuotaKey = () => `unsplash_low:${currentHour()}`;
+
+/** Raises the low-quota flag when a response says the account's hour is nearly spent. */
+const noteRemaining = async (kv: KVNamespace, res: Response): Promise<void> => {
+  const header = res.headers.get('X-Ratelimit-Remaining');
+  const remaining = header === null ? Number.NaN : Number(header);
+  if (!Number.isFinite(remaining) || remaining >= UNSPLASH_RESERVE) return;
+  try {
+    await kv.put(lowQuotaKey(), String(remaining), { expirationTtl: 3600 });
+  } catch (error) {
+    console.error('Low-quota flag write failed:', error);
+  }
+};
 
 /**
  * Claims one Unsplash call from this hour's budget. Returns false when spent.
@@ -53,6 +82,10 @@ const budgetKey = () => `budget:${new Date().toISOString().slice(0, 13)}`;
  */
 const claimUnsplashCall = async (kv: KVNamespace): Promise<boolean> => {
   try {
+    // The account's own count, as Unsplash last reported it: below the reserve,
+    // what is left belongs to the download pings.
+    if ((await kv.get(lowQuotaKey())) !== null) return false;
+
     const key = budgetKey();
     const used = Number((await kv.get(key)) ?? '0');
     if (!Number.isFinite(used) || used >= HOURLY_UNSPLASH_BUDGET) return false;
@@ -98,7 +131,11 @@ const toPooledPhoto = (img: Photo): PooledPhoto | null => {
   };
 };
 
-const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]> => {
+const fetchPool = async (
+  kv: KVNamespace,
+  tags: string,
+  accessKey: string,
+): Promise<PooledPhoto[]> => {
   const unsplashUrl = new URL('https://api.unsplash.com/photos/random');
   unsplashUrl.searchParams.set('count', String(POOL_SIZE));
   unsplashUrl.searchParams.set('query', tags);
@@ -107,6 +144,7 @@ const fetchPool = async (tags: string, accessKey: string): Promise<PooledPhoto[]
   const rawData = await fetchWithTimeout(
     unsplashUrl.toString(),
     async (res): Promise<unknown> => {
+      await noteRemaining(kv, res);
       if (!res.ok) throw new Error(`Unsplash API error: ${res.status}`);
       return res.json();
     },
@@ -164,7 +202,7 @@ const refillPool = async (
 
   let pool: PooledPhoto[];
   try {
-    pool = await fetchPool(tags, accessKey);
+    pool = await fetchPool(kv, tags, accessKey);
   } catch (error) {
     console.error(error);
     return null;
@@ -217,7 +255,7 @@ backgroundRoutes.get('/api/background', async (c) => {
     c.executionCtx.waitUntil(
       // Bounded too: `waitUntil` would otherwise hold the invocation open for as
       // long as Unsplash takes to answer a request whose reply nobody reads.
-      fetchWithTimeout(downloadLocation, () => Promise.resolve(undefined), {
+      fetchWithTimeout(downloadLocation, (res) => noteRemaining(kv, res), {
         headers: { Authorization: `Client-ID ${c.env.UNSPLASH_ACCESS_KEY}` },
       }).catch((error) => console.error('Download ping failed:', error)),
     );

@@ -57,6 +57,14 @@ own per-hour rate limit on the account is the hard backstop. If the counter
 cannot be read or written, the worker does not call Unsplash: it fails closed on
 spending and open on serving.
 
+The download pings count against the account's limit too: Unsplash counts every
+request to `api.unsplash.com`. They are one per photo handed out, so they are
+neither capped (the guidelines require them) nor counted in KV (that would be a
+write per request). Instead every Unsplash response's `X-Ratelimit-Remaining`
+is read, and when it falls below `UNSPLASH_RESERVE` a flag stops pool fetches
+for the rest of the hour, leaving what is left for the pings. The flag is the
+only write this adds, and only once the hour is nearly spent.
+
 There is no per-client limit. Every caller shares the one hourly budget.
 
 ### Fallback order

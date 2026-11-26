@@ -19,7 +19,7 @@ own Memos server and to nothing else.
 | **Calendar**    | Upcoming Google Calendar events, from whichever calendars you pick                |
 | **Quote**       | A daily quote: Stoic (English), Citatum (Hungarian), a built-in list, or your own |
 | **Countdown**   | Time remaining to a date you set                                                  |
-| **Focus timer** | A Pomodoro timer that runs in the background and notifies you at each phase       |
+| **Focus timer** | A Pomodoro timer: one focus and one break per Start, running in the background    |
 | **Quick note**  | A scratchpad that persists on the device                                          |
 | **Memos**       | Your notes from a self-hosted [Memos](https://usememos.com) instance (v0.30+)     |
 
@@ -31,7 +31,8 @@ imported again. Available in English and Hungarian.
 
 The focus timer is worth a note: it lives in the extension's service worker, not
 in the page, so one session is shared by every open tab and keeps running — and
-keeps notifying you — with no tab open at all.
+keeps notifying you — with no tab open at all. Each Start runs one focus and one
+break, then waits for the next Start, so a forgotten session goes quiet.
 
 ## Privacy
 

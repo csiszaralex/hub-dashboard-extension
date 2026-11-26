@@ -3,7 +3,9 @@
 // The worker runs with no `window`, `document` or `localStorage`, and happy-dom
 // provides all three, which would let a page-only call pass here and throw in
 // Chrome. The build's `serviceWorkerGuard` (vite.config.ts) checks the bundle.
+import type { Language } from '@hub/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { POMODORO_NOTIFICATIONS } from './i18n/notifications';
 import { installChromeStub } from './test/chromeStub';
 
 // Node's `navigator` reports the machine's own locale, and a test that saves no
@@ -805,27 +807,24 @@ describe('background service worker — Pomodoro', () => {
 /**
  * Guards the one thing the worker cannot discover for itself.
  *
- * The page picks up a new `src/i18n/locales/*.json` automatically —
- * `AVAILABLE_LANGUAGES` is read from that directory at build time — but the
- * worker cannot use `i18n/i18n.ts` (it would drag React into a worker Chrome
- * cold-starts on every alarm), so its `LOCALES` map is maintained by hand. A
- * missing entry has no symptom the author would notice: notifications just
- * quietly come out in English while the rest of the UI is translated.
+ * The page renders whatever locale files exist, but the worker cannot use
+ * `i18n/i18n.ts` (it would drag React into a worker Chrome cold-starts on
+ * every alarm), so its strings are a separate, hand-kept map,
+ * `POMODORO_NOTIFICATIONS`. A missing entry has no symptom the author would
+ * notice: notifications just quietly come out in English while the rest of the
+ * UI is translated.
  *
  * The set of locales is taken from the directory itself, never from
- * `AVAILABLE_LANGUAGES`, `LOCALES` or any other list — one built by the same
- * machinery this is checking would inherit the very blind spot it exists to
- * cover. `import.meta.glob` and not `node:fs`, because `tsconfig.app.json`
- * deliberately keeps `node` out of its `types`, and widening that so one test
- * can call `readdirSync` would hand Node globals to every browser-extension
- * module in `src`. The glob is expanded from the real directory on each run,
- * so a locale file added without a `LOCALES` entry turns up here immediately.
+ * `SUPPORTED_LANGUAGES`, `POMODORO_NOTIFICATIONS` or any other list — one built
+ * by the same machinery this is checking would inherit the very blind spot it
+ * exists to cover. `import.meta.glob` and not `node:fs`, because
+ * `tsconfig.app.json` deliberately keeps `node` out of its `types`, and
+ * widening that so one test can call `readdirSync` would hand Node globals to
+ * every browser-extension module in `src`. The glob is expanded from the real
+ * directory on each run, so a locale file added without an entry turns up
+ * here immediately. Only the file names are needed, so nothing is loaded.
  */
-const localeModules = import.meta.glob<{
-  pomodoro: { notificationTitle: string; breakStarted: string };
-}>('./i18n/locales/*.json', { eager: true, import: 'default' });
-
-const localeFiles = Object.keys(localeModules)
+const localeFiles = Object.keys(import.meta.glob('./i18n/locales/*.json'))
   .map((path) => path.slice(path.lastIndexOf('/') + 1))
   .sort();
 
@@ -837,7 +836,13 @@ describe('background service worker — notification locale parity', () => {
 
   it.each(localeFiles)('announces a phase change in %s', async (file) => {
     const language = file.replace('.json', '');
-    const expected = localeModules[`./i18n/locales/${file}`].pomodoro;
+    const hint =
+      `No entry for "${language}" in POMODORO_NOTIFICATIONS (src/i18n/notifications.ts), ` +
+      `so a user with language "${language}" gets the fallback locale's notifications ` +
+      `while the rest of their UI is translated. Fix: add a "${language}" entry there.`;
+    // An own entry, not one inherited or reached through a fallback.
+    expect(Object.hasOwn(POMODORO_NOTIFICATIONS, language), hint).toBe(true);
+    const expected = POMODORO_NOTIFICATIONS[language as Language];
 
     const chromeStub = installChromeStub();
     chromeStub.seedSync({ language });
@@ -849,14 +854,8 @@ describe('background service worker — notification locale parity', () => {
     chromeStub.fireAlarm(POMODORO_ALARM);
     await settle();
 
-    const hint =
-      `No entry for "${file}" in the LOCALES map in src/background.ts, so a user ` +
-      `with language "${language}" gets the fallback locale's notifications while ` +
-      `the rest of their UI is translated. Fix: import ./i18n/locales/${file} ` +
-      `there and add "${language}: ${language}.pomodoro" to LOCALES.`;
-
     const sent = chromeStub.sentNotifications()[0];
     expect(sent?.message, hint).toBe(expected.breakStarted);
-    expect(sent?.title, hint).toBe(expected.notificationTitle);
+    expect(sent?.title, hint).toBe(expected.title);
   });
 });
